@@ -51,6 +51,8 @@ async function main(): Promise<void> {
   await typeName(b, externalPort ? `QMB${runId}` : 'BBB');   // second confirm pairs them into a fight
   console.log('both in match; brawling...');
 
+  const beforeFightA = a.bytes;
+  const beforeFightB = b.bytes;
   const samples: number[] = []; let last = a.bytes;
   const sampler = setInterval(() => { samples.push(a.bytes - last); last = a.bytes; }, 1000);
   const drive = setInterval(() => { send(a, '\x1b[C'); send(a, 'w'); send(b, 'e'); if (Math.random() < 0.2) send(b, '\x1b[A'); }, 100);
@@ -58,8 +60,13 @@ async function main(): Promise<void> {
   clearInterval(drive); clearInterval(sampler);
 
   console.log('per-second bytes to A:', samples.join(', '));
-  console.log(`A total: ${a.bytes}   B total: ${b.bytes}`);
-  const streaming = samples.filter((s) => s > 200).length >= 3 && a.bytes > 10000 && b.bytes > 10000;
+  const fightBytesA = a.bytes - beforeFightA;
+  const fightBytesB = b.bytes - beforeFightB;
+  console.log(`fight bytes: A ${fightBytesA}   B ${fightBytesB}`);
+  // A loaded SSH connection may flush several rendered frames in one large
+  // network burst. Prove sustained match output from both clients without
+  // coupling correctness to one-second packet boundaries.
+  const streaming = samples.some((s) => s > 200) && fightBytesA > 10000 && fightBytesB > 10000;
 
   // verify a match row was written
   const db = await import('./db/db.js');

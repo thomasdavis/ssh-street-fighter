@@ -48,7 +48,10 @@ const alphaName = externalPort ? `LVA${runId}` : 'ALPHA';
 const bravoName = externalPort ? `LVB${runId}` : 'BRAVO';
 const alpha = await connect(alphaName);
 const bravo = await connect(bravoName);
-const loungeReady = await waitFor(() => alpha.transcript.includes('FIGHT LOUNGE') && bravo.transcript.includes('FIGHT LOUNGE'));
+// The lounge heading is drawn as block-pixel art, so its words are not present
+// in the terminal byte stream. Assert against the real interactive chat label
+// instead of accidentally matching the main-menu item with the same name.
+const loungeReady = await waitFor(() => alpha.transcript.includes('CHAT · ACTIVE') && bravo.transcript.includes('CHAT · ACTIVE'));
 const playerVisible = await waitFor(() => alpha.transcript.includes(bravoName));
 
 const chatText = externalPort ? `live challenge ${runId}` : 'hello from alpha';
