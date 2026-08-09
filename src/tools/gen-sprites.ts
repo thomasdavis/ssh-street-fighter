@@ -136,10 +136,16 @@ const POSES: PoseDef[] = [
   { name: 'hurricane_2', anchor: 'spin', characters: ['MAKO'], desc: 'axe-wheel capoeira rotation FRAME 2 of 4: same upright airborne spin quarter-turned toward viewer, extended striking leg strongly foreshortened at head height, other knee tucked' },
   { name: 'hurricane_3', anchor: 'spin', characters: ['MAKO'], desc: 'axe-wheel capoeira rotation FRAME 3 of 4: back of upright torso visible, the same long straight leg sweeping left at head height, other knee tucked, vest and waist cord trailing' },
   { name: 'hurricane_4', anchor: 'spin', characters: ['MAKO'], desc: 'axe-wheel capoeira rotation FRAME 4 of 4: upright rear three-quarter angle completing the vertical-axis rotation, striking leg foreshortened sweeping back toward the start' },
-  { name: 'hadouken', characters: ['OMEGA'], desc: 'red-verdict special: exact braced mechanical side stance with both damaged hands thrust forward around a dense crimson energy sphere with a pale-hot core, red power veins intensifying through the forearms' },
-  { name: 'shoryuken', characters: ['OMEGA'], desc: 'terminal-rise special: sudden precise vertical launch with one scarred mechanical fist fully extended above the head, other arm locked to the chest, legs folded airborne, crimson energy tearing upward through the damaged arm' },
-  { name: 'electric_1', characters: ['OMEGA'], desc: 'fault-cascade FRAME 1 of 2: wide immovable stance, both mechanical fists clenched beside the ribs as every crimson crack and exposed cable flares intensely, jagged deep-red energy arcing between broken armor plates' },
-  { name: 'electric_2', characters: ['OMEGA'], desc: 'fault-cascade FRAME 2 of 2: same wide stance with shoulders and forearms opening in a controlled discharge, a different lattice of crimson arcs exploding around the silhouette while the mask remains expressionless' },
+  { name: 'testimony_1', characters: ['OMEGA'], desc: 'FINAL TESTIMONY FRAME 1 of 3: planted wide side stance, torso coiled back, both damaged hands drawing crimson energy inward toward the cracked chest core, compact red-white charge orb between the forearms' },
+  { name: 'testimony_2', characters: ['OMEGA'], desc: 'FINAL TESTIMONY FRAME 2 of 3: braced planted firing stance, torso recoiling, both forearms locked straight forward as a short narrow crimson beam muzzle-flare erupts rightward' },
+  { name: 'testimony_3', characters: ['OMEGA'], desc: 'FINAL TESTIMONY FRAME 3 of 3: grounded recovery, shoulders pitched forward, both arms lowered under control, forearm vents smoking with tiny crimson sparks as the chest core dims' },
+  { name: 'nullstep_1', characters: ['OMEGA'], desc: 'NULL STEP FRAME 1 of 4: aggressive low forward lean, front foot lifting to launch while the rear third of the body disintegrates into vertical obsidian shards and thin crimson fracture lines' },
+  { name: 'nullstep_2', characters: ['OMEGA'], desc: 'NULL STEP FRAME 2 of 4: extremely fast compact phase-dash, torso nearly horizontal, legs tucked into a running blur, black shards and thin crimson scan-line afterimages trailing left' },
+  { name: 'nullstep_3', characters: ['OMEGA'], desc: 'NULL STEP FRAME 3 of 4: rematerialized into a sharp cross-up backhand or elbow strike fully extended right, hips twisted, obsidian fragments converging into rear shoulder and leg' },
+  { name: 'nullstep_4', characters: ['OMEGA'], desc: 'NULL STEP FRAME 4 of 4: low controlled recovery, one knee deeply bent, hands returning toward guard as the last black shards and crimson fracture marks lock into the armor' },
+  { name: 'entropy_1', characters: ['OMEGA'], desc: 'ENTROPY WELL FRAME 1 of 3: low immovable stance with one clawed palm down and forward, a small black-centered crimson singularity forming ahead near floor height between tight inward-curving red arcs' },
+  { name: 'entropy_2', characters: ['OMEGA'], desc: 'ENTROPY WELL FRAME 2 of 3: wide planted stance with both arms pulling inward, armor cracks blazing while a compact black-crimson gravity distortion compresses jagged debris inward ahead' },
+  { name: 'entropy_3', characters: ['OMEGA'], desc: 'ENTROPY WELL FRAME 3 of 3: final implosion release, both arms snapping apart as sharp crimson shards collapse toward a tiny black core near the ground, energy veins at maximum brightness' },
 ];
 
 const supportsPose = (c: Char, p: PoseDef): boolean => !p.characters || p.characters.includes(c.id);
@@ -305,7 +311,9 @@ async function repixelateChar(c: Char): Promise<void> {
   for (const file of readdirSync(rawDir).filter((f) => f.endsWith('.png'))) {
     const raw = await rawRGBA(readFileSync(resolve(rawDir, file)));
     const name = file.replace('.png', '');
-    const anchor = POSES.find((p) => p.name === name && supportsPose(c, p))?.anchor;
+    const pose = POSES.find((p) => p.name === name && supportsPose(c, p));
+    if (!pose) continue; // ignored legacy sources must not resurrect retired packed sprites
+    const anchor = pose.anchor;
     writeFileSync(resolve(dir, `${name}.json`), JSON.stringify(toSprite(raw, bbox(raw), scale, anchor)));
   }
   console.log(`  ${c.id} re-pixelated @ ${TARGET_H}px`);

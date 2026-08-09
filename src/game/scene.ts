@@ -6,7 +6,7 @@
 import { createGrid, fillRect, blit, resizeGridH, rgb, type PixelGrid, type RGB } from '../render/pixel.js';
 import { drawText, textWidth } from '../render/font.js';
 import { drawFighter } from './sprites.js';
-import { WORLD_W, WORLD_H, GROUND_Y, attackActive, attackExtension } from './engine.js';
+import { WORLD_W, WORLD_H, GROUND_Y, STAGE_LEFT, STAGE_RIGHT, ENTROPY, TESTIMONY, attackActive, attackExtension } from './engine.js';
 import { SPRITES } from './sprite-set.js';
 import { STAGES } from './stage-set.js';
 import { specialMoveForAttack } from './moves.js';
@@ -29,6 +29,9 @@ function frameName(f: Fighter): string {
     case 'electric': return `electric_${1 + (Math.floor(f.attackFrame / 3) % 2)}`;
     case 'rolling': return `rolling_${1 + (Math.floor(f.attackFrame / 3) % 4)}`;
     case 'verticalroll': return `rolling_${1 + (Math.floor(f.attackFrame / 2) % 4)}`;
+    case 'testimony': return `testimony_${f.attackFrame < TESTIMONY.startup ? 1 : (f.attackFrame < 17 ? 2 : 3)}`;
+    case 'nullstep': return `nullstep_${f.attackFrame < 4 ? 1 : (f.attackFrame < 7 ? 2 : (f.attackFrame < 11 ? 3 : 4))}`;
+    case 'entropy': return `entropy_${f.attackFrame < 8 ? 1 : (f.attackFrame < 27 ? 2 : 3)}`;
     default: return f.pose;
   }
 }
@@ -126,18 +129,6 @@ function drawSpecialAura(g: PixelGrid, v: View, f: Fighter): void {
     }
     return;
   }
-  if (effect === 'crimson') {
-    const core = rgb(255, 224, 176), red = rgb(244, 48, 44), dark = rgb(138, 12, 24);
-    for (let i = 0; i < 10; i++) {
-      const side = i % 2 ? 1 : -1;
-      const y = cy - 25 + i * 6;
-      const reach = 14 + ((i * 11 + phase * 5) % 13);
-      const x = f.x + side * reach;
-      wrect(g, v, x, y, 2, 2, i % 3 === 0 ? core : red);
-      wrect(g, v, x - side * 5, y + 2, 6, 1, i % 2 ? red : dark);
-    }
-    return;
-  }
   const blue = phase < 2 ? rgb(86, 186, 255) : rgb(214, 246, 255);
   const white = rgb(244, 255, 255);
   for (let i = 0; i < 8; i++) {
@@ -147,6 +138,62 @@ function drawSpecialAura(g: PixelGrid, v: View, f: Fighter): void {
     wrect(g, v, x, y, 2, 2, i % 3 === 0 ? white : blue);
     wrect(g, v, x - side * 3, y + 2, 4, 1, blue);
     wrect(g, v, x - side * 2, y + 3, 2, 2, white);
+  }
+}
+
+/** Omega's specials are renderer-native phenomena, not recolored legacy effects. */
+function drawOmegaTech(g: PixelGrid, v: View, f: Fighter): void {
+  const red = rgb(242, 34, 48), deep = rgb(112, 8, 24), hot = rgb(255, 224, 184);
+  if (f.attack === 'testimony') {
+    const originX = f.x + f.facing * 18, originY = GROUND_Y - f.y - 34;
+    if (!attackActive(f)) {
+      if (f.attackFrame < TESTIMONY.startup) {
+        const r = 2 + Math.floor(f.attackFrame / 3);
+        fillCircle(g, v, originX, originY, r, f.attackFrame % 2 ? red : hot);
+      }
+      return;
+    }
+    const endX = f.facing === 1 ? STAGE_RIGHT + 18 : STAGE_LEFT - 18;
+    const x = Math.min(originX, endX), width = Math.abs(endX - originX);
+    wrect(g, v, x, originY - 5, width, 11, deep);
+    wrect(g, v, x, originY - 3, width, 7, red);
+    wrect(g, v, x, originY - 1, width, 3, hot);
+    for (let i = 0; i < 9; i++) {
+      const sx = originX + f.facing * (10 + i * 17 + (f.attackFrame % 3) * 3);
+      wrect(g, v, f.facing === 1 ? sx : sx - 7, originY - 9 + (i % 3) * 6, 7, 1, i % 2 ? red : hot);
+    }
+    return;
+  }
+  if (f.attack === 'nullstep') {
+    const fade = Math.max(1, 7 - Math.abs(f.attackFrame - 6));
+    for (let i = 1; i <= 4; i++) {
+      const trailX = f.x - f.facing * (i * 8 + fade);
+      const y = GROUND_Y - 50 + i * 6;
+      const wide = 5 + i * 2, thin = 3 + i;
+      wrect(g, v, f.facing === 1 ? trailX : trailX - wide, y, wide, 2, i % 2 ? deep : red);
+      const thinX = trailX - f.facing * 2;
+      wrect(g, v, f.facing === 1 ? thinX : thinX - thin, y + 5, thin, 1, red);
+    }
+    return;
+  }
+  if (f.attack === 'entropy') {
+    const wellX = f.x + f.facing * ENTROPY.wellOffset;
+    const wellY = GROUND_Y - 17;
+    const live = attackActive(f);
+    const phase = f.attackFrame % 6;
+    const radius = live ? 15 + (phase < 3 ? phase : 6 - phase) : Math.max(3, Math.min(11, f.attackFrame));
+    fillCircle(g, v, wellX, wellY, radius + 5, deep);
+    fillCircle(g, v, wellX, wellY, radius, red);
+    fillCircle(g, v, wellX, wellY, Math.max(2, radius - 5), rgb(18, 10, 24));
+    fillCircle(g, v, wellX, wellY, 2, hot);
+    if (live) {
+      for (let i = 0; i < 7; i++) {
+        const side = i % 2 ? 1 : -1;
+        const sx = wellX + side * (radius + 7 + (i * 3) % 11);
+        const sy = wellY - 13 + i * 4;
+        wrect(g, v, side === 1 ? sx : sx - 6, sy, 6, 1, i % 3 === 0 ? hot : red);
+      }
+    }
   }
 }
 
@@ -296,11 +343,6 @@ function drawProjectiles(g: PixelGrid, v: View, m: Match): void {
       fillCircle(g, v, cx, cy, r + 1, rgb(100, 224, 236));
       fillCircle(g, v, cx + p.facing * 2, cy, r - 3, rgb(214, 255, 248));
       wrect(g, v, cx - p.facing * 7, cy - 1, 11, 2, rgb(238, 255, 250));
-    } else if (p.style === 'crimson') {
-      for (let t = 4; t >= 1; t--) fillCircle(g, v, cx - p.facing * t * 5, cy, Math.max(1, r - t * 2), rgb(112 + t * 18, 8, 24));
-      fillCircle(g, v, cx, cy, r, rgb(154, 12, 28));
-      fillCircle(g, v, cx, cy, r - 3, rgb(246, 44, 42));
-      fillCircle(g, v, cx, cy, r - 6, rgb(255, 226, 180));
     } else {
       for (let t = 3; t >= 1; t--) fillCircle(g, v, cx - p.facing * t * 5, cy, Math.max(1, r - t * 2.4), rgb(66, 118, 236));
       fillCircle(g, v, cx, cy, r, rgb(74, 132, 255));
@@ -319,7 +361,7 @@ export function composeScene(m: Match, hud = true, pw = WORLD_W, ph = WORLD_H, p
   else drawBackground(g, v);
   if (MOTIFS_ON) drawMotifs(g, v, m.frame, m.stage);
   const order = m.a.x <= m.b.x ? [m.a, m.b] : [m.b, m.a];
-  for (const f of order) { drawFighterOnStage(g, v, f); drawSpecialAura(g, v, f); }
+  for (const f of order) { drawFighterOnStage(g, v, f); drawSpecialAura(g, v, f); drawOmegaTech(g, v, f); }
   drawProjectiles(g, v, m);
   if (hud) {
     drawHealthBar(g, v, m.a, 'left');

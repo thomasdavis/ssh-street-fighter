@@ -2,7 +2,7 @@
 import { useEffect, useState, useCallback } from 'react';
 
 interface Pose { name: string; mtime: number }
-interface Char { id: string; poses: Pose[] }
+interface Char { id: string; tagline: string; archetype: string; poses: Pose[] }
 type StatusMap = Record<string, { status: string; mtime: number }>;
 
 export default function Gallery({ chars, adminEnabled }: { chars: Char[]; adminEnabled: boolean }) {
@@ -42,8 +42,18 @@ export default function Gallery({ chars, adminEnabled }: { chars: Char[]; adminE
       <header className="hero">
         <h1>SSH STREET FIGHTER</h1>
         <p className="sub">Play it in your terminal:&nbsp; <code>ssh -p 2223 streetfighter.blah.dev</code></p>
-        <p className="sub">{chars.length} fighters · sprite gallery &amp; regeneration admin</p>
+        <p className="sub">{chars.length} fighters · character dossiers · sprite gallery</p>
       </header>
+
+      <nav className="roster-directory" aria-label="Character profiles">
+        {chars.map((character) => (
+          <a href={`/fighters/${character.id.toLowerCase()}`} key={character.id}>
+            <strong>{character.id}</strong>
+            <span>{character.tagline}</span>
+            <small>{character.archetype}</small>
+          </a>
+        ))}
+      </nav>
 
       <div className="adminbar">
         <span className="off">Admin token:</span>
@@ -57,7 +67,7 @@ export default function Gallery({ chars, adminEnabled }: { chars: Char[]; adminE
 
       {chars.map((c) => (
         <section className="char" key={c.id}>
-          <h2>{c.id} <span style={{ color: 'var(--dim)', fontSize: 12 }}>· {c.poses.length} poses</span></h2>
+          <h2><a href={`/fighters/${c.id.toLowerCase()}`}>{c.id} dossier →</a> <span>· {c.poses.length} poses</span></h2>
           <div className="grid">
             {c.poses.map((p) => {
               const key = `${c.id}|${p.name}`;
@@ -68,7 +78,7 @@ export default function Gallery({ chars, adminEnabled }: { chars: Char[]; adminE
                 <div className="tile" key={p.name}>
                   <div className="frame">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={`/api/sprite/${c.id}/${p.name}.png?v=${v}`} alt={`${c.id} ${p.name}`} />
+                    <img src={`/api/sprite/${c.id}/${p.name}.png?v=${v}`} alt={`${c.id} ${p.name}`} loading="lazy" decoding="async" />
                   </div>
                   <div className="name">{p.name}</div>
                   <div className="row">

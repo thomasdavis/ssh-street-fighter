@@ -154,7 +154,28 @@ for (const character of ROSTER) {
   }
 }
 
-// 17) Every projectile fighter's appearance follows its move definition, not a character-name conditional.
+// 17) OMEGA's kit is mechanically unique: a beam, a phase-through cross-up, and a pulling multi-hit well.
+const omegaMoves = specialMovesFor('OMEGA');
+const inheritedAttackKinds = new Set(ROSTER.filter((character) => character.name !== 'OMEGA').flatMap((character) => specialMovesFor(character.name).map((move) => move.attack)));
+check('OMEGA specials use three unique attack kinds', new Set(omegaMoves.map((move) => move.attack)).size === 3 && omegaMoves.every((move) => !inheritedAttackKinds.has(move.attack)), omegaMoves.map((move) => move.attack).join(','));
+
+m = fresh('OMEGA'); m.a.x = 55; m.b.x = 185; hp = m.b.hp;
+{ const i = idle(); i.motion = 'DR'; i.punch = true; stepMatch(m, i, idle()); }
+for (let k = 0; k < 18; k++) stepMatch(m, idle(), idle());
+check('FINAL TESTIMONY is a screen-length beam, not a projectile', m.b.hp < hp && m.projectiles.length === 0, `dmg=${hp - m.b.hp} projectiles=${m.projectiles.length}`);
+
+m = fresh('OMEGA'); m.a.x = 78; m.b.x = 120; hp = m.b.hp;
+{ const i = idle(); i.motion = 'LR'; i.kick = true; stepMatch(m, i, idle()); }
+for (let k = 0; k < 12; k++) stepMatch(m, idle(), idle());
+check('NULL STEP phases through and lands a cross-up', m.a.x > m.b.x && m.a.facing === -1 && m.b.hp < hp, `positions=${m.a.x.toFixed(1)}/${m.b.x.toFixed(1)} facing=${m.a.facing} dmg=${hp - m.b.hp}`);
+
+m = fresh('OMEGA'); m.a.x = 62; m.b.x = 142; hp = m.b.hp;
+const entropyGap = m.b.x - m.a.x;
+{ const i = idle(); i.motion = 'DL'; i.punch = true; stepMatch(m, i, idle()); }
+for (let k = 0; k < 29; k++) stepMatch(m, idle(), idle());
+check('ENTROPY WELL pulls inward and pulses repeatedly', m.b.x - m.a.x < entropyGap && hp - m.b.hp >= 8, `gap=${entropyGap.toFixed(1)}→${(m.b.x - m.a.x).toFixed(1)} dmg=${hp - m.b.hp}`);
+
+// 18) Every projectile fighter's appearance follows its move definition, not a character-name conditional.
 for (const character of ROSTER) {
   const move = specialMovesFor(character.name).find((x) => x.attack === 'hadouken');
   if (!move) continue;

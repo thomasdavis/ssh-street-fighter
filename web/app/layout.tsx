@@ -2,8 +2,8 @@ import './globals.css';
 import type { ReactNode } from 'react';
 
 export const metadata = {
-  title: 'SSH Street Fighter — Sprites',
-  description: 'Sprite gallery + regeneration admin for the SSH Street Fighter game.',
+  title: 'SSH Street Fighter — Fighters & Sprites',
+  description: 'Play a fighting game over SSH, then explore every fighter’s story, animated sprites, move inputs, damage, and frame data.',
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {

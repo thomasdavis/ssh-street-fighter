@@ -1,6 +1,6 @@
 # Analytics and event policy
 
-The game records a durable, append-only event stream in SQLite so the public analytics and character-profile site can be built from real play instead of invented counters. Discord is a community notification channel, not a log drain.
+The game records a durable, append-only event stream in SQLite so public analytics can be built from real play instead of invented counters. Discord is a community notification channel, not a log drain. Static fighter dossiers already ship from authoritative game definitions; observed play analytics remain the next layer.
 
 ## Delivery policy
 
@@ -24,11 +24,11 @@ The code-level Discord allowlist lives in `src/telemetry/discord.ts` and has reg
 
 Fields may include private operational metadata such as an IP address or connection ID. Those values are useful for security and reliability work but are not public profile data.
 
-## Public analytics site
+## Public website
 
-The planned site should expose two kinds of source-of-truth data:
+The website has two source-of-truth layers:
 
-- **Character and move profiles:** roster metadata plus damage, chip, startup, active, recovery, range, and move-input definitions read directly from the combat engine.
-- **Observed play analytics:** aggregate pick rate, move usage, matchup outcomes, ELO distribution, and activity windows computed from matches and the event ledger.
+- **Character and move profiles (shipped):** roster metadata, original lore, animation contracts, damage, chip, startup, active, recovery, range, and move inputs exported directly from the game before each web build.
+- **Observed play analytics (planned):** aggregate pick rate, move usage, matchup outcomes, ELO distribution, and activity windows computed from matches and the event ledger.
 
 Public endpoints must aggregate counts, enforce a minimum cohort where appropriate, and omit IP addresses, connection IDs, raw actor references, chat text, and raw event rows. Character balance numbers must be imported from engine definitions rather than copied into a second table that can drift.

@@ -3,9 +3,11 @@ import type { RGB } from '../render/pixel.js';
 export type Pose = 'idle' | 'walk' | 'crouch' | 'jump' | 'fall' | 'punch' | 'kick'
   | 'crouchpunch' | 'crouchkick' | 'hit' | 'ko' | 'block' | 'crouchblock'
   | 'hadouken' | 'shoryuken' | 'hurricane'
-  | 'electric' | 'rolling' | 'verticalroll';
+  | 'electric' | 'rolling' | 'verticalroll'
+  | 'testimony' | 'nullstep' | 'entropy';
 export type AttackKind = 'none' | 'punch' | 'kick' | 'hadouken' | 'shoryuken' | 'hurricane'
-  | 'electric' | 'rolling' | 'verticalroll';
+  | 'electric' | 'rolling' | 'verticalroll'
+  | 'testimony' | 'nullstep' | 'entropy';
 
 export interface FighterPalette {
   skin: RGB; gi: RGB; giDark: RGB; hair: RGB; belt: RGB;
@@ -61,7 +63,7 @@ export interface Projectile {
   hit: boolean;           // already connected
   frame: number;          // animation timer
   facing: 1 | -1;
-  style: 'blue' | 'fire' | 'sonic' | 'crimson';
+  style: 'blue' | 'fire' | 'sonic';
 }
 
 export type MatchPhase = 'countdown' | 'fight' | 'round-over' | 'match-over';

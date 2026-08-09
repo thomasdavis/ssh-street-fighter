@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "next dev -p 3130",
+    "prebuild": "cd .. && pnpm exec tsx src/tools/export-fighter-catalog.ts",
     "build": "next build",
     "start": "next start -p 3130"
   },

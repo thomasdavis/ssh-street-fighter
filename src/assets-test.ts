@@ -4,8 +4,7 @@ import { existsSync, readFileSync } from 'fs';
 import { dirname, resolve } from 'path';
 import { fileURLToPath } from 'url';
 import { ROSTER } from './game/roster.js';
-import { specialMovesFor } from './game/moves.js';
-import type { AttackKind } from './game/types.js';
+import { specialMoveFrames, specialMovesFor } from './game/moves.js';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const COMMON = [
@@ -14,22 +13,17 @@ const COMMON = [
   'kick_2', 'crouchpunch_1', 'crouchpunch_2', 'crouchkick_1', 'crouchkick_2',
 ] as const;
 
-const specialFrames = (attack: AttackKind): string[] => {
-  if (attack === 'hadouken' || attack === 'shoryuken') return [attack];
-  if (attack === 'electric') return ['electric_1', 'electric_2'];
-  if (attack === 'hurricane') return ['hurricane_1', 'hurricane_2', 'hurricane_3', 'hurricane_4'];
-  if (attack === 'rolling' || attack === 'verticalroll') return ['rolling_1', 'rolling_2', 'rolling_3', 'rolling_4'];
-  return [];
-};
-
 const errors: string[] = [];
 if (ROSTER.length !== 11) errors.push(`expected 11 roster fighters, found ${ROSTER.length}`);
 
 for (const fighter of ROSTER) {
   const moves = specialMovesFor(fighter.name);
   if (moves.length !== 3) errors.push(`${fighter.name}: expected 3 specials, found ${moves.length}`);
+  if (fighter.story.length !== 2 || fighter.story.some((paragraph) => paragraph.length < 100)) errors.push(`${fighter.name}: incomplete two-part background story`);
+  if (!fighter.origin || !fighter.discipline || !fighter.playstyle || fighter.strengths.length !== 3) errors.push(`${fighter.name}: incomplete fighter dossier`);
+  for (const move of moves) if (move.description.length < 50) errors.push(`${fighter.name}/${move.name}: move explanation is too short`);
   const expected = new Set<string>(COMMON);
-  for (const move of moves) for (const frame of specialFrames(move.attack)) expected.add(frame);
+  for (const move of moves) for (const frame of specialMoveFrames(move.attack)) expected.add(frame);
   for (const frame of expected) {
     const file = resolve(ROOT, 'assets/sprites', fighter.name, `${frame}.json`);
     if (!existsSync(file)) { errors.push(`${fighter.name}: missing ${frame}.json`); continue; }

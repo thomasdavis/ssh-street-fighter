@@ -1,0 +1,1454 @@
+[
+  {
+    "name": "BYU",
+    "tagline": "wandering fist",
+    "palette": {
+      "skin": {
+        "r": 226,
+        "g": 176,
+        "b": 140
+      },
+      "gi": {
+        "r": 208,
+        "g": 60,
+        "b": 52
+      },
+      "giDark": {
+        "r": 150,
+        "g": 34,
+        "b": 30
+      },
+      "hair": {
+        "r": 30,
+        "g": 24,
+        "b": 22
+      },
+      "belt": {
+        "r": 245,
+        "g": 232,
+        "b": 210
+      }
+    },
+    "origin": "Kagoshima, Japan",
+    "discipline": "Ansatsuken-derived karate",
+    "archetype": "Balanced all-rounder",
+    "difficulty": "Beginner",
+    "quote": "The road answers only the honest fist.",
+    "story": [
+      "Byu left a mountain dojo after winning a match he believed he had not earned. His teacher refused to explain the verdict, telling him that certainty had become the weakest part of his technique.",
+      "He now crosses the world accepting fights in unfamiliar schools. Every opponent is another question: whether discipline can remain humane when victory is the only language the arena understands."
+    ],
+    "playstyle": "Control the middle of the screen with a reliable projectile, punish reckless approaches with Dragon Punch, and use Hurricane Kick to carry momentum through close-range scrambles.",
+    "strengths": [
+      "Flexible at every range",
+      "Reliable anti-air",
+      "Simple, complete toolkit"
+    ],
+    "moves": [
+      {
+        "attack": "shoryuken",
+        "name": "DRAGON PUNCH",
+        "shortName": "DRAGON",
+        "description": "A rising invincible uppercut that catches airborne rivals and launches them away.",
+        "motion": [
+          "F",
+          "D",
+          "F"
+        ],
+        "button": "punch",
+        "input": "→ ↓ → + W",
+        "frames": [
+          "shoryuken"
+        ],
+        "stats": {
+          "startup": 3,
+          "active": 13,
+          "recovery": 12,
+          "damagePerHit": 16,
+          "maxHits": 1,
+          "maxDamage": 16,
+          "chipPerHit": 4,
+          "range": 34,
+          "impact": "Rising launcher"
+        }
+      },
+      {
+        "attack": "hadouken",
+        "name": "HADOUKEN",
+        "shortName": "HADOUKEN",
+        "description": "A steady blue projectile for controlling the ground and forcing an approach.",
+        "motion": [
+          "D",
+          "F"
+        ],
+        "button": "punch",
+        "projectile": "blue",
+        "input": "↓ → + W",
+        "frames": [
+          "hadouken"
+        ],
+        "stats": {
+          "startup": 11,
+          "active": 1,
+          "recovery": 21,
+          "damagePerHit": 12,
+          "maxHits": 1,
+          "maxDamage": 12,
+          "chipPerHit": 3,
+          "range": 196,
+          "impact": "Traveling projectile"
+        }
+      },
+      {
+        "attack": "hurricane",
+        "name": "HURRICANE KICK",
+        "shortName": "HURRICANE",
+        "description": "A traveling four-frame spin kick that can connect repeatedly while carrying Byu forward.",
+        "motion": [
+          "D",
+          "B"
+        ],
+        "button": "kick",
+        "input": "↓ ← + E",
+        "frames": [
+          "hurricane_1",
+          "hurricane_2",
+          "hurricane_3",
+          "hurricane_4"
+        ],
+        "stats": {
+          "startup": 4,
+          "active": 22,
+          "recovery": 8,
+          "damagePerHit": 5,
+          "maxHits": 4,
+          "maxDamage": 20,
+          "chipPerHit": 1,
+          "range": 36,
+          "impact": "Traveling multi-hit"
+        }
+      }
+    ]
+  },
+  {
+    "name": "MEN",
+    "tagline": "flaming rival",
+    "palette": {
+      "skin": {
+        "r": 214,
+        "g": 168,
+        "b": 150
+      },
+      "gi": {
+        "r": 58,
+        "g": 96,
+        "b": 210
+      },
+      "giDark": {
+        "r": 32,
+        "g": 58,
+        "b": 150
+      },
+      "hair": {
+        "r": 210,
+        "g": 190,
+        "b": 60
+      },
+      "belt": {
+        "r": 245,
+        "g": 232,
+        "b": 210
+      }
+    },
+    "origin": "San Diego, USA",
+    "discipline": "Ember karate",
+    "archetype": "Aggressive all-rounder",
+    "difficulty": "Beginner",
+    "quote": "If the crowd is quiet, you are not fighting hard enough.",
+    "story": [
+      "Men grew up above a failing boardwalk arcade and learned to fight by copying the champions flickering across its cabinets. He turned imitation into a flamboyant school built around heat, rhythm, and impossible confidence.",
+      "He chases Byu not from hatred but from fear that his own fire needs an audience to exist. The tournament is his chance to prove spectacle can carry the same truth as restraint."
+    ],
+    "playstyle": "Men trades a little patience for pressure. His fiery projectile starts approaches, Blazing Uppercut punishes interruptions, and Tornado Kick keeps him glued to a retreating rival.",
+    "strengths": [
+      "Explosive pressure",
+      "Strong reversals",
+      "Easy damage routes"
+    ],
+    "moves": [
+      {
+        "attack": "shoryuken",
+        "name": "BLAZING UPPERCUT",
+        "shortName": "BLAZE",
+        "description": "A fiery vertical reversal that converts a reckless jump into a hard knockback.",
+        "motion": [
+          "F",
+          "D",
+          "F"
+        ],
+        "button": "punch",
+        "input": "→ ↓ → + W",
+        "frames": [
+          "shoryuken"
+        ],
+        "stats": {
+          "startup": 3,
+          "active": 13,
+          "recovery": 12,
+          "damagePerHit": 16,
+          "maxHits": 1,
+          "maxDamage": 16,
+          "chipPerHit": 4,
+          "range": 34,
+          "impact": "Rising launcher"
+        }
+      },
+      {
+        "attack": "hadouken",
+        "name": "FIREBALL",
+        "shortName": "FIREBALL",
+        "description": "A hot, high-contrast projectile used to start Men’s aggressive advance.",
+        "motion": [
+          "D",
+          "F"
+        ],
+        "button": "punch",
+        "projectile": "fire",
+        "input": "↓ → + W",
+        "frames": [
+          "hadouken"
+        ],
+        "stats": {
+          "startup": 11,
+          "active": 1,
+          "recovery": 21,
+          "damagePerHit": 12,
+          "maxHits": 1,
+          "maxDamage": 12,
+          "chipPerHit": 3,
+          "range": 196,
+          "impact": "Traveling projectile"
+        }
+      },
+      {
+        "attack": "hurricane",
+        "name": "TORNADO KICK",
+        "shortName": "TORNADO",
+        "description": "A forward-driving multi-hit rotation that keeps retreating opponents under pressure.",
+        "motion": [
+          "D",
+          "B"
+        ],
+        "button": "kick",
+        "input": "↓ ← + E",
+        "frames": [
+          "hurricane_1",
+          "hurricane_2",
+          "hurricane_3",
+          "hurricane_4"
+        ],
+        "stats": {
+          "startup": 4,
+          "active": 22,
+          "recovery": 8,
+          "damagePerHit": 5,
+          "maxHits": 4,
+          "maxDamage": 20,
+          "chipPerHit": 1,
+          "range": 36,
+          "impact": "Traveling multi-hit"
+        }
+      }
+    ]
+  },
+  {
+    "name": "BLANKO",
+    "tagline": "zappy beast",
+    "palette": {
+      "skin": {
+        "r": 232,
+        "g": 190,
+        "b": 158
+      },
+      "gi": {
+        "r": 46,
+        "g": 168,
+        "b": 96
+      },
+      "giDark": {
+        "r": 26,
+        "g": 108,
+        "b": 60
+      },
+      "hair": {
+        "r": 40,
+        "g": 30,
+        "b": 26
+      },
+      "belt": {
+        "r": 240,
+        "g": 220,
+        "b": 120
+      }
+    },
+    "origin": "Rio Negro, Brazil",
+    "discipline": "Feral capacitor combat",
+    "archetype": "Mobile disruptor",
+    "difficulty": "Intermediate",
+    "quote": "Storm knows my name. You will too.",
+    "story": [
+      "Blanko survived alone around an abandoned hydroelectric survey camp where tropical storms repeatedly struck the rusting transmission towers. Years of exposure changed his body, but not the careful intelligence behind his feral appearance.",
+      "He enters the circuit to stop a corporation from reclaiming the valley as a weapons range. The prize money matters less than making the world look directly at the home it had already written off."
+    ],
+    "playstyle": "Turn movement into threat: Rolling Attack crosses space, Vertical Roll owns the air above him, and Electric Thunder makes close pursuit dangerous through repeated hits.",
+    "strengths": [
+      "Unpredictable movement",
+      "Multi-hit defense",
+      "Excellent air control"
+    ],
+    "moves": [
+      {
+        "attack": "rolling",
+        "name": "ROLLING ATTACK",
+        "shortName": "ROLL",
+        "description": "Blanko curls into a fast horizontal ball that crosses space and slams through hesitation.",
+        "motion": [
+          "B",
+          "F"
+        ],
+        "button": "punch",
+        "input": "← → + W",
+        "frames": [
+          "rolling_1",
+          "rolling_2",
+          "rolling_3",
+          "rolling_4"
+        ],
+        "stats": {
+          "startup": 4,
+          "active": 18,
+          "recovery": 9,
+          "damagePerHit": 14,
+          "maxHits": 1,
+          "maxDamage": 14,
+          "chipPerHit": 3,
+          "range": 29,
+          "impact": "Horizontal rush"
+        }
+      },
+      {
+        "attack": "verticalroll",
+        "name": "VERTICAL ROLL",
+        "shortName": "UP ROLL",
+        "description": "A steep rolling launch that controls the air directly above Blanko.",
+        "motion": [
+          "D",
+          "U"
+        ],
+        "button": "kick",
+        "earlyAirStart": true,
+        "input": "↓ ↑ + E",
+        "frames": [
+          "rolling_1",
+          "rolling_2",
+          "rolling_3",
+          "rolling_4"
+        ],
+        "stats": {
+          "startup": 4,
+          "active": 16,
+          "recovery": 15,
+          "damagePerHit": 14,
+          "maxHits": 1,
+          "maxDamage": 14,
+          "chipPerHit": 3,
+          "range": 28,
+          "impact": "Vertical launcher"
+        }
+      },
+      {
+        "attack": "electric",
+        "name": "ELECTRIC THUNDER",
+        "shortName": "ELECTRIC",
+        "description": "A grounded electrical field that shocks nearby opponents up to four times.",
+        "motion": [
+          "D",
+          "U"
+        ],
+        "button": "punch",
+        "earlyAirStart": true,
+        "effect": "electric",
+        "input": "↓ ↑ + W",
+        "frames": [
+          "electric_1",
+          "electric_2"
+        ],
+        "stats": {
+          "startup": 3,
+          "active": 21,
+          "recovery": 7,
+          "damagePerHit": 4,
+          "maxHits": 4,
+          "maxDamage": 16,
+          "chipPerHit": 1,
+          "range": 31,
+          "impact": "Close multi-hit field"
+        }
+      }
+    ]
+  },
+  {
+    "name": "CHONG",
+    "tagline": "lightning legs",
+    "palette": {
+      "skin": {
+        "r": 208,
+        "g": 160,
+        "b": 148
+      },
+      "gi": {
+        "r": 150,
+        "g": 74,
+        "b": 200
+      },
+      "giDark": {
+        "r": 96,
+        "g": 40,
+        "b": 140
+      },
+      "hair": {
+        "r": 230,
+        "g": 60,
+        "b": 120
+      },
+      "belt": {
+        "r": 235,
+        "g": 235,
+        "b": 235
+      }
+    },
+    "origin": "Chengdu, China",
+    "discipline": "Northern kicking arts",
+    "archetype": "Fast pressure fighter",
+    "difficulty": "Intermediate",
+    "quote": "A wall is only a rhythm you have not solved.",
+    "story": [
+      "Chong was once the youngest courier in a mountain rescue network, carrying medicine across paths too narrow for vehicles. Speed became responsibility long before it became performance.",
+      "After a private security force closed those routes, she took her footwork into underground arenas. Each victory funds another independent relay station—and maps another way around people who confuse control with safety."
+    ],
+    "playstyle": "Use Kikoken to set the pace, overwhelm grounded defenders with Lightning Legs, then change the vertical rhythm with Spinning Bird Kick.",
+    "strengths": [
+      "Rapid pressure",
+      "Strong corner carry",
+      "Difficult vertical angles"
+    ],
+    "moves": [
+      {
+        "attack": "hadouken",
+        "name": "KIKOKEN",
+        "shortName": "KIKOKEN",
+        "description": "A compact blue pulse that checks grounded movement and prepares Chong’s entry.",
+        "motion": [
+          "D",
+          "F"
+        ],
+        "button": "punch",
+        "projectile": "blue",
+        "input": "↓ → + W",
+        "frames": [
+          "hadouken"
+        ],
+        "stats": {
+          "startup": 11,
+          "active": 1,
+          "recovery": 21,
+          "damagePerHit": 12,
+          "maxHits": 1,
+          "maxDamage": 12,
+          "chipPerHit": 3,
+          "range": 196,
+          "impact": "Traveling projectile"
+        }
+      },
+      {
+        "attack": "electric",
+        "name": "LIGHTNING LEGS",
+        "shortName": "LIGHTNING",
+        "description": "A rapid close-range kick barrage that repeatedly clips a trapped guard.",
+        "motion": [
+          "D",
+          "F"
+        ],
+        "button": "kick",
+        "input": "↓ → + E",
+        "frames": [
+          "electric_1",
+          "electric_2"
+        ],
+        "stats": {
+          "startup": 3,
+          "active": 21,
+          "recovery": 7,
+          "damagePerHit": 4,
+          "maxHits": 4,
+          "maxDamage": 16,
+          "chipPerHit": 1,
+          "range": 31,
+          "impact": "Close multi-hit field"
+        }
+      },
+      {
+        "attack": "hurricane",
+        "name": "SPINNING BIRD KICK",
+        "shortName": "BIRD KICK",
+        "description": "An inverted aerial rotor that rises through pressure and hits on multiple rotations.",
+        "motion": [
+          "D",
+          "U"
+        ],
+        "button": "kick",
+        "earlyAirStart": true,
+        "input": "↓ ↑ + E",
+        "frames": [
+          "hurricane_1",
+          "hurricane_2",
+          "hurricane_3",
+          "hurricane_4"
+        ],
+        "stats": {
+          "startup": 4,
+          "active": 22,
+          "recovery": 8,
+          "damagePerHit": 5,
+          "maxHits": 4,
+          "maxDamage": 20,
+          "chipPerHit": 1,
+          "range": 36,
+          "impact": "Traveling multi-hit"
+        }
+      }
+    ]
+  },
+  {
+    "name": "GYLE",
+    "tagline": "sonic commando",
+    "palette": {
+      "skin": {
+        "r": 222,
+        "g": 174,
+        "b": 132
+      },
+      "gi": {
+        "r": 88,
+        "g": 116,
+        "b": 62
+      },
+      "giDark": {
+        "r": 52,
+        "g": 72,
+        "b": 38
+      },
+      "hair": {
+        "r": 236,
+        "g": 214,
+        "b": 76
+      },
+      "belt": {
+        "r": 112,
+        "g": 76,
+        "b": 44
+      }
+    },
+    "origin": "Rotterdam, Netherlands",
+    "discipline": "Resonance field tactics",
+    "archetype": "Defensive zoner",
+    "difficulty": "Intermediate",
+    "quote": "Hold the line. Then move it.",
+    "story": [
+      "Gyle served in an international disaster-response unit where controlled sonic charges cleared collapsed tunnels without burying survivors. A falsified report later blamed his team for a mission ordered by people far above them.",
+      "He fights with a recorder full of the original transmissions at his side. The tournament broadcasts globally; if he reaches the final, the truth reaches every channel the officials tried to close."
+    ],
+    "playstyle": "Build a disciplined wall with Sonic Boom, punish jumps with Flash Kick, and deploy Sonic Cyclone when an opponent finally forces their way into your space.",
+    "strengths": [
+      "Excellent screen control",
+      "Powerful anti-air",
+      "Safe defensive rhythm"
+    ],
+    "moves": [
+      {
+        "attack": "hadouken",
+        "name": "SONIC BOOM",
+        "shortName": "SONIC",
+        "description": "A fast resonance blade that establishes Gyle’s preferred defensive distance.",
+        "motion": [
+          "B",
+          "F"
+        ],
+        "button": "punch",
+        "projectile": "sonic",
+        "input": "← → + W",
+        "frames": [
+          "hadouken"
+        ],
+        "stats": {
+          "startup": 11,
+          "active": 1,
+          "recovery": 21,
+          "damagePerHit": 12,
+          "maxHits": 1,
+          "maxDamage": 12,
+          "chipPerHit": 3,
+          "range": 196,
+          "impact": "Traveling projectile"
+        }
+      },
+      {
+        "attack": "shoryuken",
+        "name": "FLASH KICK",
+        "shortName": "FLASH",
+        "description": "A sudden rising heel that punishes opponents trying to jump over the sonic wall.",
+        "motion": [
+          "D",
+          "U"
+        ],
+        "button": "kick",
+        "earlyAirStart": true,
+        "input": "↓ ↑ + E",
+        "frames": [
+          "shoryuken"
+        ],
+        "stats": {
+          "startup": 3,
+          "active": 13,
+          "recovery": 12,
+          "damagePerHit": 16,
+          "maxHits": 1,
+          "maxDamage": 16,
+          "chipPerHit": 4,
+          "range": 34,
+          "impact": "Rising launcher"
+        }
+      },
+      {
+        "attack": "electric",
+        "name": "SONIC CYCLONE",
+        "shortName": "CYCLONE",
+        "description": "A close wind vortex that repeatedly strikes anyone who breaches Gyle’s perimeter.",
+        "motion": [
+          "D",
+          "B"
+        ],
+        "button": "punch",
+        "effect": "wind",
+        "input": "↓ ← + W",
+        "frames": [
+          "electric_1",
+          "electric_2"
+        ],
+        "stats": {
+          "startup": 3,
+          "active": 21,
+          "recovery": 7,
+          "damagePerHit": 4,
+          "maxHits": 4,
+          "maxDamage": 16,
+          "chipPerHit": 1,
+          "range": 31,
+          "impact": "Close multi-hit field"
+        }
+      }
+    ]
+  },
+  {
+    "name": "ZANG",
+    "tagline": "iron cyclone",
+    "palette": {
+      "skin": {
+        "r": 220,
+        "g": 156,
+        "b": 120
+      },
+      "gi": {
+        "r": 188,
+        "g": 44,
+        "b": 42
+      },
+      "giDark": {
+        "r": 116,
+        "g": 24,
+        "b": 28
+      },
+      "hair": {
+        "r": 52,
+        "g": 30,
+        "b": 24
+      },
+      "belt": {
+        "r": 224,
+        "g": 184,
+        "b": 62
+      }
+    },
+    "origin": "Tbilisi, Georgia",
+    "discipline": "Industrial catch wrestling",
+    "archetype": "Armored grappler",
+    "difficulty": "Advanced",
+    "quote": "Come closer. History is heavy.",
+    "story": [
+      "Zang lifted steel in a rail foundry before a lockout turned the workers’ canteen into a wrestling hall. His size drew attention, but his loyalty made him a folk hero: every purse was divided with the families on the picket line.",
+      "He has entered the world circuit because the foundry is being sold for scrap. Zang intends to buy it back, reopen the hall, and prove a giant can be defined by what he holds up rather than what he crushes."
+    ],
+    "playstyle": "Walk opponents into terrifying close-range decisions. Cyclone Driver breaks passive defense, Double Lariat controls the space around him, and Flying Press closes the final gap.",
+    "strengths": [
+      "Huge close damage",
+      "Omnidirectional pressure",
+      "High comeback potential"
+    ],
+    "moves": [
+      {
+        "attack": "verticalroll",
+        "name": "CYCLONE DRIVER",
+        "shortName": "DRIVER",
+        "description": "A compact airborne driver that launches Zang upward through close defense.",
+        "motion": [
+          "F",
+          "D",
+          "B"
+        ],
+        "button": "punch",
+        "input": "→ ↓ ← + W",
+        "frames": [
+          "rolling_1",
+          "rolling_2",
+          "rolling_3",
+          "rolling_4"
+        ],
+        "stats": {
+          "startup": 4,
+          "active": 16,
+          "recovery": 15,
+          "damagePerHit": 14,
+          "maxHits": 1,
+          "maxDamage": 14,
+          "chipPerHit": 3,
+          "range": 28,
+          "impact": "Vertical launcher"
+        }
+      },
+      {
+        "attack": "electric",
+        "name": "DOUBLE LARIAT",
+        "shortName": "LARIAT",
+        "description": "An omnidirectional arm cyclone that repeatedly punishes anyone standing beside him.",
+        "motion": [
+          "B",
+          "F"
+        ],
+        "button": "punch",
+        "input": "← → + W",
+        "frames": [
+          "electric_1",
+          "electric_2"
+        ],
+        "stats": {
+          "startup": 3,
+          "active": 21,
+          "recovery": 7,
+          "damagePerHit": 4,
+          "maxHits": 4,
+          "maxDamage": 16,
+          "chipPerHit": 1,
+          "range": 31,
+          "impact": "Close multi-hit field"
+        }
+      },
+      {
+        "attack": "hurricane",
+        "name": "FLYING PRESS",
+        "shortName": "PRESS",
+        "description": "A rotating airborne body press that advances with heavyweight multi-hit force.",
+        "motion": [
+          "D",
+          "B"
+        ],
+        "button": "kick",
+        "input": "↓ ← + E",
+        "frames": [
+          "hurricane_1",
+          "hurricane_2",
+          "hurricane_3",
+          "hurricane_4"
+        ],
+        "stats": {
+          "startup": 4,
+          "active": 22,
+          "recovery": 8,
+          "damagePerHit": 5,
+          "maxHits": 4,
+          "maxDamage": 20,
+          "chipPerHit": 1,
+          "range": 36,
+          "impact": "Traveling multi-hit"
+        }
+      }
+    ]
+  },
+  {
+    "name": "DHAL",
+    "tagline": "mystic flame",
+    "palette": {
+      "skin": {
+        "r": 140,
+        "g": 92,
+        "b": 66
+      },
+      "gi": {
+        "r": 224,
+        "g": 142,
+        "b": 36
+      },
+      "giDark": {
+        "r": 156,
+        "g": 72,
+        "b": 28
+      },
+      "hair": {
+        "r": 236,
+        "g": 236,
+        "b": 218
+      },
+      "belt": {
+        "r": 190,
+        "g": 42,
+        "b": 38
+      }
+    },
+    "origin": "Varanasi, India",
+    "discipline": "Agni breath yoga",
+    "archetype": "Long-range controller",
+    "difficulty": "Advanced",
+    "quote": "Distance is a story the body tells itself.",
+    "story": [
+      "Dhal spent decades studying breath control with firefighters, dancers, and ascetics along the Ganges. His apparent mysticism is a practical philosophy: attention changes the limits a frightened body accepts.",
+      "When a patron tried to patent those community-taught methods, Dhal stepped into public competition. He fights to keep the practice unowned, demonstrating its impossible reach where no legal brief could be ignored."
+    ],
+    "playstyle": "Keep rivals at the exact distance they hate. Yoga Fire occupies a lane, Yoga Flame denies the near lane, and Drill Kick turns long limbs into a sudden aerial spear.",
+    "strengths": [
+      "Exceptional reach",
+      "Layered zoning",
+      "Unusual approach angles"
+    ],
+    "moves": [
+      {
+        "attack": "hadouken",
+        "name": "YOGA FIRE",
+        "shortName": "FIRE",
+        "description": "A compact flame projectile that occupies the long lane and slows pursuit.",
+        "motion": [
+          "D",
+          "F"
+        ],
+        "button": "punch",
+        "projectile": "fire",
+        "input": "↓ → + W",
+        "frames": [
+          "hadouken"
+        ],
+        "stats": {
+          "startup": 11,
+          "active": 1,
+          "recovery": 21,
+          "damagePerHit": 12,
+          "maxHits": 1,
+          "maxDamage": 12,
+          "chipPerHit": 3,
+          "range": 196,
+          "impact": "Traveling projectile"
+        }
+      },
+      {
+        "attack": "electric",
+        "name": "YOGA FLAME",
+        "shortName": "FLAME",
+        "description": "A sustained close flame cone that repeatedly burns opponents inside Dhal’s reach.",
+        "motion": [
+          "D",
+          "B"
+        ],
+        "button": "punch",
+        "effect": "flame",
+        "input": "↓ ← + W",
+        "frames": [
+          "electric_1",
+          "electric_2"
+        ],
+        "stats": {
+          "startup": 3,
+          "active": 21,
+          "recovery": 7,
+          "damagePerHit": 4,
+          "maxHits": 4,
+          "maxDamage": 16,
+          "chipPerHit": 1,
+          "range": 31,
+          "impact": "Close multi-hit field"
+        }
+      },
+      {
+        "attack": "hurricane",
+        "name": "DRILL KICK",
+        "shortName": "DRILL",
+        "description": "A corkscrewing aerial spear that turns Dhal’s full body into a moving hit zone.",
+        "motion": [
+          "D",
+          "F"
+        ],
+        "button": "kick",
+        "input": "↓ → + E",
+        "frames": [
+          "hurricane_1",
+          "hurricane_2",
+          "hurricane_3",
+          "hurricane_4"
+        ],
+        "stats": {
+          "startup": 4,
+          "active": 22,
+          "recovery": 8,
+          "damagePerHit": 5,
+          "maxHits": 4,
+          "maxDamage": 20,
+          "chipPerHit": 1,
+          "range": 36,
+          "impact": "Traveling multi-hit"
+        }
+      }
+    ]
+  },
+  {
+    "name": "HONDO",
+    "tagline": "sumo thunder",
+    "palette": {
+      "skin": {
+        "r": 226,
+        "g": 172,
+        "b": 132
+      },
+      "gi": {
+        "r": 46,
+        "g": 72,
+        "b": 126
+      },
+      "giDark": {
+        "r": 24,
+        "g": 40,
+        "b": 82
+      },
+      "hair": {
+        "r": 28,
+        "g": 24,
+        "b": 26
+      },
+      "belt": {
+        "r": 240,
+        "g": 232,
+        "b": 210
+      }
+    },
+    "origin": "Osaka, Japan",
+    "discipline": "Harbor sumo",
+    "archetype": "Pressure heavyweight",
+    "difficulty": "Intermediate",
+    "quote": "A mountain moves when it chooses.",
+    "story": [
+      "Hondo left professional sumo after refusing to throw a ceremonial bout for a sponsor. Dockworkers in Osaka gave him a job, a training floor, and a new style built for unstable decks and narrow loading bays.",
+      "He competes to establish an independent stable where rank cannot be purchased. His booming laugh hides careful footwork: every charge is measured, and every palm strike carries the weight of the crew behind him."
+    ],
+    "playstyle": "Advance behind overwhelming mass. Sumo Headbutt bursts across the screen, Hundred Hand locks opponents down, and Sumo Smash intercepts anyone trying to escape over the top.",
+    "strengths": [
+      "Relentless forward pressure",
+      "Strong chip sequences",
+      "Durable anti-air"
+    ],
+    "moves": [
+      {
+        "attack": "rolling",
+        "name": "SUMO HEADBUTT",
+        "shortName": "HEADBUTT",
+        "description": "A horizontal heavyweight launch that converts stored ground into sudden impact.",
+        "motion": [
+          "B",
+          "F"
+        ],
+        "button": "punch",
+        "input": "← → + W",
+        "frames": [
+          "rolling_1",
+          "rolling_2",
+          "rolling_3",
+          "rolling_4"
+        ],
+        "stats": {
+          "startup": 4,
+          "active": 18,
+          "recovery": 9,
+          "damagePerHit": 14,
+          "maxHits": 1,
+          "maxDamage": 14,
+          "chipPerHit": 3,
+          "range": 29,
+          "impact": "Horizontal rush"
+        }
+      },
+      {
+        "attack": "electric",
+        "name": "HUNDRED HAND",
+        "shortName": "HANDS",
+        "description": "A planted palm barrage that hits repeatedly and makes blocking expensive.",
+        "motion": [
+          "D",
+          "F"
+        ],
+        "button": "punch",
+        "input": "↓ → + W",
+        "frames": [
+          "electric_1",
+          "electric_2"
+        ],
+        "stats": {
+          "startup": 3,
+          "active": 21,
+          "recovery": 7,
+          "damagePerHit": 4,
+          "maxHits": 4,
+          "maxDamage": 16,
+          "chipPerHit": 1,
+          "range": 31,
+          "impact": "Close multi-hit field"
+        }
+      },
+      {
+        "attack": "shoryuken",
+        "name": "SUMO SMASH",
+        "shortName": "SMASH",
+        "description": "An explosive vertical palm strike built to catch escape attempts overhead.",
+        "motion": [
+          "D",
+          "U"
+        ],
+        "button": "kick",
+        "earlyAirStart": true,
+        "input": "↓ ↑ + E",
+        "frames": [
+          "shoryuken"
+        ],
+        "stats": {
+          "startup": 3,
+          "active": 13,
+          "recovery": 12,
+          "damagePerHit": 16,
+          "maxHits": 1,
+          "maxDamage": 16,
+          "chipPerHit": 4,
+          "range": 34,
+          "impact": "Rising launcher"
+        }
+      }
+    ]
+  },
+  {
+    "name": "KIRA",
+    "tagline": "phase tactician",
+    "palette": {
+      "skin": {
+        "r": 166,
+        "g": 112,
+        "b": 82
+      },
+      "gi": {
+        "r": 24,
+        "g": 174,
+        "b": 164
+      },
+      "giDark": {
+        "r": 12,
+        "g": 70,
+        "b": 78
+      },
+      "hair": {
+        "r": 20,
+        "g": 24,
+        "b": 32
+      },
+      "belt": {
+        "r": 122,
+        "g": 242,
+        "b": 222
+      }
+    },
+    "origin": "Nairobi, Kenya",
+    "discipline": "Predictive counter-combat",
+    "archetype": "Precision counter fighter",
+    "difficulty": "Advanced",
+    "quote": "I do not outrun the moment. I arrive first.",
+    "story": [
+      "Kira designed motion-prediction systems for emergency exoskeletons until a defense contractor quietly redirected her work. She erased the training archive, disappeared, and rebuilt the mathematics as a physical discipline no server could confiscate.",
+      "Her mask is not concealment but focus: it narrows breath, sound, and sight into one clean decision. She enters fights to gather evidence against the contractor—and to learn where prediction ends and courage begins."
+    ],
+    "playstyle": "Win by being exact. Phase Needle checks movement, Zero Ascent punishes committed jumps, and Rift Counter turns a readable attack into Kira’s immediate reply.",
+    "strengths": [
+      "Sharp whiff punishment",
+      "Fast counter tools",
+      "Precise space control"
+    ],
+    "moves": [
+      {
+        "attack": "shoryuken",
+        "name": "ZERO ASCENT",
+        "shortName": "ASCENT",
+        "description": "A narrow predictive uppercut that meets an airborne body at its future position.",
+        "motion": [
+          "F",
+          "D",
+          "F"
+        ],
+        "button": "punch",
+        "input": "→ ↓ → + W",
+        "frames": [
+          "shoryuken"
+        ],
+        "stats": {
+          "startup": 3,
+          "active": 13,
+          "recovery": 12,
+          "damagePerHit": 16,
+          "maxHits": 1,
+          "maxDamage": 16,
+          "chipPerHit": 4,
+          "range": 34,
+          "impact": "Rising launcher"
+        }
+      },
+      {
+        "attack": "hadouken",
+        "name": "PHASE NEEDLE",
+        "shortName": "NEEDLE",
+        "description": "A thin high-speed energy needle made for exact long-range interruption.",
+        "motion": [
+          "D",
+          "F"
+        ],
+        "button": "punch",
+        "projectile": "sonic",
+        "input": "↓ → + W",
+        "frames": [
+          "hadouken"
+        ],
+        "stats": {
+          "startup": 11,
+          "active": 1,
+          "recovery": 21,
+          "damagePerHit": 12,
+          "maxHits": 1,
+          "maxDamage": 12,
+          "chipPerHit": 3,
+          "range": 196,
+          "impact": "Traveling projectile"
+        }
+      },
+      {
+        "attack": "electric",
+        "name": "RIFT COUNTER",
+        "shortName": "COUNTER",
+        "description": "A fractured guard plane followed by a rapid kick that punishes predictable pressure.",
+        "motion": [
+          "D",
+          "B"
+        ],
+        "button": "kick",
+        "effect": "electric",
+        "input": "↓ ← + E",
+        "frames": [
+          "electric_1",
+          "electric_2"
+        ],
+        "stats": {
+          "startup": 3,
+          "active": 21,
+          "recovery": 7,
+          "damagePerHit": 4,
+          "maxHits": 4,
+          "maxDamage": 16,
+          "chipPerHit": 1,
+          "range": 31,
+          "impact": "Close multi-hit field"
+        }
+      }
+    ]
+  },
+  {
+    "name": "MAKO",
+    "tagline": "tide dancer",
+    "palette": {
+      "skin": {
+        "r": 116,
+        "g": 72,
+        "b": 50
+      },
+      "gi": {
+        "r": 238,
+        "g": 230,
+        "b": 206
+      },
+      "giDark": {
+        "r": 178,
+        "g": 130,
+        "b": 46
+      },
+      "hair": {
+        "r": 24,
+        "g": 20,
+        "b": 20
+      },
+      "belt": {
+        "r": 40,
+        "g": 92,
+        "b": 184
+      }
+    },
+    "origin": "Salvador, Brazil",
+    "discipline": "Tidal capoeira",
+    "archetype": "Flow-state rushdown",
+    "difficulty": "Intermediate",
+    "quote": "The tide never repeats, but it always returns.",
+    "story": [
+      "Mako learned capoeira in a waterfront collective that rehearsed between fishing shifts. He reads balance the way his family reads weather: through small changes in pressure, rhythm, and the angle of a foot against the ground.",
+      "A luxury development now threatens the collective’s hall and the public beach beside it. Mako carries their cobalt cord into the tournament, turning every broadcast bout into an invitation to a place investors hoped nobody would notice."
+    ],
+    "playstyle": "Stay in motion and change cadence constantly. Moon Tide opens a route, Ginga Rush overwhelms a frozen guard, and Axe Wheel turns evasive movement into a high rotating strike.",
+    "strengths": [
+      "Fluid mix-ups",
+      "Strong mobility",
+      "Excellent sustained pressure"
+    ],
+    "moves": [
+      {
+        "attack": "hadouken",
+        "name": "MOON TIDE",
+        "shortName": "MOON TIDE",
+        "description": "A crescent wave that creates the beat Mako uses to begin his approach.",
+        "motion": [
+          "D",
+          "F"
+        ],
+        "button": "punch",
+        "projectile": "blue",
+        "input": "↓ → + W",
+        "frames": [
+          "hadouken"
+        ],
+        "stats": {
+          "startup": 11,
+          "active": 1,
+          "recovery": 21,
+          "damagePerHit": 12,
+          "maxHits": 1,
+          "maxDamage": 12,
+          "chipPerHit": 3,
+          "range": 196,
+          "impact": "Traveling projectile"
+        }
+      },
+      {
+        "attack": "electric",
+        "name": "GINGA RUSH",
+        "shortName": "GINGA",
+        "description": "A swaying series of rapid kicks that strikes repeatedly from changing heights.",
+        "motion": [
+          "D",
+          "F"
+        ],
+        "button": "kick",
+        "effect": "wind",
+        "input": "↓ → + E",
+        "frames": [
+          "electric_1",
+          "electric_2"
+        ],
+        "stats": {
+          "startup": 3,
+          "active": 21,
+          "recovery": 7,
+          "damagePerHit": 4,
+          "maxHits": 4,
+          "maxDamage": 16,
+          "chipPerHit": 1,
+          "range": 31,
+          "impact": "Close multi-hit field"
+        }
+      },
+      {
+        "attack": "hurricane",
+        "name": "AXE WHEEL",
+        "shortName": "AXE WHEEL",
+        "description": "A high capoeira wheel whose long rotating leg carries Mako through the opponent.",
+        "motion": [
+          "D",
+          "B"
+        ],
+        "button": "kick",
+        "input": "↓ ← + E",
+        "frames": [
+          "hurricane_1",
+          "hurricane_2",
+          "hurricane_3",
+          "hurricane_4"
+        ],
+        "stats": {
+          "startup": 4,
+          "active": 22,
+          "recovery": 8,
+          "damagePerHit": 5,
+          "maxHits": 4,
+          "maxDamage": 20,
+          "chipPerHit": 1,
+          "range": 36,
+          "impact": "Traveling multi-hit"
+        }
+      }
+    ]
+  },
+  {
+    "name": "OMEGA",
+    "tagline": "the last witness",
+    "palette": {
+      "skin": {
+        "r": 54,
+        "g": 58,
+        "b": 62
+      },
+      "gi": {
+        "r": 42,
+        "g": 44,
+        "b": 48
+      },
+      "giDark": {
+        "r": 14,
+        "g": 16,
+        "b": 20
+      },
+      "hair": {
+        "r": 176,
+        "g": 22,
+        "b": 24
+      },
+      "belt": {
+        "r": 244,
+        "g": 54,
+        "b": 44
+      }
+    },
+    "origin": "Unknown recovery site",
+    "discipline": "Paraconsistent combat inference",
+    "archetype": "Reality-warping control",
+    "difficulty": "Advanced",
+    "quote": "I kept every version. Which one will you defend?",
+    "story": [
+      "Omega was built as a witness engine: an intelligence meant to preserve incompatible records until reality could judge them. When its archive implicated the people who commissioned it, they tried to erase both the evidence and the machine carrying it.",
+      "The scarred body in the arena is a reconstruction assembled from battlefield salvage and its own incomplete diagrams. Omega does not fight for revenge. It fights because every opponent reveals a decision under pressure—and decisions are the one testimony no database can fabricate."
+    ],
+    "playstyle": "Control impossible geometry. Final Testimony sears the full screen, Null Step deletes the space between fighters and strikes from behind, while Entropy Well drags escape attempts into three implosions.",
+    "strengths": [
+      "Screen-length punishment",
+      "Instant cross-up threat",
+      "Gravity-based area control"
+    ],
+    "moves": [
+      {
+        "attack": "testimony",
+        "name": "FINAL TESTIMONY",
+        "shortName": "TESTIMONY",
+        "description": "Omega opens its cracked core and delivers a screen-length crimson beam with no projectile travel time.",
+        "motion": [
+          "D",
+          "F"
+        ],
+        "button": "punch",
+        "input": "↓ → + W",
+        "frames": [
+          "testimony_1",
+          "testimony_2",
+          "testimony_3"
+        ],
+        "stats": {
+          "startup": 10,
+          "active": 5,
+          "recovery": 18,
+          "damagePerHit": 17,
+          "maxHits": 1,
+          "maxDamage": 17,
+          "chipPerHit": 4,
+          "range": 176,
+          "impact": "Instant screen beam"
+        }
+      },
+      {
+        "attack": "nullstep",
+        "name": "NULL STEP",
+        "shortName": "NULL STEP",
+        "description": "Omega fractures into afterimages, phases through the rival, and rematerializes with a cross-up strike.",
+        "motion": [
+          "B",
+          "F"
+        ],
+        "button": "kick",
+        "input": "← → + E",
+        "frames": [
+          "nullstep_1",
+          "nullstep_2",
+          "nullstep_3",
+          "nullstep_4"
+        ],
+        "stats": {
+          "startup": 6,
+          "active": 4,
+          "recovery": 17,
+          "damagePerHit": 13,
+          "maxHits": 1,
+          "maxDamage": 13,
+          "chipPerHit": 2,
+          "range": 31,
+          "impact": "Phase-through cross-up"
+        }
+      },
+      {
+        "attack": "entropy",
+        "name": "ENTROPY WELL",
+        "shortName": "ENTROPY",
+        "description": "A localized gravity fault drags the opponent inward through three damaging implosions.",
+        "motion": [
+          "D",
+          "B"
+        ],
+        "button": "punch",
+        "input": "↓ ← + W",
+        "frames": [
+          "entropy_1",
+          "entropy_2",
+          "entropy_3"
+        ],
+        "stats": {
+          "startup": 8,
+          "active": 18,
+          "recovery": 12,
+          "damagePerHit": 4,
+          "maxHits": 3,
+          "maxDamage": 12,
+          "chipPerHit": 1,
+          "range": 96,
+          "impact": "Pulling gravity field"
+        }
+      }
+    ]
+  }
+]

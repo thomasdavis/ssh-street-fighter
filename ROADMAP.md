@@ -4,17 +4,16 @@ SSH Street Fighter is a live game and an open invitation to make terminal multip
 
 ## Shipped
 
-- Eleven fighters, 33 data-defined special moves, 277 packed poses, and six animated arenas
+- Eleven fighters, 33 data-defined special moves, 283 packed poses, and six animated arenas
 - Quick matchmaking, practice, lounge chat, direct challenges, and best-of-three fights
 - Verified SSH identities with persistent handles, ELO, records, main fighters, and configurable combat controls
 - Responsive terminal-native fight HUD, truecolor rendering, zlib transport, and backpressure
 - Append-only local analytics with vital-only Discord notifications
 - Public MIT repository, contribution/security guidance, Discussions, Issues, and CI with real SSH acceptance tests
+- Read-only public fighter dossiers generated from authoritative game definitions, with original lore, animated sprites, tactics, inputs, damage, chip, range, and frame timing
 
-## Next: analytics and fighter profiles
+## Next: aggregate analytics
 
-- Read-only public character pages generated from authoritative combat and move definitions
-- Damage, chip, frame timing, range, and input cards for every move
 - Aggregated pick rate, move usage, matchup outcomes, ELO distribution, and activity trends
 - Privacy boundary that never publishes raw connections, IP addresses, chat text, or event rows
 

@@ -17,6 +17,9 @@ const load = (name: string): Packed => JSON.parse(readFileSync(resolve(dir, `${n
 const order = ['idle_1', 'idle_2', 'walk_1', 'walk_2', 'crouch', 'jump', 'fall', 'block', 'crouchblock', 'hit',
   'ko', 'punch_1', 'punch_2', 'kick_1', 'kick_2', 'crouchpunch_1', 'crouchpunch_2', 'crouchkick_1', 'crouchkick_2',
   'hadouken', 'shoryuken', 'hurricane_1', 'hurricane_2', 'hurricane_3', 'hurricane_4',
+  'testimony_1', 'testimony_2', 'testimony_3',
+  'nullstep_1', 'nullstep_2', 'nullstep_3', 'nullstep_4',
+  'entropy_1', 'entropy_2', 'entropy_3',
   'electric_1', 'electric_2', 'rolling_1', 'rolling_2', 'rolling_3', 'rolling_4'];
 const names = order.filter((n) => readdirSync(dir).includes(`${n}.json`));
 

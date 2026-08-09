@@ -1,7 +1,7 @@
 import type { AttackKind, Fighter, FighterPalette, Inputs, Match } from './types.js';
 import { RED_PALETTE, BLUE_PALETTE } from './sprites.js';
 import { STAGES } from './stage-set.js';
-import { matchingSpecialMove, specialMoveForAttack } from './moves.js';
+import { matchingSpecialMove, specialMoveForAttack, type SpecialAttack } from './moves.js';
 
 export const WORLD_W = 240;
 export const WORLD_H = 160;
@@ -34,6 +34,9 @@ function attackTotal(k: AttackKind): number {
   if (k === 'electric') return ELECTRIC.total;
   if (k === 'rolling') return ROLLING.total;
   if (k === 'verticalroll') return VERTICAL_ROLL.total;
+  if (k === 'testimony') return TESTIMONY.total;
+  if (k === 'nullstep') return NULL_STEP.total;
+  if (k === 'entropy') return ENTROPY.total;
   if (k === 'punch' || k === 'kick') { const a = ATTACKS[k]; return a.startup + a.active + a.recovery; }
   return 0;
 }
@@ -44,6 +47,9 @@ export function attackActive(f: Fighter): boolean {
   if (f.attack === 'electric') return f.attackFrame >= ELECTRIC.startup && f.attackFrame < ELECTRIC.startup + ELECTRIC.active;
   if (f.attack === 'rolling') return f.attackFrame >= ROLLING.startup && f.attackFrame < ROLLING.startup + ROLLING.active;
   if (f.attack === 'verticalroll') return f.attackFrame >= VERTICAL_ROLL.startup && f.attackFrame < VERTICAL_ROLL.startup + VERTICAL_ROLL.active;
+  if (f.attack === 'testimony') return f.attackFrame >= TESTIMONY.startup && f.attackFrame < TESTIMONY.startup + TESTIMONY.active;
+  if (f.attack === 'nullstep') return f.attackFrame >= NULL_STEP.startup && f.attackFrame < NULL_STEP.startup + NULL_STEP.active;
+  if (f.attack === 'entropy') return f.attackFrame >= ENTROPY.startup && f.attackFrame < ENTROPY.startup + ENTROPY.active;
   return false; // hadouken has no melee hitbox
 }
 
@@ -54,8 +60,37 @@ const HURRI = { startup: 4, active: 22, recovery: 8, total: 34, dmg: 5, range: 3
 const ELECTRIC = { startup: 3, active: 21, recovery: 7, total: 31, dmg: 4, range: 31, kb: 1.2, chip: 1, vert: 52, hitEvery: 6 }; // Electric Thunder (↓↑ + punch): close multi-hit field
 const ROLLING = { startup: 4, active: 18, recovery: 9, total: 31, dmg: 14, range: 29, kb: 4.8, chip: 3, vert: 44, jumpV: 3.6, vx: 5.2 }; // Rolling Attack (back→forward + punch)
 const VERTICAL_ROLL = { startup: 4, active: 16, recovery: 15, total: 35, dmg: 14, range: 28, kb: 3.6, chip: 3, vert: 68, jumpV: 10.2, vx: 0.7 }; // Vertical Roll (↓↑ + kick)
+export const TESTIMONY = { startup: 10, active: 5, recovery: 18, total: 33, dmg: 17, range: 176, kb: 5.2, chip: 4, vert: 48 }; // screen-length beam
+export const NULL_STEP = { startup: 6, shift: 6, active: 4, recovery: 17, total: 27, dmg: 13, range: 31, kb: 3.2, chip: 2, vert: 48 }; // phase-through cross-up
+export const ENTROPY = { startup: 8, active: 18, recovery: 12, total: 38, dmg: 4, range: 96, kb: 0.8, chip: 1, vert: 56, hitEvery: 6, wellOffset: 42, pull: 1.2 }; // pull + three pulses
 const FIRE_SPEED = 3.4, FIRE_R = 11, FIGHTER_WORLD_H = 56, FIRE_DMG = 12, FIRE_CHIP = 3;
 const EARLY_UP_GRACE_Y = 26;
+
+export interface SpecialMoveStats {
+  startup: number;
+  active: number;
+  recovery: number;
+  damagePerHit: number;
+  maxHits: number;
+  maxDamage: number;
+  chipPerHit: number;
+  range: number;
+  impact: string;
+}
+
+/** Public combat numbers used by tests and character profiles. */
+export function specialMoveStats(attack: SpecialAttack): SpecialMoveStats {
+  if (attack === 'hadouken') return { startup: HAD.spawn, active: 1, recovery: HAD.total - HAD.spawn, damagePerHit: FIRE_DMG, maxHits: 1, maxDamage: FIRE_DMG, chipPerHit: FIRE_CHIP, range: STAGE_RIGHT - STAGE_LEFT, impact: 'Traveling projectile' };
+  if (attack === 'shoryuken') return { startup: SHORYU.startup, active: SHORYU.active, recovery: SHORYU.recovery, damagePerHit: SHORYU.dmg, maxHits: 1, maxDamage: SHORYU.dmg, chipPerHit: SHORYU.chip, range: SHORYU.range, impact: 'Rising launcher' };
+  if (attack === 'hurricane') { const hits = Math.ceil(HURRI.active / HURRI.hitEvery); return { startup: HURRI.startup, active: HURRI.active, recovery: HURRI.recovery, damagePerHit: HURRI.dmg, maxHits: hits, maxDamage: HURRI.dmg * hits, chipPerHit: HURRI.chip, range: HURRI.range, impact: 'Traveling multi-hit' }; }
+  if (attack === 'electric') { const hits = Math.ceil(ELECTRIC.active / ELECTRIC.hitEvery); return { startup: ELECTRIC.startup, active: ELECTRIC.active, recovery: ELECTRIC.recovery, damagePerHit: ELECTRIC.dmg, maxHits: hits, maxDamage: ELECTRIC.dmg * hits, chipPerHit: ELECTRIC.chip, range: ELECTRIC.range, impact: 'Close multi-hit field' }; }
+  if (attack === 'rolling') return { startup: ROLLING.startup, active: ROLLING.active, recovery: ROLLING.recovery, damagePerHit: ROLLING.dmg, maxHits: 1, maxDamage: ROLLING.dmg, chipPerHit: ROLLING.chip, range: ROLLING.range, impact: 'Horizontal rush' };
+  if (attack === 'verticalroll') return { startup: VERTICAL_ROLL.startup, active: VERTICAL_ROLL.active, recovery: VERTICAL_ROLL.recovery, damagePerHit: VERTICAL_ROLL.dmg, maxHits: 1, maxDamage: VERTICAL_ROLL.dmg, chipPerHit: VERTICAL_ROLL.chip, range: VERTICAL_ROLL.range, impact: 'Vertical launcher' };
+  if (attack === 'testimony') return { startup: TESTIMONY.startup, active: TESTIMONY.active, recovery: TESTIMONY.recovery, damagePerHit: TESTIMONY.dmg, maxHits: 1, maxDamage: TESTIMONY.dmg, chipPerHit: TESTIMONY.chip, range: TESTIMONY.range, impact: 'Instant screen beam' };
+  if (attack === 'nullstep') return { startup: NULL_STEP.startup, active: NULL_STEP.active, recovery: NULL_STEP.recovery, damagePerHit: NULL_STEP.dmg, maxHits: 1, maxDamage: NULL_STEP.dmg, chipPerHit: NULL_STEP.chip, range: NULL_STEP.range, impact: 'Phase-through cross-up' };
+  const hits = Math.ceil(ENTROPY.active / ENTROPY.hitEvery);
+  return { startup: ENTROPY.startup, active: ENTROPY.active, recovery: ENTROPY.recovery, damagePerHit: ENTROPY.dmg, maxHits: hits, maxDamage: ENTROPY.dmg * hits, chipPerHit: ENTROPY.chip, range: ENTROPY.range, impact: 'Pulling gravity field' };
+}
 
 interface MeleeSpec { dmg: number; range: number; kb: number; chip: number; vert: number; omni?: boolean }
 function meleeSpec(k: AttackKind): MeleeSpec | null {
@@ -65,6 +100,9 @@ function meleeSpec(k: AttackKind): MeleeSpec | null {
   if (k === 'electric') return { dmg: ELECTRIC.dmg, range: ELECTRIC.range, kb: ELECTRIC.kb, chip: ELECTRIC.chip, vert: ELECTRIC.vert, omni: true };
   if (k === 'rolling') return { dmg: ROLLING.dmg, range: ROLLING.range, kb: ROLLING.kb, chip: ROLLING.chip, vert: ROLLING.vert };
   if (k === 'verticalroll') return { dmg: VERTICAL_ROLL.dmg, range: VERTICAL_ROLL.range, kb: VERTICAL_ROLL.kb, chip: VERTICAL_ROLL.chip, vert: VERTICAL_ROLL.vert };
+  if (k === 'testimony') return { dmg: TESTIMONY.dmg, range: TESTIMONY.range, kb: TESTIMONY.kb, chip: TESTIMONY.chip, vert: TESTIMONY.vert };
+  if (k === 'nullstep') return { dmg: NULL_STEP.dmg, range: NULL_STEP.range, kb: NULL_STEP.kb, chip: NULL_STEP.chip, vert: NULL_STEP.vert };
+  if (k === 'entropy') return { dmg: ENTROPY.dmg, range: ENTROPY.range, kb: ENTROPY.kb, chip: ENTROPY.chip, vert: ENTROPY.vert };
   return null;
 }
 
@@ -80,6 +118,9 @@ export function attackExtension(f: Fighter): number {
   if (f.attack === 'hurricane') return (f.attackFrame % 8) / 8; // spin phase
   if (f.attack === 'electric') return (Math.sin(f.attackFrame * 1.7) + 1) / 2; // alternating charge frames
   if (f.attack === 'rolling' || f.attack === 'verticalroll') return (f.attackFrame % 12) / 12;
+  if (f.attack === 'testimony') return f.attackFrame < TESTIMONY.startup ? f.attackFrame / TESTIMONY.startup : 1;
+  if (f.attack === 'nullstep') return Math.min(1, f.attackFrame / NULL_STEP.shift);
+  if (f.attack === 'entropy') return (Math.sin(f.attackFrame * 1.1) + 1) / 2;
   const a = ATTACKS[f.attack];
   if (f.attackFrame < a.startup) return 0.35 * (f.attackFrame / Math.max(1, a.startup));
   if (f.attackFrame < a.startup + a.active) return 1;
@@ -138,6 +179,9 @@ function derivePose(f: Fighter): void {
   if (f.attack === 'electric') { f.pose = 'electric'; return; }
   if (f.attack === 'rolling') { f.pose = 'rolling'; return; }
   if (f.attack === 'verticalroll') { f.pose = 'verticalroll'; return; }
+  if (f.attack === 'testimony') { f.pose = 'testimony'; return; }
+  if (f.attack === 'nullstep') { f.pose = 'nullstep'; return; }
+  if (f.attack === 'entropy') { f.pose = 'entropy'; return; }
   if (f.attack === 'punch') { f.pose = f.attackCrouch ? 'crouchpunch' : 'punch'; return; }
   if (f.attack === 'kick') { f.pose = f.attackCrouch ? 'crouchkick' : 'kick'; return; }
   const airborne = f.y > 0.5;
@@ -196,6 +240,23 @@ function stepFighter(f: Fighter, other: Fighter, inp: Inputs, live: boolean): vo
   if (f.attack === 'hurricane' && f.attackFrame > HURRI.startup && (f.attackFrame - HURRI.startup) % HURRI.hitEvery === 0) f.attackHit = false;
   // Electric Thunder pulses several times while the field is active.
   if (f.attack === 'electric' && f.attackFrame > ELECTRIC.startup && (f.attackFrame - ELECTRIC.startup) % ELECTRIC.hitEvery === 0) f.attackHit = false;
+  // Entropy Well deals three discrete implosion pulses while continuously pulling.
+  if (f.attack === 'entropy' && f.attackFrame > ENTROPY.startup && (f.attackFrame - ENTROPY.startup) % ENTROPY.hitEvery === 0) f.attackHit = false;
+  // Null Step crosses through once, flips to face the rival, and attacks from behind.
+  if (f.attack === 'nullstep' && f.attackFrame === NULL_STEP.shift) {
+    const oldFacing = f.facing;
+    f.x = Math.max(STAGE_LEFT, Math.min(STAGE_RIGHT, other.x + oldFacing * 17));
+    f.facing = (oldFacing * -1) as 1 | -1;
+    f.vx = 0;
+  }
+  // Entropy Well is anchored in front of Omega and drags the rival toward its core.
+  if (f.attack === 'entropy' && attackActive(f)) {
+    const wellX = f.x + f.facing * ENTROPY.wellOffset;
+    const delta = wellX - other.x;
+    if (Math.abs(delta) <= ENTROPY.range && Math.abs(f.y - other.y) <= ENTROPY.vert) {
+      other.vx += Math.max(-ENTROPY.pull, Math.min(ENTROPY.pull, delta * 0.045));
+    }
+  }
 
   // horizontal movement — allowed while blocking (walk-back) but not crouching
   const canGroundMove = grounded && !busy2 && !f.crouching;
@@ -234,6 +295,7 @@ function startAttack(f: Fighter, kind: AttackKind): void {
   if (kind === 'electric') { f.y = 0; f.vy = 0; f.vx = 0; f.crouching = false; }
   if (kind === 'rolling') { f.vy = ROLLING.jumpV; f.y = Math.max(f.y, 0.001); f.vx = f.facing * ROLLING.vx; f.crouching = false; }
   if (kind === 'verticalroll') { f.vy = VERTICAL_ROLL.jumpV; f.y = Math.max(f.y, 0.001); f.vx = f.facing * VERTICAL_ROLL.vx; f.crouching = false; }
+  if (kind === 'testimony' || kind === 'nullstep' || kind === 'entropy') { f.y = 0; f.vy = 0; f.vx = 0; f.crouching = false; }
 }
 
 /** Push grounded, overlapping fighters apart. Airborne fighters pass over. */

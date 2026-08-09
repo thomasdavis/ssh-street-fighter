@@ -2,79 +2,80 @@ import type { AttackKind, Inputs } from './types.js';
 
 export type AttackButton = 'punch' | 'kick';
 type RelativeDirection = 'F' | 'D' | 'B' | 'U';
-type SpecialAttack = Exclude<AttackKind, 'none' | 'punch' | 'kick'>;
+export type SpecialAttack = Exclude<AttackKind, 'none' | 'punch' | 'kick'>;
 
 export interface SpecialMoveDefinition {
   attack: SpecialAttack;
   name: string;
   shortName: string;
+  description: string;
   motion: readonly RelativeDirection[];
   button: AttackButton;
   // Down-to-up motions naturally emit a jump one terminal tick before the
   // attack key. Give those moves a tiny hop-cancel window so SSH packet timing
   // cannot turn a valid charge-style input into an ordinary jump.
   earlyAirStart?: boolean;
-  effect?: 'electric' | 'wind' | 'flame' | 'crimson';
-  projectile?: 'blue' | 'fire' | 'sonic' | 'crimson';
+  effect?: 'electric' | 'wind' | 'flame';
+  projectile?: 'blue' | 'fire' | 'sonic';
 }
 
 // Ordered most-specific first: the engine uses this same list for recognition,
 // while the help overlay uses it for display. Adding a move updates both.
 const MOVE_SETS: Readonly<Record<string, readonly SpecialMoveDefinition[]>> = {
   BYU: [
-    { attack: 'shoryuken', name: 'DRAGON PUNCH', shortName: 'DRAGON', motion: ['F', 'D', 'F'], button: 'punch' },
-    { attack: 'hadouken', name: 'HADOUKEN', shortName: 'HADOUKEN', motion: ['D', 'F'], button: 'punch', projectile: 'blue' },
-    { attack: 'hurricane', name: 'HURRICANE KICK', shortName: 'HURRICANE', motion: ['D', 'B'], button: 'kick' },
+    { attack: 'shoryuken', name: 'DRAGON PUNCH', shortName: 'DRAGON', description: 'A rising invincible uppercut that catches airborne rivals and launches them away.', motion: ['F', 'D', 'F'], button: 'punch' },
+    { attack: 'hadouken', name: 'HADOUKEN', shortName: 'HADOUKEN', description: 'A steady blue projectile for controlling the ground and forcing an approach.', motion: ['D', 'F'], button: 'punch', projectile: 'blue' },
+    { attack: 'hurricane', name: 'HURRICANE KICK', shortName: 'HURRICANE', description: 'A traveling four-frame spin kick that can connect repeatedly while carrying Byu forward.', motion: ['D', 'B'], button: 'kick' },
   ],
   MEN: [
-    { attack: 'shoryuken', name: 'BLAZING UPPERCUT', shortName: 'BLAZE', motion: ['F', 'D', 'F'], button: 'punch' },
-    { attack: 'hadouken', name: 'FIREBALL', shortName: 'FIREBALL', motion: ['D', 'F'], button: 'punch', projectile: 'fire' },
-    { attack: 'hurricane', name: 'TORNADO KICK', shortName: 'TORNADO', motion: ['D', 'B'], button: 'kick' },
+    { attack: 'shoryuken', name: 'BLAZING UPPERCUT', shortName: 'BLAZE', description: 'A fiery vertical reversal that converts a reckless jump into a hard knockback.', motion: ['F', 'D', 'F'], button: 'punch' },
+    { attack: 'hadouken', name: 'FIREBALL', shortName: 'FIREBALL', description: 'A hot, high-contrast projectile used to start Men’s aggressive advance.', motion: ['D', 'F'], button: 'punch', projectile: 'fire' },
+    { attack: 'hurricane', name: 'TORNADO KICK', shortName: 'TORNADO', description: 'A forward-driving multi-hit rotation that keeps retreating opponents under pressure.', motion: ['D', 'B'], button: 'kick' },
   ],
   BLANKO: [
-    { attack: 'rolling', name: 'ROLLING ATTACK', shortName: 'ROLL', motion: ['B', 'F'], button: 'punch' },
-    { attack: 'verticalroll', name: 'VERTICAL ROLL', shortName: 'UP ROLL', motion: ['D', 'U'], button: 'kick', earlyAirStart: true },
-    { attack: 'electric', name: 'ELECTRIC THUNDER', shortName: 'ELECTRIC', motion: ['D', 'U'], button: 'punch', earlyAirStart: true, effect: 'electric' },
+    { attack: 'rolling', name: 'ROLLING ATTACK', shortName: 'ROLL', description: 'Blanko curls into a fast horizontal ball that crosses space and slams through hesitation.', motion: ['B', 'F'], button: 'punch' },
+    { attack: 'verticalroll', name: 'VERTICAL ROLL', shortName: 'UP ROLL', description: 'A steep rolling launch that controls the air directly above Blanko.', motion: ['D', 'U'], button: 'kick', earlyAirStart: true },
+    { attack: 'electric', name: 'ELECTRIC THUNDER', shortName: 'ELECTRIC', description: 'A grounded electrical field that shocks nearby opponents up to four times.', motion: ['D', 'U'], button: 'punch', earlyAirStart: true, effect: 'electric' },
   ],
   CHONG: [
-    { attack: 'hadouken', name: 'KIKOKEN', shortName: 'KIKOKEN', motion: ['D', 'F'], button: 'punch', projectile: 'blue' },
-    { attack: 'electric', name: 'LIGHTNING LEGS', shortName: 'LIGHTNING', motion: ['D', 'F'], button: 'kick' },
-    { attack: 'hurricane', name: 'SPINNING BIRD KICK', shortName: 'BIRD KICK', motion: ['D', 'U'], button: 'kick', earlyAirStart: true },
+    { attack: 'hadouken', name: 'KIKOKEN', shortName: 'KIKOKEN', description: 'A compact blue pulse that checks grounded movement and prepares Chong’s entry.', motion: ['D', 'F'], button: 'punch', projectile: 'blue' },
+    { attack: 'electric', name: 'LIGHTNING LEGS', shortName: 'LIGHTNING', description: 'A rapid close-range kick barrage that repeatedly clips a trapped guard.', motion: ['D', 'F'], button: 'kick' },
+    { attack: 'hurricane', name: 'SPINNING BIRD KICK', shortName: 'BIRD KICK', description: 'An inverted aerial rotor that rises through pressure and hits on multiple rotations.', motion: ['D', 'U'], button: 'kick', earlyAirStart: true },
   ],
   GYLE: [
-    { attack: 'hadouken', name: 'SONIC BOOM', shortName: 'SONIC', motion: ['B', 'F'], button: 'punch', projectile: 'sonic' },
-    { attack: 'shoryuken', name: 'FLASH KICK', shortName: 'FLASH', motion: ['D', 'U'], button: 'kick', earlyAirStart: true },
-    { attack: 'electric', name: 'SONIC CYCLONE', shortName: 'CYCLONE', motion: ['D', 'B'], button: 'punch', effect: 'wind' },
+    { attack: 'hadouken', name: 'SONIC BOOM', shortName: 'SONIC', description: 'A fast resonance blade that establishes Gyle’s preferred defensive distance.', motion: ['B', 'F'], button: 'punch', projectile: 'sonic' },
+    { attack: 'shoryuken', name: 'FLASH KICK', shortName: 'FLASH', description: 'A sudden rising heel that punishes opponents trying to jump over the sonic wall.', motion: ['D', 'U'], button: 'kick', earlyAirStart: true },
+    { attack: 'electric', name: 'SONIC CYCLONE', shortName: 'CYCLONE', description: 'A close wind vortex that repeatedly strikes anyone who breaches Gyle’s perimeter.', motion: ['D', 'B'], button: 'punch', effect: 'wind' },
   ],
   ZANG: [
-    { attack: 'verticalroll', name: 'CYCLONE DRIVER', shortName: 'DRIVER', motion: ['F', 'D', 'B'], button: 'punch' },
-    { attack: 'electric', name: 'DOUBLE LARIAT', shortName: 'LARIAT', motion: ['B', 'F'], button: 'punch' },
-    { attack: 'hurricane', name: 'FLYING PRESS', shortName: 'PRESS', motion: ['D', 'B'], button: 'kick' },
+    { attack: 'verticalroll', name: 'CYCLONE DRIVER', shortName: 'DRIVER', description: 'A compact airborne driver that launches Zang upward through close defense.', motion: ['F', 'D', 'B'], button: 'punch' },
+    { attack: 'electric', name: 'DOUBLE LARIAT', shortName: 'LARIAT', description: 'An omnidirectional arm cyclone that repeatedly punishes anyone standing beside him.', motion: ['B', 'F'], button: 'punch' },
+    { attack: 'hurricane', name: 'FLYING PRESS', shortName: 'PRESS', description: 'A rotating airborne body press that advances with heavyweight multi-hit force.', motion: ['D', 'B'], button: 'kick' },
   ],
   DHAL: [
-    { attack: 'hadouken', name: 'YOGA FIRE', shortName: 'FIRE', motion: ['D', 'F'], button: 'punch', projectile: 'fire' },
-    { attack: 'electric', name: 'YOGA FLAME', shortName: 'FLAME', motion: ['D', 'B'], button: 'punch', effect: 'flame' },
-    { attack: 'hurricane', name: 'DRILL KICK', shortName: 'DRILL', motion: ['D', 'F'], button: 'kick' },
+    { attack: 'hadouken', name: 'YOGA FIRE', shortName: 'FIRE', description: 'A compact flame projectile that occupies the long lane and slows pursuit.', motion: ['D', 'F'], button: 'punch', projectile: 'fire' },
+    { attack: 'electric', name: 'YOGA FLAME', shortName: 'FLAME', description: 'A sustained close flame cone that repeatedly burns opponents inside Dhal’s reach.', motion: ['D', 'B'], button: 'punch', effect: 'flame' },
+    { attack: 'hurricane', name: 'DRILL KICK', shortName: 'DRILL', description: 'A corkscrewing aerial spear that turns Dhal’s full body into a moving hit zone.', motion: ['D', 'F'], button: 'kick' },
   ],
   HONDO: [
-    { attack: 'rolling', name: 'SUMO HEADBUTT', shortName: 'HEADBUTT', motion: ['B', 'F'], button: 'punch' },
-    { attack: 'electric', name: 'HUNDRED HAND', shortName: 'HANDS', motion: ['D', 'F'], button: 'punch' },
-    { attack: 'shoryuken', name: 'SUMO SMASH', shortName: 'SMASH', motion: ['D', 'U'], button: 'kick', earlyAirStart: true },
+    { attack: 'rolling', name: 'SUMO HEADBUTT', shortName: 'HEADBUTT', description: 'A horizontal heavyweight launch that converts stored ground into sudden impact.', motion: ['B', 'F'], button: 'punch' },
+    { attack: 'electric', name: 'HUNDRED HAND', shortName: 'HANDS', description: 'A planted palm barrage that hits repeatedly and makes blocking expensive.', motion: ['D', 'F'], button: 'punch' },
+    { attack: 'shoryuken', name: 'SUMO SMASH', shortName: 'SMASH', description: 'An explosive vertical palm strike built to catch escape attempts overhead.', motion: ['D', 'U'], button: 'kick', earlyAirStart: true },
   ],
   KIRA: [
-    { attack: 'shoryuken', name: 'ZERO ASCENT', shortName: 'ASCENT', motion: ['F', 'D', 'F'], button: 'punch' },
-    { attack: 'hadouken', name: 'PHASE NEEDLE', shortName: 'NEEDLE', motion: ['D', 'F'], button: 'punch', projectile: 'sonic' },
-    { attack: 'electric', name: 'RIFT COUNTER', shortName: 'COUNTER', motion: ['D', 'B'], button: 'kick', effect: 'electric' },
+    { attack: 'shoryuken', name: 'ZERO ASCENT', shortName: 'ASCENT', description: 'A narrow predictive uppercut that meets an airborne body at its future position.', motion: ['F', 'D', 'F'], button: 'punch' },
+    { attack: 'hadouken', name: 'PHASE NEEDLE', shortName: 'NEEDLE', description: 'A thin high-speed energy needle made for exact long-range interruption.', motion: ['D', 'F'], button: 'punch', projectile: 'sonic' },
+    { attack: 'electric', name: 'RIFT COUNTER', shortName: 'COUNTER', description: 'A fractured guard plane followed by a rapid kick that punishes predictable pressure.', motion: ['D', 'B'], button: 'kick', effect: 'electric' },
   ],
   MAKO: [
-    { attack: 'hadouken', name: 'MOON TIDE', shortName: 'MOON TIDE', motion: ['D', 'F'], button: 'punch', projectile: 'blue' },
-    { attack: 'electric', name: 'GINGA RUSH', shortName: 'GINGA', motion: ['D', 'F'], button: 'kick', effect: 'wind' },
-    { attack: 'hurricane', name: 'AXE WHEEL', shortName: 'AXE WHEEL', motion: ['D', 'B'], button: 'kick' },
+    { attack: 'hadouken', name: 'MOON TIDE', shortName: 'MOON TIDE', description: 'A crescent wave that creates the beat Mako uses to begin his approach.', motion: ['D', 'F'], button: 'punch', projectile: 'blue' },
+    { attack: 'electric', name: 'GINGA RUSH', shortName: 'GINGA', description: 'A swaying series of rapid kicks that strikes repeatedly from changing heights.', motion: ['D', 'F'], button: 'kick', effect: 'wind' },
+    { attack: 'hurricane', name: 'AXE WHEEL', shortName: 'AXE WHEEL', description: 'A high capoeira wheel whose long rotating leg carries Mako through the opponent.', motion: ['D', 'B'], button: 'kick' },
   ],
   OMEGA: [
-    { attack: 'shoryuken', name: 'TERMINAL RISE', shortName: 'TERMINAL', motion: ['F', 'D', 'F'], button: 'punch' },
-    { attack: 'hadouken', name: 'RED VERDICT', shortName: 'VERDICT', motion: ['D', 'F'], button: 'punch', projectile: 'crimson' },
-    { attack: 'electric', name: 'FAULT CASCADE', shortName: 'CASCADE', motion: ['D', 'B'], button: 'kick', effect: 'crimson' },
+    { attack: 'testimony', name: 'FINAL TESTIMONY', shortName: 'TESTIMONY', description: 'Omega opens its cracked core and delivers a screen-length crimson beam with no projectile travel time.', motion: ['D', 'F'], button: 'punch' },
+    { attack: 'nullstep', name: 'NULL STEP', shortName: 'NULL STEP', description: 'Omega fractures into afterimages, phases through the rival, and rematerializes with a cross-up strike.', motion: ['B', 'F'], button: 'kick' },
+    { attack: 'entropy', name: 'ENTROPY WELL', shortName: 'ENTROPY', description: 'A localized gravity fault drags the opponent inward through three damaging implosions.', motion: ['D', 'B'], button: 'punch' },
   ],
 };
 
@@ -86,6 +87,16 @@ export function specialMovesFor(character: string): readonly SpecialMoveDefiniti
 
 export function specialMoveForAttack(character: string, attack: SpecialAttack): SpecialMoveDefinition | null {
   return specialMovesFor(character).find((move) => move.attack === attack) ?? null;
+}
+
+export function specialMoveFrames(attack: SpecialAttack): readonly string[] {
+  if (attack === 'hadouken' || attack === 'shoryuken') return [attack];
+  if (attack === 'electric') return ['electric_1', 'electric_2'];
+  if (attack === 'hurricane') return ['hurricane_1', 'hurricane_2', 'hurricane_3', 'hurricane_4'];
+  if (attack === 'rolling' || attack === 'verticalroll') return ['rolling_1', 'rolling_2', 'rolling_3', 'rolling_4'];
+  if (attack === 'testimony') return ['testimony_1', 'testimony_2', 'testimony_3'];
+  if (attack === 'nullstep') return ['nullstep_1', 'nullstep_2', 'nullstep_3', 'nullstep_4'];
+  return ['entropy_1', 'entropy_2', 'entropy_3'];
 }
 
 function directionCode(token: RelativeDirection, facing: 1 | -1): string {

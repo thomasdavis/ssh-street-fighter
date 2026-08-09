@@ -45,6 +45,8 @@ The server preserves 24-bit values by default. `SF_COLOR_STEP` and `SF_COLOR_MOD
 
 Combat is deterministic shared state. For a versus match, one session advances a `Match`; both sessions render the same object and contribute separate input snapshots. A motion buffer converts packet-safe direction histories into relative direction codes. Move ownership and presentation live in `game/moves.ts`, which keeps special attacks data-driven.
 
+The Next.js site does not maintain a parallel balance database. Its `prebuild` runs `src/tools/export-fighter-catalog.ts`, which imports the real roster, moves, animation-frame contracts, and combat-stat function and writes a generated web snapshot. Profile routes add current sprite dimensions and mtime-versioned PNG URLs at request time. This keeps the website independently buildable while making game definitions authoritative.
+
 ## Identity and ratings
 
 Public-key authentication verifies the supplied signature, then hashes the key into a stable fingerprint used by SQLite. Password or keyboard-interactive connections are deliberately treated as anonymous guests. Only matches between two distinct verified identities change ELO, preventing rating farming with disposable guests.

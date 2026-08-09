@@ -15,7 +15,7 @@ No download. No browser. No account. Just SSH in, choose a fighter, and throw ha
 ssh -p 2223 streetfighter.blah.dev
 ```
 
-[Play now](#play-now) · [Browse the sprite gallery](https://streetfighter.blah.dev) · [How it works](docs/ARCHITECTURE.md) · [Contribute](CONTRIBUTING.md)
+[Play now](#play-now) · [Browse fighter guides & sprites](https://streetfighter.blah.dev) · [How it works](docs/ARCHITECTURE.md) · [Contribute](CONTRIBUTING.md)
 
 <img src="docs/screenshots/gameplay.png" alt="BYU fighting MEN beneath the responsive terminal-native HUD" width="100%">
 
@@ -33,7 +33,7 @@ SSH Street Fighter is a full two-player fighting game rendered with 24-bit ANSI 
 - **Per-player controls**, configurable in-game and remembered with your SSH identity
 - **Zoom-proof adaptive HUD** using crisp terminal glyphs over the renderer-native world
 - **Truecolor by default**, compressed and diff-streamed without flattening the palette
-- **A live sprite gallery** for inspecting every animation pose
+- **Live fighter dossiers** with original stories, animated sprites, tactics, inputs, damage, and frame data
 
 <table>
   <tr>
@@ -90,7 +90,7 @@ The terminal has no diagonal key events, so specials use compact four-direction 
 | **HONDO** | `← → + W` Sumo Headbutt · `↓ → + W` Hundred Hand · `↓ ↑ + E` Sumo Smash |
 | **KIRA** | `→ ↓ → + W` Zero Ascent · `↓ → + W` Phase Needle · `↓ ← + E` Rift Counter |
 | **MAKO** | `↓ → + W` Moon Tide · `↓ → + E` Ginga Rush · `↓ ← + E` Axé Wheel |
-| **OMEGA** | `→ ↓ → + W` Terminal Rise · `↓ → + W` Red Verdict · `↓ ← + E` Fault Cascade |
+| **OMEGA** | `↓ → + W` Final Testimony · `← → + E` Null Step · `↓ ← + W` Entropy Well |
 
 </details>
 
@@ -127,9 +127,9 @@ All events are recorded locally in the append-only `analytics_events` SQLite tab
 
 Copy [`.env.example`](.env.example) as a starting point. Never commit a webhook, host key, database, or gallery admin token.
 
-### Sprite gallery
+### Fighter dossiers and sprite gallery
 
-The optional Next.js gallery renders every packed pose as a PNG:
+The optional Next.js site renders every packed pose as a PNG and publishes one responsive guide at `/fighters/<name>` for every roster entry. Profiles include original background stories, animated move sequences, tactics, inputs, damage, chip, range, and frame timing. A prebuild exporter reads the real roster, move, and engine modules before every web build, so the site cannot drift into a second hand-maintained combat database.
 
 ```bash
 cd web
@@ -162,7 +162,7 @@ pnpm test:e2e             # lounge, challenge, matchmaking, and practice over re
 pnpm exec tsx src/dump-png.ts fight 112 36
 ```
 
-The asset contract verifies all eleven fighters, all 33 special-move definitions, every required pose, and all six stage payloads. CI also builds the gallery.
+The asset contract verifies all eleven complete dossiers, all 33 explained special-move definitions, all 283 required poses, and all six stage payloads. CI also rebuilds the authoritative fighter catalog and the Next.js site.
 
 ## Project map
 
@@ -175,16 +175,16 @@ src/
   db/         additive SQLite schema, players, controls, ELO, match/chat/event history
   telemetry/  local analytics plus vital-only non-blocking Discord delivery
 assets/
-  sprites/    packed RGBA pose JSON plus one generation anchor per fighter
+  sprites/    283 packed RGBA pose JSON files plus one generation anchor per fighter
   stages/     six packed arena backgrounds
-web/          Next.js sprite gallery and guarded regeneration UI
+web/          Next.js fighter dossiers, animated sprite gallery, and guarded regeneration UI
 ```
 
 ## Contributing
 
 Bug fixes, renderer work, accessibility improvements, terminal compatibility reports, fighter balance, sprites, and new arenas are welcome. Start with [CONTRIBUTING.md](CONTRIBUTING.md), and please follow the [community guidelines](CODE_OF_CONDUCT.md).
 
-The public [roadmap](ROADMAP.md) tracks the analytics/profile website, additional fighters, and other contribution-sized milestones.
+The public [roadmap](ROADMAP.md) tracks privacy-safe aggregate analytics, additional fighters, and other contribution-sized milestones.
 
 ## License and naming
 
