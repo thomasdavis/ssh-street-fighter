@@ -1,5 +1,9 @@
 // The (legally distinct) roster. Comic knockoffs, our own pixel art.
-import { RED_PALETTE, BLUE_PALETTE, GREEN_PALETTE, PURPLE_PALETTE, OLIVE_PALETTE, CRIMSON_PALETTE, SAFFRON_PALETTE, NAVY_PALETTE } from './sprites.js';
+import {
+  RED_PALETTE, BLUE_PALETTE, GREEN_PALETTE, PURPLE_PALETTE, OLIVE_PALETTE,
+  CRIMSON_PALETTE, SAFFRON_PALETTE, NAVY_PALETTE, TEAL_PALETTE,
+  IVORY_PALETTE, OBSIDIAN_PALETTE,
+} from './sprites.js';
 import type { FighterPalette } from './types.js';
 
 export interface Character {
@@ -17,6 +21,9 @@ export const ROSTER: Character[] = [
   { name: 'ZANG', tagline: 'iron cyclone', palette: CRIMSON_PALETTE },
   { name: 'DHAL', tagline: 'mystic flame', palette: SAFFRON_PALETTE },
   { name: 'HONDO', tagline: 'sumo thunder', palette: NAVY_PALETTE },
+  { name: 'KIRA', tagline: 'phase tactician', palette: TEAL_PALETTE },
+  { name: 'MAKO', tagline: 'tide dancer', palette: IVORY_PALETTE },
+  { name: 'OMEGA', tagline: 'the last witness', palette: OBSIDIAN_PALETTE },
 ];
 
 export function characterAt(i: number): Character {

@@ -61,7 +61,7 @@ export interface Projectile {
   hit: boolean;           // already connected
   frame: number;          // animation timer
   facing: 1 | -1;
-  style: 'blue' | 'fire' | 'sonic';
+  style: 'blue' | 'fire' | 'sonic' | 'crimson';
 }
 
 export type MatchPhase = 'countdown' | 'fight' | 'round-over' | 'match-over';

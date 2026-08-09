@@ -2,7 +2,7 @@
 // character + frame name, downscaled to the exact on-screen size on demand and
 // mirrored for left-facing. Holding bytes (not per-pixel objects) keeps memory
 // small while allowing high fidelity when the terminal is zoomed way out.
-import { existsSync, readdirSync, readFileSync } from 'fs';
+import { existsSync, readFileSync } from 'fs';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { resizeRGBA, type PixelGrid } from '../render/pixel.js';
@@ -15,37 +15,30 @@ export interface Placed { grid: PixelGrid; anchorX: number; anchorY: number; }
 const MAX_SCALE_CACHE = 128;
 
 class SpriteSet {
-  private chars = new Map<string, Map<string, Frame>>();
-  private refH = new Map<string, number>(); // reference standing height per char (idle_1)
+  private frames = new Map<string, Frame>();
+  private missing = new Set<string>();
   private scaleCache = new Map<string, Placed>();
-  private loaded = false;
 
-  private ensure(): void {
-    if (this.loaded) return;
-    this.loaded = true;
-    if (!existsSync(BASE)) return;
-    for (const id of readdirSync(BASE)) {
-      const dir = resolve(BASE, id);
-      let files: string[];
-      try { files = readdirSync(dir).filter((f) => f.endsWith('.json')); } catch { continue; }
-      if (files.length === 0) continue;
-      const frames = new Map<string, Frame>();
-      for (const file of files) {
-        try {
-          const s = JSON.parse(readFileSync(resolve(dir, file), 'utf8')) as { w: number; h: number; anchorX: number; anchorY: number; data: string };
-          if (!s.data) continue;
-          frames.set(file.replace('.json', ''), { w: s.w, h: s.h, anchorX: s.anchorX, anchorY: s.anchorY, rgba: new Uint8Array(Buffer.from(s.data, 'base64')) });
-        } catch { /* skip bad frame */ }
-      }
-      this.chars.set(id.toUpperCase(), frames);
-      // reference = the standing idle height; every pose scales relative to it
-      // so a crouch (shorter stored sprite) renders shorter, not stretched up.
-      const ref = frames.get('idle_1')?.h ?? Math.max(...[...frames.values()].map((f) => f.h));
-      this.refH.set(id.toUpperCase(), ref);
+  /** Load one pose on first use; selection needs 11 idle frames, not all 277 animations. */
+  private loadFrame(charId: string, name: string): Frame | null {
+    const id = charId.toUpperCase();
+    const key = `${id}/${name}`;
+    const cached = this.frames.get(key);
+    if (cached) return cached;
+    if (this.missing.has(key)) return null;
+    try {
+      const s = JSON.parse(readFileSync(resolve(BASE, id, `${name}.json`), 'utf8')) as { w: number; h: number; anchorX: number; anchorY: number; data: string };
+      if (!s.data) throw new Error('empty sprite');
+      const frame = { w: s.w, h: s.h, anchorX: s.anchorX, anchorY: s.anchorY, rgba: new Uint8Array(Buffer.from(s.data, 'base64')) };
+      this.frames.set(key, frame);
+      return frame;
+    } catch {
+      this.missing.add(key);
+      return null;
     }
   }
 
-  has(charId: string): boolean { this.ensure(); return this.chars.has(charId.toUpperCase()); }
+  has(charId: string): boolean { return existsSync(resolve(BASE, charId.toUpperCase(), 'idle_1.json')); }
 
   /**
    * Get a frame sized so a full STANDING pose is `standH` on-screen pixels tall;
@@ -53,11 +46,10 @@ class SpriteSet {
    * a KO stays flat), mirrored for left.
    */
   getScaled(charId: string, name: string, facing: 1 | -1, standH: number): Placed | null {
-    this.ensure();
     const cid = charId.toUpperCase();
-    const f = this.chars.get(cid)?.get(name);
+    const f = this.loadFrame(cid, name);
     if (!f) return null;
-    const ref = this.refH.get(cid) ?? f.h;
+    const ref = name === 'idle_1' ? f.h : (this.loadFrame(cid, 'idle_1')?.h ?? f.h);
     const targetH = Math.max(1, Math.round(standH * f.h / ref));
     const key = `${charId}|${name}|${facing}|${targetH}`;
     const cached = this.scaleCache.get(key);

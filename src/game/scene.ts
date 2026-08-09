@@ -126,6 +126,18 @@ function drawSpecialAura(g: PixelGrid, v: View, f: Fighter): void {
     }
     return;
   }
+  if (effect === 'crimson') {
+    const core = rgb(255, 224, 176), red = rgb(244, 48, 44), dark = rgb(138, 12, 24);
+    for (let i = 0; i < 10; i++) {
+      const side = i % 2 ? 1 : -1;
+      const y = cy - 25 + i * 6;
+      const reach = 14 + ((i * 11 + phase * 5) % 13);
+      const x = f.x + side * reach;
+      wrect(g, v, x, y, 2, 2, i % 3 === 0 ? core : red);
+      wrect(g, v, x - side * 5, y + 2, 6, 1, i % 2 ? red : dark);
+    }
+    return;
+  }
   const blue = phase < 2 ? rgb(86, 186, 255) : rgb(214, 246, 255);
   const white = rgb(244, 255, 255);
   for (let i = 0; i < 8; i++) {
@@ -284,6 +296,11 @@ function drawProjectiles(g: PixelGrid, v: View, m: Match): void {
       fillCircle(g, v, cx, cy, r + 1, rgb(100, 224, 236));
       fillCircle(g, v, cx + p.facing * 2, cy, r - 3, rgb(214, 255, 248));
       wrect(g, v, cx - p.facing * 7, cy - 1, 11, 2, rgb(238, 255, 250));
+    } else if (p.style === 'crimson') {
+      for (let t = 4; t >= 1; t--) fillCircle(g, v, cx - p.facing * t * 5, cy, Math.max(1, r - t * 2), rgb(112 + t * 18, 8, 24));
+      fillCircle(g, v, cx, cy, r, rgb(154, 12, 28));
+      fillCircle(g, v, cx, cy, r - 3, rgb(246, 44, 42));
+      fillCircle(g, v, cx, cy, r - 6, rgb(255, 226, 180));
     } else {
       for (let t = 3; t >= 1; t--) fillCircle(g, v, cx - p.facing * t * 5, cy, Math.max(1, r - t * 2.4), rgb(66, 118, 236));
       fillCircle(g, v, cx, cy, r, rgb(74, 132, 255));

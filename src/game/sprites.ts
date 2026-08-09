@@ -39,6 +39,18 @@ export const NAVY_PALETTE: FighterPalette = {
   skin: { r: 226, g: 172, b: 132 }, gi: { r: 46, g: 72, b: 126 }, giDark: { r: 24, g: 40, b: 82 },
   hair: { r: 28, g: 24, b: 26 }, belt: { r: 240, g: 232, b: 210 },
 };
+export const TEAL_PALETTE: FighterPalette = {
+  skin: { r: 166, g: 112, b: 82 }, gi: { r: 24, g: 174, b: 164 }, giDark: { r: 12, g: 70, b: 78 },
+  hair: { r: 20, g: 24, b: 32 }, belt: { r: 122, g: 242, b: 222 },
+};
+export const IVORY_PALETTE: FighterPalette = {
+  skin: { r: 116, g: 72, b: 50 }, gi: { r: 238, g: 230, b: 206 }, giDark: { r: 178, g: 130, b: 46 },
+  hair: { r: 24, g: 20, b: 20 }, belt: { r: 40, g: 92, b: 184 },
+};
+export const OBSIDIAN_PALETTE: FighterPalette = {
+  skin: { r: 54, g: 58, b: 62 }, gi: { r: 42, g: 44, b: 48 }, giDark: { r: 14, g: 16, b: 20 },
+  hair: { r: 176, g: 22, b: 24 }, belt: { r: 244, g: 54, b: 44 },
+};
 
 const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
 const shade = (c: RGB): RGB => ({ r: c.r >> 1, g: c.g >> 1, b: c.b >> 1 });

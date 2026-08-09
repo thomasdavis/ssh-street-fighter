@@ -43,10 +43,11 @@ export function fighterSlot(i: number, n: number): SelectSlot {
   const cols = Math.ceil(n / 2);
   const row = Math.floor(i / cols), col = i % cols;
   const rowCount = Math.min(cols, n - row * cols);
+  const crowded = n > 8;
   return {
     x: Math.round((WORLD_W / rowCount) * col + WORLD_W / rowCount / 2),
-    baseline: row === 0 ? 72 : 124,
-    standH: 44,
+    baseline: row === 0 ? (crowded ? 80 : 72) : (crowded ? 128 : 124),
+    standH: crowded ? 40 : 44,
   };
 }
 

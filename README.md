@@ -25,7 +25,7 @@ ssh -p 2223 streetfighter.blah.dev
 
 SSH Street Fighter is a full two-player fighting game rendered with 24-bit ANSI color and Unicode half-block pixels. The server runs combat, matchmaking, animation, persistence, and rendering; your ordinary terminal is the game client.
 
-- **Eight complete fighters**, each with three character-specific special moves
+- **Eleven complete fighters**, each with three character-specific special moves
 - **Six animated arenas** with rain, surf, mist, steam, petals, runway lights, and other stage-bound motifs
 - **Real motion inputs** with a packet-safe input buffer for split SSH escape sequences
 - **Best-of-three online fights**, solo practice, direct challenges, and a quick-match queue
@@ -37,11 +37,11 @@ SSH Street Fighter is a full two-player fighting game rendered with 24-bit ANSI 
 
 <table>
   <tr>
-    <td width="50%"><img src="docs/screenshots/fighter-select.png" alt="Eight-fighter selection screen"></td>
+    <td width="50%"><img src="docs/screenshots/fighter-select.png" alt="Fighter selection screen"></td>
     <td width="50%"><img src="docs/screenshots/lounge.png" alt="Fight Lounge with persistent chat and direct challenges"></td>
   </tr>
   <tr>
-    <td align="center"><strong>Eight distinct move sets</strong></td>
+    <td align="center"><strong>Eleven distinct move sets</strong></td>
     <td align="center"><strong>Chat, presence, and direct challenges</strong></td>
   </tr>
 </table>
@@ -76,7 +76,7 @@ Choose **Controls** on the main menu to rebind every combat direction, both jump
 The terminal has no diagonal key events, so specials use compact four-direction motions. Inputs are relative to the direction your fighter is facing.
 
 <details>
-<summary><strong>All 24 special moves</strong></summary>
+<summary><strong>All 33 special moves</strong></summary>
 
 | Fighter | Special moves |
 |---|---|
@@ -88,6 +88,9 @@ The terminal has no diagonal key events, so specials use compact four-direction 
 | **ZANG** | `→ ↓ ← + W` Cyclone Driver · `← → + W` Double Lariat · `↓ ← + E` Flying Press |
 | **DHAL** | `↓ → + W` Yoga Fire · `↓ ← + W` Yoga Flame · `↓ → + E` Drill Kick |
 | **HONDO** | `← → + W` Sumo Headbutt · `↓ → + W` Hundred Hand · `↓ ↑ + E` Sumo Smash |
+| **KIRA** | `→ ↓ → + W` Zero Ascent · `↓ → + W` Phase Needle · `↓ ← + E` Rift Counter |
+| **MAKO** | `↓ → + W` Moon Tide · `↓ → + E` Ginga Rush · `↓ ← + E` Axé Wheel |
+| **OMEGA** | `→ ↓ → + W` Terminal Rise · `↓ → + W` Red Verdict · `↓ ← + E` Fault Cascade |
 
 </details>
 
@@ -159,7 +162,7 @@ pnpm test:e2e             # lounge, challenge, matchmaking, and practice over re
 pnpm exec tsx src/dump-png.ts fight 112 36
 ```
 
-The asset contract verifies all eight fighters, all 24 special-move definitions, every required pose, and all six stage payloads. CI also builds the gallery.
+The asset contract verifies all eleven fighters, all 33 special-move definitions, every required pose, and all six stage payloads. CI also builds the gallery.
 
 ## Project map
 

@@ -23,7 +23,7 @@ const specialFrames = (attack: AttackKind): string[] => {
 };
 
 const errors: string[] = [];
-if (ROSTER.length !== 8) errors.push(`expected 8 roster fighters, found ${ROSTER.length}`);
+if (ROSTER.length !== 11) errors.push(`expected 11 roster fighters, found ${ROSTER.length}`);
 
 for (const fighter of ROSTER) {
   const moves = specialMovesFor(fighter.name);
@@ -61,4 +61,4 @@ if (errors.length) {
   for (const error of errors) console.error(`FAIL: ${error}`);
   process.exit(1);
 }
-console.log('ASSET TEST: PASS (8 fighters, 24 specials, 6 stages)');
+console.log('ASSET TEST: PASS (11 fighters, 33 specials, 6 stages)');

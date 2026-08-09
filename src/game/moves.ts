@@ -14,8 +14,8 @@ export interface SpecialMoveDefinition {
   // attack key. Give those moves a tiny hop-cancel window so SSH packet timing
   // cannot turn a valid charge-style input into an ordinary jump.
   earlyAirStart?: boolean;
-  effect?: 'electric' | 'wind' | 'flame';
-  projectile?: 'blue' | 'fire' | 'sonic';
+  effect?: 'electric' | 'wind' | 'flame' | 'crimson';
+  projectile?: 'blue' | 'fire' | 'sonic' | 'crimson';
 }
 
 // Ordered most-specific first: the engine uses this same list for recognition,
@@ -60,6 +60,21 @@ const MOVE_SETS: Readonly<Record<string, readonly SpecialMoveDefinition[]>> = {
     { attack: 'rolling', name: 'SUMO HEADBUTT', shortName: 'HEADBUTT', motion: ['B', 'F'], button: 'punch' },
     { attack: 'electric', name: 'HUNDRED HAND', shortName: 'HANDS', motion: ['D', 'F'], button: 'punch' },
     { attack: 'shoryuken', name: 'SUMO SMASH', shortName: 'SMASH', motion: ['D', 'U'], button: 'kick', earlyAirStart: true },
+  ],
+  KIRA: [
+    { attack: 'shoryuken', name: 'ZERO ASCENT', shortName: 'ASCENT', motion: ['F', 'D', 'F'], button: 'punch' },
+    { attack: 'hadouken', name: 'PHASE NEEDLE', shortName: 'NEEDLE', motion: ['D', 'F'], button: 'punch', projectile: 'sonic' },
+    { attack: 'electric', name: 'RIFT COUNTER', shortName: 'COUNTER', motion: ['D', 'B'], button: 'kick', effect: 'electric' },
+  ],
+  MAKO: [
+    { attack: 'hadouken', name: 'MOON TIDE', shortName: 'MOON TIDE', motion: ['D', 'F'], button: 'punch', projectile: 'blue' },
+    { attack: 'electric', name: 'GINGA RUSH', shortName: 'GINGA', motion: ['D', 'F'], button: 'kick', effect: 'wind' },
+    { attack: 'hurricane', name: 'AXE WHEEL', shortName: 'AXE WHEEL', motion: ['D', 'B'], button: 'kick' },
+  ],
+  OMEGA: [
+    { attack: 'shoryuken', name: 'TERMINAL RISE', shortName: 'TERMINAL', motion: ['F', 'D', 'F'], button: 'punch' },
+    { attack: 'hadouken', name: 'RED VERDICT', shortName: 'VERDICT', motion: ['D', 'F'], button: 'punch', projectile: 'crimson' },
+    { attack: 'electric', name: 'FAULT CASCADE', shortName: 'CASCADE', motion: ['D', 'B'], button: 'kick', effect: 'crimson' },
   ],
 };
 

@@ -154,12 +154,14 @@ for (const character of ROSTER) {
   }
 }
 
-// 17) Projectile appearance follows the move definition, not character-name conditionals.
-for (const [character, style] of [['BYU', 'blue'], ['MEN', 'fire'], ['GYLE', 'sonic'], ['DHAL', 'fire']] as const) {
-  const move = specialMovesFor(character).find((x) => x.attack === 'hadouken')!;
-  m = fresh(character); const i = idle(); i.motion = specialMoveMotionCode(move, 1); i[move.button] = true; stepMatch(m, i, idle());
+// 17) Every projectile fighter's appearance follows its move definition, not a character-name conditional.
+for (const character of ROSTER) {
+  const move = specialMovesFor(character.name).find((x) => x.attack === 'hadouken');
+  if (!move) continue;
+  m = fresh(character.name); const i = idle(); i.motion = specialMoveMotionCode(move, 1); i[move.button] = true; stepMatch(m, i, idle());
   for (let k = 0; k < 12; k++) stepMatch(m, idle(), idle());
-  check(`${character} projectile style`, m.projectiles[0]?.style === style, `got=${m.projectiles[0]?.style ?? 'none'}`);
+  const expected = move.projectile ?? 'blue';
+  check(`${character.name} projectile style`, m.projectiles[0]?.style === expected, `got=${m.projectiles[0]?.style ?? 'none'}`);
 }
 
 console.log(pass ? '\nENGINE TEST: PASS' : '\nENGINE TEST: FAIL');
