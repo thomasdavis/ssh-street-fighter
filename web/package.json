@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "next dev -p 3130",
-    "prebuild": "cd .. && pnpm exec tsx src/tools/export-fighter-catalog.ts",
+    "prebuild": "tsx ../src/tools/export-fighter-catalog.ts",
     "build": "next build",
     "start": "next start -p 3130"
   },
@@ -21,6 +21,7 @@
     "@types/node": "^22.15.3",
     "@types/react": "^19.2.2",
     "@types/react-dom": "^19.2.2",
+    "tsx": "^4.19.0",
     "typescript": "^5.6.0"
   }
 }
