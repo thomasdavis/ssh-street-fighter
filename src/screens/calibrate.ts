@@ -54,10 +54,16 @@ function recenter(m: Match): void {
   m.projectiles = [];
 }
 
-const QUALITY = ['LOW', 'FAIR', 'GOOD', 'CRISP', 'ULTRA'] as const;
+const QUALITY = ['LOW', 'FAIR', 'GOOD', 'CRISP', 'ULTRA', 'MAX'] as const;
+const QMAX = QUALITY.length - 1;
 function quality(cols: number, rows: number): number {
-  const cells = cols * rows;
-  return cells < 1800 ? 0 : cells < 3200 ? 1 : cells < 4800 ? 2 : cells < 7200 ? 3 : 4;
+  // Fidelity tracks the fighter's on-screen height in sub-pixels: the scene
+  // renders at cols*2 x rows*4 sub-pixels, a fighter is ~58 world units tall,
+  // and sprites are ~250px native — so detail keeps climbing as you zoom out
+  // until ~200px (MAX). ws = view scale = min(cols/120, rows/40).
+  const ws = Math.min((cols * 2) / 240, (rows * 4) / 160);
+  const px = 58 * ws;
+  return px < 30 ? 0 : px < 50 ? 1 : px < 80 ? 2 : px < 120 ? 3 : px < 185 ? 4 : 5;
 }
 
 export const calibrate = {
@@ -101,14 +107,14 @@ export const calibrate = {
 
     // live resolution + quality meter
     const q = quality(cols, rows);
-    const qcol = q <= 0 ? THEME.bad : q === 1 ? THEME.accent : q >= 4 ? THEME.good : THEME.accent2;
+    const qcol = q <= 0 ? THEME.bad : q === 1 ? THEME.accent : q >= QMAX ? THEME.good : THEME.accent2;
     line(r++, `Canvas ${cols}x${rows} cells  ->  ${cols * 2}x${rows * 4} sub-pixels`, THEME.text);
-    const segs = 5;
+    const segs = QUALITY.length;
     let mx = inner.x;
     f.write(mx, r, 'FIDELITY ', THEME.textDim, THEME.panel); mx += 9;
     for (let i = 0; i < segs; i++) { f.putChar(mx++, r, i <= q ? '█' : '░', i <= q ? qcol : THEME.textDim, THEME.panel, false); }
     f.write(mx + 1, r, QUALITY[q]!, qcol, THEME.panel, true);
-    if (q < 4) f.write(mx + 1 + QUALITY[q]!.length + 1, r, '(zoom out for more)', THEME.textDim, THEME.panel);
+    if (q < QMAX) f.write(mx + 1 + QUALITY[q]!.length + 1, r, '(zoom out for more)', THEME.textDim, THEME.panel);
     r++;
 
     keyHints(f, f.rows - 1, [['V', `GFX:${s.renderMode.toUpperCase()}`], ['?', 'MOVES'], ['ENTER', "READY - LET'S FIGHT"]]);
