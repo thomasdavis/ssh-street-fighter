@@ -1,42 +1,54 @@
 import type { Frame } from '../render/frame.js';
 import type { Key } from '../ui/key.js';
 import type { Session } from '../net/session.js';
-import { box, menu as menuWidget, bigCenter, keyHints } from '../ui/tui.js';
+import { makeSurface } from '../ui/surface.js';
+import { menuList, hints, stat } from '../ui/widgets.js';
 import { THEME } from '../ui/theme.js';
 import { characterAt, ROSTER } from '../game/roster.js';
 import * as db from '../db/db.js';
 
-const ITEMS = ['QUICK MATCH  (PLAY ONLINE)', 'FIGHT LOUNGE  (CHAT + CHALLENGE)', 'PRACTICE MODE', 'LEADERBOARD', 'CONTROLS', 'HELP', 'QUIT'];
+const ITEMS = ['QUICK MATCH', 'FIGHT LOUNGE', 'PRACTICE MODE', 'LEADERBOARD', 'CONTROLS', 'HELP', 'QUIT'];
 
 export const menu = {
   render(s: Session, f: Frame): void {
-    f.gradient(THEME.bgTop, THEME.bgBot);
-    bigCenter(f, 1, 'STREET FIGHTER', THEME.accent, THEME.bgTop, 1);
-    f.center(8, `WELCOME, ${s.displayName}`, THEME.text, THEME.bgTop, true);
+    const ui = makeSurface(f);
+    ui.gradient(THEME.bgTop, THEME.bgBot);
+    ui.heading(1, 'STREET FIGHTER', THEME.accent, 1);
+    const hy = 1 + ui.headingHeight(1) + 1;
+    const welcome = `WELCOME, ${s.displayName}`;
+    ui.text(Math.floor((ui.cols - welcome.length) / 2), hy, welcome, { color: THEME.text, bold: true });
 
-    const inner = box(f, Math.floor(f.cols / 2 - 34), 11, 38, 17, { title: 'MAIN MENU', style: 'double' });
-    menuWidget(f, inner.x, inner.y + 1, inner.w, ITEMS, s.menuIndex);
+    // two panels (menu + fighter card), centered as a group
+    const leftW = Math.min(40, Math.floor(ui.cols * 0.5));
+    const rightW = Math.min(26, Math.floor(ui.cols * 0.3));
+    const gap = 2;
+    const startX = Math.max(0, Math.floor((ui.cols - (leftW + gap + rightW)) / 2));
+    const py = hy + 2;
+    const ph = Math.min(ITEMS.length * 2 + 3, ui.rows - py - 3);
 
-    // char + stats panel on the right
-    const rx = Math.floor(f.cols / 2 + 6);
-    const rp = box(f, rx, 11, 24, 17, { title: 'YOUR FIGHTER' });
+    const menuInner = ui.panel(startX, py, leftW, ph, { title: 'MAIN MENU' });
+    menuList(ui, menuInner.x, menuInner.y, menuInner.w, ITEMS, s.menuIndex);
+
+    const cardInner = ui.panel(startX + leftW + gap, py, rightW, ph, { title: 'YOUR FIGHTER' });
     const c = characterAt(s.cursor);
-    f.write(rp.x, rp.y + 1, c.name, THEME.accent, THEME.panel, true);
-    f.write(rp.x, rp.y + 2, c.tagline.toUpperCase(), THEME.textDim, THEME.panel);
+    let ry = cardInner.y;
+    ui.text(cardInner.x, ry++, c.name, { color: THEME.accent, bold: true });
+    ui.text(cardInner.x, ry++, c.tagline.toUpperCase(), { color: THEME.textDim });
+    ry++;
     const p = s.player;
-    const rank = s.fp ? db.playerRank(s.fp) : null;
     if (p) {
-      f.write(rp.x, rp.y + 4, `WINS   ${p.wins}`, THEME.good, THEME.panel);
-      f.write(rp.x, rp.y + 5, `LOSSES ${p.losses}`, THEME.bad, THEME.panel);
-      f.write(rp.x, rp.y + 6, `ELO    ${p.elo}`, THEME.accent, THEME.panel, true);
-      if (rank) f.write(rp.x, rp.y + 7, `RANK   #${rank}`, THEME.accent2, THEME.panel, true);
-      f.write(rp.x, rp.y + 8, `WIN%   ${p.matches ? Math.round((p.wins / p.matches) * 100) : 0}`, THEME.text, THEME.panel);
+      const rank = s.fp ? db.playerRank(s.fp) : null;
+      stat(ui, cardInner.x, ry++, 'WINS', String(p.wins), THEME.good);
+      stat(ui, cardInner.x, ry++, 'LOSSES', String(p.losses), THEME.bad);
+      stat(ui, cardInner.x, ry++, 'ELO', String(p.elo), THEME.accent);
+      if (rank) stat(ui, cardInner.x, ry++, 'RANK', `#${rank}`, THEME.accent2);
+      stat(ui, cardInner.x, ry++, 'WIN%', String(p.matches ? Math.round((p.wins / p.matches) * 100) : 0));
     } else {
-      f.write(rp.x, rp.y + 4, 'GUEST', THEME.textDim, THEME.panel);
-      f.write(rp.x, rp.y + 5, 'stats not saved', THEME.textDim, THEME.panel);
+      ui.text(cardInner.x, ry++, 'GUEST', { color: THEME.textDim });
+      ui.text(cardInner.x, ry++, 'stats not saved', { color: THEME.textDim });
     }
 
-    keyHints(f, f.rows - 2, [['W/S', 'MOVE'], ['ENTER', 'SELECT'], ['?', 'HELP']]);
+    hints(ui, ui.rows - 2, [['W/S', 'MOVE'], ['ENTER', 'SELECT'], ['?', 'HELP']]);
   },
 
   onKey(s: Session, k: Key): void {
