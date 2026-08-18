@@ -15,6 +15,7 @@ import * as db from '../db/db.js';
 import { clearEdges, type P2W, type W2P } from './messages.js';
 import type { MatchResult } from '../net/session.js';
 import type { RosterEntry, ChatLine, ChallengePeer } from '../net/hub.js';
+import { sameRegionWaiter, agedPair } from '../net/matchmaking.js';
 
 // How often the primary ships match state to the workers. Relaying every sim
 // tick (30Hz) minimises how stale the opponent's state is when a worker renders;
@@ -24,7 +25,7 @@ const RELAY_HZ = Math.min(TICK_HZ, Math.max(1, parseInt(process.env.SF_RELAY_HZ 
 /** Minimal shape of a cluster worker the coordinator needs (real Worker fits). */
 export interface WorkerRef { id: number; send: (msg: P2W) => void; }
 
-interface Player { worker: WorkerRef; sid: number; gid: string; name: string; fp: string | null; cursor: number; elo: number; }
+interface Player { worker: WorkerRef; sid: number; gid: string; name: string; fp: string | null; cursor: number; elo: number; region: string; queuedAt: number; }
 interface LoungeMember extends Player { cid: string; incoming: string | null; outgoing: string | null; } // incoming/outgoing = peer gid
 interface ActiveMatch { mid: string; a: Player; b: Player; match: Match; pendA: Inputs; pendB: Inputs; relayAccum: number; ackA: number; ackB: number; }
 
@@ -35,7 +36,7 @@ export class MatchCoordinator {
   private players = new Map<string, Player>();
   private matches = new Map<string, ActiveMatch>();
   private gidToMid = new Map<string, string>();
-  private waiting: Player | null = null;
+  private waiting: Player[] = [];
   private lounge = new Map<string, LoungeMember>();   // gid -> member
   private cidToGid = new Map<string, string>();        // connectionId -> gid (lounge)
 
@@ -58,7 +59,7 @@ export class MatchCoordinator {
   }
 
   handleExit(workerId: number): void {
-    if (this.waiting && this.waiting.worker.id === workerId) this.waiting = null;
+    this.waiting = this.waiting.filter((w) => w.worker.id !== workerId);
     for (const p of [...this.players.values()]) if (p.worker.id === workerId) {
       if (this.gidToMid.has(p.gid)) this.forfeit(p.gid); else this.players.delete(p.gid);
     }
@@ -67,14 +68,16 @@ export class MatchCoordinator {
 
   private onQueue(worker: WorkerRef, m: Extract<W2P, { t: 'queue' }>): void {
     const gid = gidOf(worker.id, m.sid);
-    const p: Player = { worker, sid: m.sid, gid, name: m.name, fp: m.fp, cursor: m.cursor, elo: m.elo };
+    const p: Player = { worker, sid: m.sid, gid, name: m.name, fp: m.fp, cursor: m.cursor, elo: m.elo, region: m.region, queuedAt: Date.now() };
     this.players.set(gid, p);
-    if (this.waiting && this.waiting.gid !== gid) { const a = this.waiting; this.waiting = null; this.pair(a, p); }
-    else this.waiting = p;
+    const idx = sameRegionWaiter(this.waiting, p.region);   // prefer a same-region opponent
+    if (idx >= 0) this.pair(this.waiting.splice(idx, 1)[0]!, p);
+    else this.waiting.push(p);
   }
 
   private onDequeue(gid: string): void {
-    if (this.waiting && this.waiting.gid === gid) this.waiting = null;
+    const i = this.waiting.findIndex((w) => w.gid === gid);
+    if (i >= 0) this.waiting.splice(i, 1);
     if (!this.gidToMid.has(gid)) this.players.delete(gid);
   }
 
@@ -103,6 +106,10 @@ export class MatchCoordinator {
 
   /** Advance every match one simulation tick; call at TICK_HZ. */
   tick(): void {
+    // Fallback matchmaking sweep: pair the oldest waiters across regions once
+    // they've waited past the timeout (so lopsided populations still match).
+    const aged = agedPair(this.waiting, Date.now());
+    if (aged) { const [i, j] = aged; const [lo, hi] = i < j ? [i, j] : [j, i]; const b = this.waiting.splice(hi, 1)[0]!; const a = this.waiting.splice(lo, 1)[0]!; this.pair(a, b); }
     for (const am of this.matches.values()) {
       stepMatch(am.match, am.pendA, am.pendB);
       clearEdges(am.pendA); clearEdges(am.pendB);
@@ -171,7 +178,7 @@ export class MatchCoordinator {
 
   private onLoungeJoin(worker: WorkerRef, m: Extract<W2P, { t: 'loungeJoin' }>): void {
     const gid = gidOf(worker.id, m.sid);
-    const mem: LoungeMember = { worker, sid: m.sid, gid, cid: m.cid, name: m.name, fp: m.fp, cursor: m.cursor, elo: m.elo, incoming: null, outgoing: null };
+    const mem: LoungeMember = { worker, sid: m.sid, gid, cid: m.cid, name: m.name, fp: m.fp, cursor: m.cursor, elo: m.elo, region: 'XX', queuedAt: 0, incoming: null, outgoing: null };
     this.lounge.set(gid, mem); this.cidToGid.set(m.cid, gid);
     this.notice(mem, 'TAB SWITCHES BETWEEN CHAT AND PLAYERS');
     this.broadcastLounge();
@@ -229,7 +236,7 @@ export class MatchCoordinator {
 
   // introspection for tests
   get activeMatches(): number { return this.matches.size; }
-  get queued(): number { return this.waiting ? 1 : 0; }
+  get queued(): number { return this.waiting.length; }
   get loungeSize(): number { return this.lounge.size; }
 }
 

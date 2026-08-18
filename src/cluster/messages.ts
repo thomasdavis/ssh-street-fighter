@@ -9,7 +9,7 @@ import type { RosterEntry, ChatLine, ChallengePeer } from '../net/hub.js';
 
 // worker -> primary
 export type W2P =
-  | { t: 'queue'; sid: number; cid: string; name: string; fp: string | null; cursor: number; elo: number }
+  | { t: 'queue'; sid: number; cid: string; name: string; fp: string | null; cursor: number; elo: number; region: string }
   | { t: 'dequeue'; sid: number }
   | { t: 'input'; mid: string; sid: number; input: Inputs; seq: number }
   | { t: 'leaveMatch'; mid: string; sid: number }

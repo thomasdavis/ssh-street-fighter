@@ -1,4 +1,10 @@
+allowBuilds:
+  better-sqlite3: set this to true or false
+  cpu-features: set this to true or false
+  esbuild: set this to true or false
+  ssh2: set this to true or false
 onlyBuiltDependencies:
+  - geoip-lite
   - better-sqlite3
   - ssh2
   - cpu-features

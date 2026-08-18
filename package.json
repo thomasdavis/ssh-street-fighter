@@ -22,6 +22,7 @@
   },
   "dependencies": {
     "better-sqlite3": "^13.0.3",
+    "geoip-lite": "^2.0.3",
     "openai": "^7.4.0",
     "sharp": "^0.35.3",
     "ssh2": "^1.16.0"

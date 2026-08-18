@@ -16,6 +16,7 @@ import { composeSceneCached } from '../game/scene.js';
 import { makeRenderPool } from '../render/render-pool.js';
 import { hub, type RosterEntry, type ChatLine, type ChallengePeer } from './hub.js';
 import { MATCH_IDS } from './match-ids.js';
+import { regionOf } from './region.js';
 import { makeFighter, makeMatch, stepMatch, predictLocal, TICK_HZ } from '../game/engine.js';
 import { emptyInputs, type Inputs, type Match } from '../game/types.js';
 import { characterAt } from '../game/roster.js';
@@ -59,6 +60,8 @@ export class Session {
 
   // transport
   cols = 120; rows = 40;
+  region = 'XX';           // coarse continent for region-aware matchmaking
+  private lastWriteAt = Date.now();  // for the idle keepalive
   prevFrame: Cell[] | null = null;
   // two persistent cell buffers; render ping-pongs between them so steady-state
   // rendering reuses them in place (zero per-frame allocation, minimal GC).
@@ -130,6 +133,7 @@ export class Session {
   ) {
     this.fp = fp;
     this.guest = !fp;
+    this.region = regionOf(this.remoteIp);
     let landing: ScreenName = 'username';
     if (fp) {
       this.player = db.touchOrCreate(fp);
@@ -169,6 +173,7 @@ export class Session {
 
   write(s: string): void {
     if (!this.alive || this.outputBlocked) return;
+    this.lastWriteAt = Date.now();
     try {
       if (!this.stream.write(s)) {
         // Never queue an unbounded history of obsolete animation frames for a
@@ -281,6 +286,10 @@ export class Session {
       this.renderAccum -= TICK_HZ;
       if (!this.outputBlocked) this.renderCurrent();
     }
+    // Idle keepalive: a static screen (menu/lounge) writes nothing, so a relay
+    // or NAT could drop the connection. Re-send the (invisible, idempotent)
+    // hide-cursor sequence if we've been silent, to keep the TCP flow alive.
+    if (!this.outputBlocked && Date.now() - this.lastWriteAt > 25_000) this.write(HIDE_CURSOR);
   }
   private renderAccum = 0;
 

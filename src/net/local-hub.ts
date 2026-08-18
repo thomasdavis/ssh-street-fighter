@@ -9,20 +9,35 @@ import { makeFighter, makeMatch } from '../game/engine.js';
 import { characterAt } from '../game/roster.js';
 import * as db from '../db/db.js';
 import { actorRef, eventId, track } from '../telemetry/discord.js';
+import { sameRegionWaiter, agedPair } from './matchmaking.js';
+
+interface Waiting { s: Session; region: string; queuedAt: number; }
 
 export class LocalHub implements Hub {
-  private waiting: Session | null = null;
+  private waiting: Waiting[] = [];
   private members = new Set<Session>();
+
+  constructor() { setInterval(() => this.sweepQueue(), 2000); } // region-fallback sweep
 
   register(): void { /* nothing to do in-process */ }
   unregister(s: Session): void { this.cancelQueue(s); if (this.members.has(s) || s.incoming || s.outgoing) this.leaveLounge(s); }
 
-  // ---- quick match ----
+  // ---- quick match (prefer same region, fall back across regions after a wait) ----
   queue(s: Session): void {
-    if (this.waiting && this.waiting.alive && this.waiting !== s) { const a = this.waiting; this.waiting = null; this.pair(a, s, 'quick_match'); }
-    else { this.waiting = s; s.goTo('lobbyWait'); }
+    const idx = sameRegionWaiter(this.waiting, s.region);
+    const w = idx >= 0 ? this.waiting[idx] : undefined;
+    if (w && w.s.alive && w.s !== s) { this.waiting.splice(idx, 1); this.pair(w.s, s, 'quick_match'); }
+    else { this.waiting.push({ s, region: s.region, queuedAt: Date.now() }); s.goTo('lobbyWait'); }
   }
-  cancelQueue(s: Session): void { if (this.waiting === s) this.waiting = null; }
+  cancelQueue(s: Session): void { const i = this.waiting.findIndex((w) => w.s === s); if (i >= 0) this.waiting.splice(i, 1); }
+  private sweepQueue(): void {
+    this.waiting = this.waiting.filter((w) => w.s.alive);
+    const aged = agedPair(this.waiting, Date.now());
+    if (!aged) return;
+    const [i, j] = aged; const [lo, hi] = i < j ? [i, j] : [j, i];
+    const b = this.waiting.splice(hi, 1)[0]!.s, a = this.waiting.splice(lo, 1)[0]!.s;
+    if (a.alive && b.alive) this.pair(a, b, 'quick_match');
+  }
 
   relayInput(): void { /* local sims in-process, nothing to relay or predict */ }
   leaveMatch(): void { /* local forfeit is handled by Session.leaveFight/close */ }

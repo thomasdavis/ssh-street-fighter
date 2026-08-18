@@ -17,9 +17,9 @@ const wA: WorkerRef = { id: 1, send: (m) => outA.push(m) };
 const wB: WorkerRef = { id: 2, send: (m) => outB.push(m) };
 
 // Both queue — different workers, SAME sid (5) to prove gids disambiguate.
-coord.handle(wA, { t: 'queue', sid: 5, cid: 'a', name: 'ALICE', fp: null, cursor: 0, elo: 1200 });
+coord.handle(wA, { t: 'queue', sid: 5, cid: 'a', name: 'ALICE', fp: null, cursor: 0, elo: 1200, region: 'NA' });
 check('first queue waits (no match yet)', coord.activeMatches === 0 && coord.queued === 1);
-coord.handle(wB, { t: 'queue', sid: 5, cid: 'b', name: 'BOB', fp: null, cursor: 3, elo: 1200 });
+coord.handle(wB, { t: 'queue', sid: 5, cid: 'b', name: 'BOB', fp: null, cursor: 3, elo: 1200, region: 'NA' });
 
 const startA = outA.find((m) => m.t === 'matchStart') as Extract<P2W, { t: 'matchStart' }> | undefined;
 const startB = outB.find((m) => m.t === 'matchStart') as Extract<P2W, { t: 'matchStart' }> | undefined;
