@@ -10,25 +10,30 @@ const N = parseInt(process.argv[2] ?? '100', 10);
 const HOST = process.argv[3] ?? '127.0.0.1';
 const PORT = parseInt(process.argv[4] ?? '22', 10);
 const SECS = parseInt(process.argv[5] ?? '20', 10);
+const FIGHT_PCT = parseFloat(process.argv[6] ?? '100'); // % of clients that enter a fight; rest idle in menu
 
 let ready = 0, shells = 0, fighting = 0, errors = 0, bytes = 0, closed = 0;
 const conns: Client[] = [];
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 function drive(stream: any) {
-  // calibration ENTER -> name -> menu(down,down,practice) -> select ENTER -> fight
+  const willFight = Math.random() * 100 < FIGHT_PCT;
+  // Everyone: calibration ENTER -> name -> menu. Fighters go on into practice.
   const seq: [number, string][] = [
     [1200, '\r'], [700, `L${Math.floor(Math.random() * 1e6)}`.slice(0, 8)], [400, '\r'],
-    [900, '\x1b[B\x1b[B'], [500, '\r'], [900, '\r'],
   ];
+  if (willFight) seq.push([900, '\x1b[B\x1b[B'], [500, '\r'], [900, '\r']);
   let t = 0;
   for (const [d, s] of seq) { t += d; setTimeout(() => { try { stream.write(s); } catch { /* */ } }, t); }
-  // then spam fight inputs so it keeps rendering
-  const spam = setInterval(() => {
-    try { stream.write(['\x1b[C', '\x1b[D', 'w', 'e', '\x1b[A'][Math.floor(Math.random() * 5)]!); } catch { /* */ }
-  }, 120);
-  setTimeout(() => { fighting++; }, t + 500);
-  stream.on('close', () => clearInterval(spam));
+  if (willFight) {
+    const spam = setInterval(() => { try { stream.write(['\x1b[C', '\x1b[D', 'w', 'e', '\x1b[A'][Math.floor(Math.random() * 5)]!); } catch { /* */ } }, 120);
+    setTimeout(() => { fighting++; }, t + 500);
+    stream.on('close', () => clearInterval(spam));
+  } else {
+    // idle in the menu: a rare keypress to look alive, but mostly quiet
+    const idle = setInterval(() => { try { stream.write(Math.random() < 0.5 ? '\x1b[B' : '\x1b[A'); } catch { /* */ } }, 3000);
+    stream.on('close', () => clearInterval(idle));
+  }
 }
 
 async function main() {
