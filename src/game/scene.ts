@@ -328,6 +328,25 @@ function fillCircle(g: PixelGrid, v: View, wx: number, wy: number, wr: number, c
   }
 }
 
+// impact flashes at hit contact points — instant, weighty feedback on every hit
+function drawSparks(g: PixelGrid, v: View, m: Match): void {
+  for (const s of m.sparks) {
+    const cx = s.x, cy = GROUND_Y - s.y;
+    const maxT = s.heavy ? 7 : 5;
+    const r = 2 + (maxT - s.t) * (s.heavy ? 1.7 : 1.2); // expands as it ages
+    if (s.heavy) {
+      fillCircle(g, v, cx, cy, r + 2, rgb(255, 150, 30));
+      fillCircle(g, v, cx, cy, r, rgb(255, 226, 110));
+      fillCircle(g, v, cx, cy, Math.max(1, r - 2), rgb(255, 255, 244));
+      for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [-1, -1], [1, -1], [-1, 1]] as const)
+        wrect(g, v, cx + dx * (r + 3), cy + dy * (r + 3), 1, 1, rgb(255, 244, 180));
+    } else {
+      fillCircle(g, v, cx, cy, r, rgb(255, 236, 150));
+      fillCircle(g, v, cx, cy, Math.max(1, r - 2), rgb(255, 255, 244));
+    }
+  }
+}
+
 // energy fireballs (Hadouken)
 function drawProjectiles(g: PixelGrid, v: View, m: Match): void {
   for (const p of m.projectiles) {
@@ -355,6 +374,14 @@ function drawProjectiles(g: PixelGrid, v: View, m: Match): void {
 /** Render the stage at `pw`x`ph` pixels (defaults to the logical world size). */
 export function composeScene(m: Match, hud = true, pw = WORLD_W, ph = WORLD_H, practice = false): PixelGrid {
   const v = makeView(pw, ph);
+  // Screen shake on impact: jitter the whole arena (the text HUD overlay, drawn
+  // separately, stays rock-steady). Deterministic in m.frame so both players
+  // shake identically.
+  if (m.shake > 0) {
+    const s = Math.min(6, m.shake);
+    v.ox += m.frame % 2 ? s : -s;
+    v.oy += (m.frame >> 1) % 2 ? -Math.ceil(s / 2) : Math.ceil(s / 2);
+  }
   const g = createGrid(pw, ph, rgb(0, 0, 0));
   const stage = STAGES.get(m.stage, Math.round(WORLD_H * v.ws));
   if (stage) blit(g, stage, v.ox, v.oy, false);
@@ -363,6 +390,7 @@ export function composeScene(m: Match, hud = true, pw = WORLD_W, ph = WORLD_H, p
   const order = m.a.x <= m.b.x ? [m.a, m.b] : [m.b, m.a];
   for (const f of order) { drawFighterOnStage(g, v, f); drawSpecialAura(g, v, f); drawOmegaTech(g, v, f); }
   drawProjectiles(g, v, m);
+  drawSparks(g, v, m);
   if (hud) {
     drawHealthBar(g, v, m.a, 'left');
     drawHealthBar(g, v, m.b, 'right');

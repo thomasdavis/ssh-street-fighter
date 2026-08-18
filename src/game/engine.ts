@@ -150,7 +150,7 @@ export function makeFighter(id: string, name: string, side: 'a' | 'b', palette?:
 }
 
 export function makeMatch(a: Fighter, b: Fighter): Match {
-  return { a, b, phase: 'countdown', phaseTimer: TICK_HZ * 3, roundTime: ROUND_SECONDS, round: 1, message: 'ROUND 1', frame: 0, stage: STAGES.pick(), projectiles: [] };
+  return { a, b, phase: 'countdown', phaseTimer: TICK_HZ * 3, roundTime: ROUND_SECONDS, round: 1, message: 'ROUND 1', frame: 0, stage: STAGES.pick(), projectiles: [], hitStop: 0, shake: 0, sparks: [] };
 }
 
 function resetRound(m: Match): void {
@@ -162,6 +162,7 @@ function resetRound(m: Match): void {
   }
   m.roundTime = ROUND_SECONDS;
   m.projectiles = [];
+  m.hitStop = 0; m.shake = 0; m.sparks = [];
 }
 
 const approach = (v: number, target: number, rate: number): number => {
@@ -311,15 +312,17 @@ function separate(a: Fighter, b: Fighter): void {
   b.x = Math.max(STAGE_LEFT, Math.min(STAGE_RIGHT, b.x));
 }
 
-function resolveHit(att: Fighter, def: Fighter): void {
-  if (!attackActive(att) || att.attackHit) return;
+interface HitFx { x: number; y: number; heavy: boolean; blocked: boolean; }
+
+function resolveHit(att: Fighter, def: Fighter): HitFx | null {
+  if (!attackActive(att) || att.attackHit) return null;
   const spec = meleeSpec(att.attack);
-  if (!spec) return;
+  if (!spec) return null;
   const dx = def.x - att.x;
   // must be on the side the attacker faces, within reach, at similar height
-  if (!spec.omni && Math.sign(dx) !== att.facing && dx !== 0) return;
-  if (Math.abs(dx) > spec.range) return;
-  if (Math.abs(att.y - def.y) > spec.vert) return;
+  if (!spec.omni && Math.sign(dx) !== att.facing && dx !== 0) return null;
+  if (Math.abs(dx) > spec.range) return null;
+  if (Math.abs(att.y - def.y) > spec.vert) return null;
   att.attackHit = true;
 
   const guarding = def.blocking && def.stun <= 0 && def.facing === -att.facing && def.y <= JUMP_CLEAR;
@@ -337,6 +340,22 @@ function resolveHit(att: Fighter, def: Fighter): void {
     if (att.attack === 'rolling') { def.vy = 3.2; def.y = Math.max(def.y, 0.001); }
     if (att.attack === 'verticalroll') { def.vy = 6.2; def.y = Math.max(def.y, 0.001); }
   }
+  // contact point between the fighters, ~chest height above the ground
+  return { x: (att.x + def.x) / 2, y: Math.max(att.y, def.y) + 18, heavy: !guarding && spec.dmg >= 8, blocked: guarding };
+}
+
+/** Trigger impact feel: brief freeze + screen shake + a spark, scaled by weight. */
+function applyHitFx(m: Match, fx: HitFx): void {
+  m.hitStop = Math.max(m.hitStop, fx.blocked ? 2 : fx.heavy ? 5 : 3);
+  m.shake = Math.max(m.shake, fx.blocked ? 1 : fx.heavy ? 5 : 3);
+  m.sparks.push({ x: fx.x, y: fx.y, t: fx.heavy ? 7 : 5, heavy: fx.heavy });
+  if (m.sparks.length > 12) m.sparks.shift();
+}
+
+function stepSparks(m: Match): void {
+  if (!m.sparks.length) return;
+  for (const s of m.sparks) s.t--;
+  m.sparks = m.sparks.filter((s) => s.t > 0);
 }
 
 function spawnFireball(m: Match, f: Fighter, owner: 'a' | 'b'): void {
@@ -392,11 +411,18 @@ export function stepMatch(m: Match, inA: Inputs, inB: Inputs): void {
   }
 
   // FIGHT
+  // Hit-stop: on impact both fighters freeze for a few frames so the hit "pops".
+  // Everything holds (only the visual shake + sparks decay).
+  if (m.hitStop > 0) { m.hitStop--; if (m.shake > 0) m.shake--; stepSparks(m); return; }
   stepFighter(m.a, m.b, inA, true);
   stepFighter(m.b, m.a, inB, true);
   separate(m.a, m.b);
-  resolveHit(m.a, m.b);
-  resolveHit(m.b, m.a);
+  const fxA = resolveHit(m.a, m.b);
+  const fxB = resolveHit(m.b, m.a);
+  if (fxA) applyHitFx(m, fxA);
+  if (fxB) applyHitFx(m, fxB);
+  if (m.shake > 0) m.shake--;
+  stepSparks(m);
   // spawn hadouken fireballs on the throw frame, then advance projectiles
   if (m.a.attack === 'hadouken' && m.a.attackFrame === HAD.spawn) spawnFireball(m, m.a, 'a');
   if (m.b.attack === 'hadouken' && m.b.attackFrame === HAD.spawn) spawnFireball(m, m.b, 'b');
@@ -431,7 +457,7 @@ export function stepMatch(m: Match, inA: Inputs, inB: Inputs): void {
  * so there is never any opponent rubber-banding.
  */
 export function predictLocal(m: Match, side: 'a' | 'b', inp: Inputs): void {
-  if (m.phase !== 'fight') return;
+  if (m.phase !== 'fight' || m.hitStop > 0) return; // frozen during hit-stop, like the server
   const me = side === 'a' ? m.a : m.b;
   const other = side === 'a' ? m.b : m.a;
   stepFighter(me, other, inp, true);
