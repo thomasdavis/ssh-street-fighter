@@ -1,0 +1,10 @@
+allowBuilds:
+  better-sqlite3: set this to true or false
+  esbuild: set this to true or false
+  sharp: set this to true or false
+onlyBuiltDependencies:
+  - better-sqlite3
+  - ssh2
+  - cpu-features
+  - esbuild
+  - sharp
