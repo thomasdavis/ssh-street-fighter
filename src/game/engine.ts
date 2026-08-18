@@ -150,7 +150,7 @@ export function makeFighter(id: string, name: string, side: 'a' | 'b', palette?:
 }
 
 export function makeMatch(a: Fighter, b: Fighter): Match {
-  return { a, b, phase: 'countdown', phaseTimer: TICK_HZ * 3, roundTime: ROUND_SECONDS, round: 1, message: 'ROUND 1', frame: 0, stage: STAGES.pick(), projectiles: [], hitStop: 0, shake: 0, sparks: [] };
+  return { a, b, phase: 'countdown', phaseTimer: TICK_HZ * 3, roundTime: ROUND_SECONDS, round: 1, message: 'ROUND 1', frame: 0, stage: STAGES.pick(), projectiles: [], hitStop: 0, sparks: [] };
 }
 
 function resetRound(m: Match): void {
@@ -162,7 +162,7 @@ function resetRound(m: Match): void {
   }
   m.roundTime = ROUND_SECONDS;
   m.projectiles = [];
-  m.hitStop = 0; m.shake = 0; m.sparks = [];
+  m.hitStop = 0; m.sparks = [];
 }
 
 const approach = (v: number, target: number, rate: number): number => {
@@ -344,11 +344,12 @@ function resolveHit(att: Fighter, def: Fighter): HitFx | null {
   return { x: (att.x + def.x) / 2, y: Math.max(att.y, def.y) + 18, heavy: !guarding && spec.dmg >= 8, blocked: guarding };
 }
 
-/** Trigger impact feel: brief freeze + screen shake + a spark, scaled by weight. */
+/** Trigger impact feel: a brief freeze + a uniquely-shaped spark, scaled by weight. */
 function applyHitFx(m: Match, fx: HitFx): void {
   m.hitStop = Math.max(m.hitStop, fx.blocked ? 2 : fx.heavy ? 5 : 3);
-  m.shake = Math.max(m.shake, fx.blocked ? 1 : fx.heavy ? 5 : 3);
-  m.sparks.push({ x: fx.x, y: fx.y, t: fx.heavy ? 7 : 5, heavy: fx.heavy });
+  // deterministic seed (both players compute the same) but different every hit
+  const seed = ((m.frame * 2654435761) ^ (Math.round(fx.x) * 40503) ^ (m.sparks.length * 97)) >>> 0;
+  m.sparks.push({ x: fx.x, y: fx.y, t: fx.heavy ? 7 : 5, heavy: fx.heavy, seed });
   if (m.sparks.length > 12) m.sparks.shift();
 }
 
@@ -413,7 +414,7 @@ export function stepMatch(m: Match, inA: Inputs, inB: Inputs): void {
   // FIGHT
   // Hit-stop: on impact both fighters freeze for a few frames so the hit "pops".
   // Everything holds (only the visual shake + sparks decay).
-  if (m.hitStop > 0) { m.hitStop--; if (m.shake > 0) m.shake--; stepSparks(m); return; }
+  if (m.hitStop > 0) { m.hitStop--; stepSparks(m); return; }
   stepFighter(m.a, m.b, inA, true);
   stepFighter(m.b, m.a, inB, true);
   separate(m.a, m.b);
@@ -421,7 +422,6 @@ export function stepMatch(m: Match, inA: Inputs, inB: Inputs): void {
   const fxB = resolveHit(m.b, m.a);
   if (fxA) applyHitFx(m, fxA);
   if (fxB) applyHitFx(m, fxB);
-  if (m.shake > 0) m.shake--;
   stepSparks(m);
   // spawn hadouken fireballs on the throw frame, then advance projectiles
   if (m.a.attack === 'hadouken' && m.a.attackFrame === HAD.spawn) spawnFireball(m, m.a, 'a');

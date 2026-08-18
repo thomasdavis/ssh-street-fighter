@@ -68,8 +68,10 @@ export interface Projectile {
 
 export type MatchPhase = 'countdown' | 'fight' | 'round-over' | 'match-over';
 
-/** Transient impact flash at a hit's contact point (feel/juice, purely visual). */
-export interface Spark { x: number; y: number; t: number; heavy: boolean; }
+/** Transient impact flash at a hit's contact point (feel/juice, purely visual).
+ *  `seed` is set once at spawn so the burst looks the same to both players but
+ *  different from every other hit. */
+export interface Spark { x: number; y: number; t: number; heavy: boolean; seed: number; }
 
 export interface Match {
   a: Fighter;
@@ -83,6 +85,5 @@ export interface Match {
   stage: string;          // chosen arena background id
   projectiles: Projectile[];
   hitStop: number;        // frames both fighters freeze on impact (game-feel)
-  shake: number;          // screen-shake intensity, decays each frame (visual)
   sparks: Spark[];        // impact flashes
 }

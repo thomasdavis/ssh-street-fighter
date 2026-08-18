@@ -328,21 +328,61 @@ function fillCircle(g: PixelGrid, v: View, wx: number, wy: number, wr: number, c
   }
 }
 
-// impact flashes at hit contact points — instant, weighty feedback on every hit
+const SPARK_PALETTES = [
+  [rgb(255, 150, 30), rgb(255, 226, 110)],   // gold / fire
+  [rgb(255, 84, 58), rgb(255, 198, 128)],    // red-orange
+  [rgb(110, 214, 255), rgb(220, 250, 255)],  // icy blue
+  [rgb(255, 116, 220), rgb(255, 220, 246)],  // magenta
+  [rgb(176, 255, 120), rgb(240, 255, 214)],  // electric green
+] as const;
+const SPARK_CORE = rgb(255, 255, 246);
+function ringPixels(g: PixelGrid, v: View, cx: number, cy: number, r: number, c: RGB): void {
+  const steps = Math.max(8, Math.round(r * 4));
+  for (let i = 0; i < steps; i++) { const a = (i / steps) * Math.PI * 2; wrect(g, v, cx + Math.cos(a) * r, cy + Math.sin(a) * r, 1, 1, c); }
+}
+function ray(g: PixelGrid, v: View, cx: number, cy: number, a: number, len: number, near: RGB, far: RGB): void {
+  for (let d = 1; d <= len; d++) wrect(g, v, cx + Math.cos(a) * d, cy + Math.sin(a) * d, 1, 1, d < len * 0.5 ? near : far);
+}
+
+// Impact flashes — each hit gets a unique burst (seeded, so both players match):
+// a starburst, a shockwave ring, a scatter, or a cross, in one of five colours.
 function drawSparks(g: PixelGrid, v: View, m: Match): void {
   for (const s of m.sparks) {
     const cx = s.x, cy = GROUND_Y - s.y;
     const maxT = s.heavy ? 7 : 5;
-    const r = 2 + (maxT - s.t) * (s.heavy ? 1.7 : 1.2); // expands as it ages
-    if (s.heavy) {
-      fillCircle(g, v, cx, cy, r + 2, rgb(255, 150, 30));
-      fillCircle(g, v, cx, cy, r, rgb(255, 226, 110));
-      fillCircle(g, v, cx, cy, Math.max(1, r - 2), rgb(255, 255, 244));
-      for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [-1, -1], [1, -1], [-1, 1]] as const)
-        wrect(g, v, cx + dx * (r + 3), cy + dy * (r + 3), 1, 1, rgb(255, 244, 180));
-    } else {
-      fillCircle(g, v, cx, cy, r, rgb(255, 236, 150));
-      fillCircle(g, v, cx, cy, Math.max(1, r - 2), rgb(255, 255, 244));
+    const age = maxT - s.t, prog = age / maxT;
+    let seed = s.seed >>> 0;
+    const rnd = () => { seed = (seed * 1103515245 + 12345) >>> 0; return seed / 4294967296; };
+    const [outer, mid] = SPARK_PALETTES[s.seed % SPARK_PALETTES.length]!;
+    const baseR = (s.heavy ? 3 : 2) + age * (s.heavy ? 1.5 : 1.0);
+
+    switch (s.seed % 4) {
+      case 0: { // starburst
+        const spikes = 4 + (s.seed % (s.heavy ? 5 : 3));
+        const rot = rnd() * Math.PI, len = baseR + (s.heavy ? 4 : 2);
+        for (let i = 0; i < spikes; i++) ray(g, v, cx, cy, rot + (i / spikes) * Math.PI * 2 + (rnd() - 0.5) * 0.5, len * (0.6 + rnd() * 0.7), mid, outer);
+        fillCircle(g, v, cx, cy, baseR * 0.5, mid);
+        fillCircle(g, v, cx, cy, Math.max(1, baseR * 0.5 - 2), SPARK_CORE);
+        break;
+      }
+      case 1: { // shockwave ring
+        ringPixels(g, v, cx, cy, 2 + prog * (s.heavy ? 11 : 8), prog < 0.5 ? mid : outer);
+        fillCircle(g, v, cx, cy, Math.max(1, baseR * 0.45), SPARK_CORE);
+        break;
+      }
+      case 2: { // scatter
+        const dots = (s.heavy ? 8 : 5) + (s.seed % 4);
+        for (let i = 0; i < dots; i++) { const a = rnd() * Math.PI * 2, dist = baseR * (0.3 + rnd() * 1.2); fillCircle(g, v, cx + Math.cos(a) * dist, cy + Math.sin(a) * dist, 1 + Math.floor(rnd() * 2), rnd() < 0.5 ? outer : mid); }
+        fillCircle(g, v, cx, cy, Math.max(1, baseR * 0.4), SPARK_CORE);
+        break;
+      }
+      default: { // cross / X flash
+        const arms = (s.seed % 2) ? [[1, 0], [-1, 0], [0, 1], [0, -1]] as const : [[1, 1], [-1, -1], [1, -1], [-1, 1]] as const;
+        const len = baseR + (s.heavy ? 3 : 1);
+        for (const [dx, dy] of arms) ray(g, v, cx, cy, Math.atan2(dy, dx), len, mid, outer);
+        fillCircle(g, v, cx, cy, baseR * 0.5, mid);
+        fillCircle(g, v, cx, cy, Math.max(1, baseR * 0.5 - 1), SPARK_CORE);
+      }
     }
   }
 }
@@ -374,14 +414,6 @@ function drawProjectiles(g: PixelGrid, v: View, m: Match): void {
 /** Render the stage at `pw`x`ph` pixels (defaults to the logical world size). */
 export function composeScene(m: Match, hud = true, pw = WORLD_W, ph = WORLD_H, practice = false): PixelGrid {
   const v = makeView(pw, ph);
-  // Screen shake on impact: jitter the whole arena (the text HUD overlay, drawn
-  // separately, stays rock-steady). Deterministic in m.frame so both players
-  // shake identically.
-  if (m.shake > 0) {
-    const s = Math.min(6, m.shake);
-    v.ox += m.frame % 2 ? s : -s;
-    v.oy += (m.frame >> 1) % 2 ? -Math.ceil(s / 2) : Math.ceil(s / 2);
-  }
   const g = createGrid(pw, ph, rgb(0, 0, 0));
   const stage = STAGES.get(m.stage, Math.round(WORLD_H * v.ws));
   if (stage) blit(g, stage, v.ox, v.oy, false);
