@@ -89,7 +89,10 @@ export function startServer(port: number, host: string, hostKeyPath: string) {
     },
   );
 
-  server.listen(port, host, () => {
+  // Large accept backlog so a burst of simultaneous connections queues instead
+  // of being refused while handshakes are processed (default is only 511).
+  const backlog = parseInt(process.env.SF_BACKLOG ?? '1024', 10) || 1024;
+  server.listen(port, host, backlog, () => {
     console.log(`SSH Street Fighter listening on ${host}:${port}`);
     track('service_started', { host, port, pid: process.pid, node: process.version });
   });
