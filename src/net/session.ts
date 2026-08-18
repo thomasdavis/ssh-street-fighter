@@ -13,6 +13,7 @@ import {
   type KeyBindings,
 } from '../input/bindings.js';
 import { composeSceneCached } from '../game/scene.js';
+import { makeRenderPool } from '../render/render-pool.js';
 import { makeFighter, makeMatch, stepMatch, TICK_HZ } from '../game/engine.js';
 import { emptyInputs, type Match } from '../game/types.js';
 import { characterAt } from '../game/roster.js';
@@ -30,6 +31,11 @@ const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v
 const COLOR_STEP = clamp(parseInt(process.env.SF_COLOR_STEP ?? '1', 10) || 1, 1, 64);
 const INDEXED_COLOR = process.env.SF_COLOR_MODE === '256';
 const MATCH_IDS = new WeakMap<Match, string>();
+
+// Optional pool of render worker threads (SF_RENDER_WORKERS>0). When enabled,
+// the heavy fight render runs off the main thread so the game uses every core;
+// everything else (sim, matchmaking, lounge, menus) stays single-process.
+const RENDER_POOL = makeRenderPool();
 
 export interface MatchResult {
   winner: string;
@@ -52,6 +58,10 @@ export class Session {
   // rendering reuses them in place (zero per-frame allocation, minimal GC).
   private cellsA: Cell[] | null = null;
   private cellsB: Cell[] | null = null;
+  private static nextSid = 1;
+  readonly sid = Session.nextSid++;      // stable id for render-worker affinity
+  private renderInFlight = false;         // a pooled fight frame is being rendered
+  private forceFull = false;              // next pooled render must be a full redraw
   alive = true;
   private loopTimer: NodeJS.Timeout | null = null;
   private outputBlocked = false;
@@ -156,6 +166,7 @@ export class Session {
     if (cols > 0) this.cols = cols;
     if (rows > 0) this.rows = rows;
     this.prevFrame = null;
+    this.forceFull = true;
     this.write(CLEAR_SCREEN);
   }
 
@@ -179,14 +190,14 @@ export class Session {
     // Some clients split CRLF across packets. Ignore a trailing newline-only
     // packet immediately after a transition instead of pressing Enter again.
     if (Date.now() < this.screenInputGuardUntil && /^[\r\n]+$/.test(d.toString('latin1'))) return;
-    if (this.helpOpen) { this.helpOpen = false; this.prevFrame = null; return; }
+    if (this.helpOpen) { this.helpOpen = false; this.prevFrame = null; this.forceFull = true; return; }
     let data = d;
     // 'v' toggles the pixel renderer (octant <-> half-block) everywhere except
     // while typing a username (where 'v' is a normal character).
     if (this.screen !== 'username' && this.screen !== 'lounge' && this.screen !== 'controls' && /[vV]/.test(data.toString('latin1'))) {
       this.renderMode = this.renderMode === 'octant' ? 'half' : 'octant';
       this.trackEvent('renderer_changed', { mode: this.renderMode });
-      this.prevFrame = null;
+      this.prevFrame = null; this.forceFull = true;
       data = Buffer.from(data.toString('latin1').replace(/[vV]/g, ''), 'latin1');
       if (data.length === 0) return;
     }
@@ -199,7 +210,7 @@ export class Session {
       return;
     }
     for (const key of parseKeys(data)) {
-      if (this.helpOpen) { this.helpOpen = false; this.prevFrame = null; continue; }
+      if (this.helpOpen) { this.helpOpen = false; this.prevFrame = null; this.forceFull = true; continue; }
       if (key.t === 'help' && !(this.screen === 'controls' && this.bindingCapture)) { this.helpOpen = true; this.prevFrame = null; this.trackEvent('help_opened', { screen: this.screen }); continue; }
       if (key.t === 'quit') { this.close(); return; }
       const screenBefore: ScreenName = this.screen;
@@ -242,6 +253,19 @@ export class Session {
   renderCurrent(): void {
     const cols = clamp(this.cols || 120, 24, MAX_COLS);
     const rows = clamp(this.rows || 40, 12, MAX_ROWS);
+    // Fast path: offload the (expensive) fight render to a worker thread. Menus,
+    // help overlays and the practice/versus scene during help stay inline (cheap
+    // and stateful). One frame in flight at a time per session — drop, don't
+    // queue, if the previous is still rendering (keeps latency bounded).
+    if (RENDER_POOL && this.screen === 'fight' && this.match && !this.helpOpen) {
+      if (this.renderInFlight) return;
+      this.renderInFlight = true;
+      const full = this.forceFull; this.forceFull = false;
+      RENDER_POOL.render(this.sid, this.match, cols, rows, this.renderMode, this.practice, this.keyBindings, full)
+        .then((bytes) => { this.renderInFlight = false; if (this.alive && bytes) this.write(bytes); })
+        .catch(() => { this.renderInFlight = false; this.forceFull = true; });
+      return;
+    }
     const f = new Frame(cols, rows, this.renderMode);
     if (this.screen === 'fight' && this.match) {
       // Render the stage at native pixel resolution. Critical HUD information
@@ -270,7 +294,7 @@ export class Session {
     this.match = match; this.role = role; this.peer = peer; this.isStepper = isStepper;
     this.practice = false; this.fightInput = new InputState(this.keyBindings);
     this.lastAttackA = 'none'; this.lastAttackB = 'none';
-    this.screen = 'fight'; this.prevFrame = null;
+    this.screen = 'fight'; this.prevFrame = null; this.forceFull = true;
     this.write(CLEAR_SCREEN + HIDE_CURSOR + NOWRAP);
   }
 
@@ -286,7 +310,7 @@ export class Session {
     this.lastAttackA = 'none'; this.lastAttackB = 'none';
     MATCH_IDS.set(m, eventId('practice'));
     this.trackEvent('practice_started', { fighter: you.name, dummy: dummy.name, stage: m.stage, match_id: MATCH_IDS.get(m) });
-    this.screen = 'fight'; this.prevFrame = null;
+    this.screen = 'fight'; this.prevFrame = null; this.forceFull = true;
     this.write(CLEAR_SCREEN + HIDE_CURSOR + NOWRAP);
   }
 
@@ -404,6 +428,7 @@ export class Session {
     this.alive = false;
     this.trackEvent('game_session_ended', { screen: this.screen, duration_seconds: Math.round((Date.now() - this.startedAt) / 1000) });
     if (this.loopTimer) { clearInterval(this.loopTimer); this.loopTimer = null; }
+    RENDER_POOL?.free(this.sid);
     ARENA.remove(this);
     SOCIAL.leave(this);
     // if mid versus fight, award the peer
