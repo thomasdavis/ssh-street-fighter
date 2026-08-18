@@ -8,7 +8,7 @@ import { unlinkSync } from 'fs';
 
 if (!externalPort) try { unlinkSync('/tmp/sf-test.db'); } catch { /* fresh */ }
 const PORT = externalPort || 22999;
-let server: import('ssh2').Server | null = null;
+let server: import('net').Server | null = null;
 if (!externalPort) {
   // dynamic import AFTER setting SF_DB (ESM hoists static imports above assignments)
   const { startServer } = await import('./net/ssh-server.js');

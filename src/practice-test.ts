@@ -12,7 +12,7 @@ const { ROSTER } = await import('./game/roster.js');
 const { specialMovesFor } = await import('./game/moves.js');
 const fighterIndex = ROSTER.findIndex((c) => c.name === testFighter);
 if (fighterIndex < 0) throw new Error(`unknown SF_TEST_FIGHTER ${testFighter}`);
-let localServer: ssh2.Server | null = null;
+let localServer: import('net').Server | null = null;
 if (!externalPort) {
   try { unlinkSync('/tmp/sf-prac.db'); } catch { /* */ }
   const { startServer } = await import('./net/ssh-server.js');

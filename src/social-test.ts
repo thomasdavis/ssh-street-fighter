@@ -8,7 +8,7 @@ import { unlinkSync } from 'fs';
 
 if (!externalPort) try { unlinkSync(process.env.SF_DB!); } catch { /* fresh */ }
 const PORT = externalPort || 22997;
-let server: import('ssh2').Server | null = null;
+let server: import('net').Server | null = null;
 if (!externalPort) {
   const { startServer } = await import('./net/ssh-server.js');
   server = startServer(PORT, '127.0.0.1', 'keys/host.key');

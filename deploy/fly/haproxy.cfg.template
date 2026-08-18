@@ -12,4 +12,7 @@ frontend ssh_in
     bind :2222
     default_backend origin
 backend origin
-    server ovh ${ORIGIN_HOST}:${ORIGIN_PORT} check
+    # send-proxy: prepend a PROXY v1 header so the origin recovers the real
+    # client IP (region matchmaking + telemetry). The origin runs with
+    # SF_PROXY_PROTOCOL=1 to read it.
+    server ovh ${ORIGIN_HOST}:${ORIGIN_PORT} check send-proxy
