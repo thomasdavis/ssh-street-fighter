@@ -21,6 +21,7 @@ export interface Player {
   elo: number;
   peak_elo: number;
   key_bindings_json: string | null;
+  calibrated: number;   // 0/1 — has seen the display-calibration screen
   created_at: number;
   last_seen: number;
 }
@@ -109,6 +110,7 @@ export function initDb(): void {
   ensureColumn('players', 'elo', 'elo INTEGER NOT NULL DEFAULT 1200');
   ensureColumn('players', 'peak_elo', 'peak_elo INTEGER NOT NULL DEFAULT 1200');
   ensureColumn('players', 'key_bindings_json', 'key_bindings_json TEXT');
+  ensureColumn('players', 'calibrated', 'calibrated INTEGER NOT NULL DEFAULT 0');
   ensureColumn('match_history', 'winner_elo_before', 'winner_elo_before INTEGER');
   ensureColumn('match_history', 'winner_elo_after', 'winner_elo_after INTEGER');
   ensureColumn('match_history', 'loser_elo_before', 'loser_elo_before INTEGER');
@@ -149,6 +151,10 @@ export function setMainChar(fp: string, idx: number): void {
 
 export function setKeyBindings(fp: string, json: string): void {
   db.prepare('UPDATE players SET key_bindings_json = ? WHERE fingerprint = ?').run(json, fp);
+}
+
+export function setCalibrated(fp: string): void {
+  db.prepare('UPDATE players SET calibrated = 1 WHERE fingerprint = ?').run(fp);
 }
 
 export function recordMatch(

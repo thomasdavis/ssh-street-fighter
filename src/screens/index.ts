@@ -10,8 +10,9 @@ import { results } from './results.js';
 import { helpOverlay } from './help.js';
 import { lounge } from './lounge.js';
 import { controls } from './controls.js';
+import { calibrate } from './calibrate.js';
 
-export type ScreenName = 'username' | 'menu' | 'select' | 'lobbyWait' | 'lounge' | 'leaderboard' | 'controls' | 'results' | 'fight';
+export type ScreenName = 'calibrate' | 'username' | 'menu' | 'select' | 'lobbyWait' | 'lounge' | 'leaderboard' | 'controls' | 'results' | 'fight';
 
 export interface Screen {
   render(s: Session, f: Frame): void;
@@ -23,5 +24,5 @@ export interface Screen {
 const fightStub: Screen = { render: () => {}, onKey: () => {} };
 
 export const SCREENS: Record<ScreenName, Screen> & { help: { render(s: Session, f: Frame): void } } = {
-  username, menu, select, lobbyWait, lounge, leaderboard, controls, results, fight: fightStub, help: helpOverlay,
+  calibrate, username, menu, select, lobbyWait, lounge, leaderboard, controls, results, fight: fightStub, help: helpOverlay,
 };

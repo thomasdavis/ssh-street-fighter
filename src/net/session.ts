@@ -59,6 +59,8 @@ export class Session {
 
   // ui state
   screen: ScreenName = 'username';
+  postCalibrate: ScreenName = 'menu';   // where the calibration screen hands off to
+  calibMatch: Match | null = null;      // live demo fight shown during calibration
   frame = 0;
   menuIndex = 0;
   cursor = 0;              // character-select cursor
@@ -102,14 +104,19 @@ export class Session {
   ) {
     this.fp = fp;
     this.guest = !fp;
+    let landing: ScreenName = 'username';
     if (fp) {
       this.player = db.touchOrCreate(fp);
       this.keyBindings = parseKeyBindings(this.player.key_bindings_json);
-      if (this.player.username) { this.username = this.player.username; this.screen = 'menu'; this.cursor = this.player.main_char; }
-      else this.screen = 'username';
+      if (this.player.username) { this.username = this.player.username; landing = 'menu'; this.cursor = this.player.main_char; }
+      else landing = 'username'; // registered key without a handle yet
     } else {
-      this.screen = 'username'; // guests still pick a display name (not persisted)
+      landing = 'username'; // guests still pick a display name (not persisted)
     }
+    // Show the display-calibration screen first: always for guests/new players,
+    // once for a verified player (remembered by their SSH key).
+    this.postCalibrate = landing;
+    this.screen = this.player?.calibrated ? landing : 'calibrate';
     this.fightInput = new InputState(this.keyBindings);
   }
 
