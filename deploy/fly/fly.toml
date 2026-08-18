@@ -1,0 +1,29 @@
+# Raw-TCP SSH accelerator in front of the OVH origin. Fly Anycast accepts the
+# player at the nearest edge and backhauls to this Machine (put it in Toronto,
+# next to OVH Canada). It terminates NOTHING — SSH stays end-to-end; this only
+# forwards bytes. Set the app name with `fly launch` / `fly apps create`.
+app = "sshfighter-relay"
+primary_region = "yyz"     # Toronto — one short hop to OVH Canada
+
+[build]
+  dockerfile = "Dockerfile"
+
+[[services]]
+  internal_port = 2222
+  protocol = "tcp"
+  auto_stop_machines = false
+  auto_start_machines = true
+  min_machines_running = 1
+
+  [[services.ports]]
+    port = 22
+    handlers = []          # raw TCP — do NOT terminate TLS/SSH
+
+  [services.concurrency]
+    type = "connections"
+    soft_limit = 800
+    hard_limit = 1000
+
+  [[services.tcp_checks]]
+    interval = "15s"
+    timeout = "2s"

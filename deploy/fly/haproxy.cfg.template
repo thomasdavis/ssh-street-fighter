@@ -1,0 +1,15 @@
+global
+    log stdout format raw local0
+    maxconn 8000
+defaults
+    mode tcp
+    log global
+    option tcplog
+    timeout connect 5s
+    timeout client 1h      # generous idle window; the game's keepalive covers NAT
+    timeout server 1h
+frontend ssh_in
+    bind :2222
+    default_backend origin
+backend origin
+    server ovh ${ORIGIN_HOST}:${ORIGIN_PORT} check
