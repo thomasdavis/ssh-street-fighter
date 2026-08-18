@@ -8,9 +8,10 @@ Type=simple
 User=@APP_USER@
 WorkingDirectory=@APP_DIR@
 EnvironmentFile=/etc/sshfighter.env
-# Run the game. tsx runs the TypeScript directly (matches dev); swap to
-# `node dist/index.js` after a `pnpm build` for a small perf win.
-ExecStart=/usr/bin/env pnpm exec tsx src/index.ts
+# Run the game. tsx runs the TypeScript directly (matches dev). Invoked via
+# node + the tsx CLI (not `pnpm exec`, which pnpm 10+ gates behind a build-
+# approval check). Swap to `node dist/index.js` after a build for a perf win.
+ExecStart=/usr/bin/env node node_modules/tsx/dist/cli.mjs src/index.ts
 Restart=always
 RestartSec=2
 
