@@ -4,6 +4,7 @@
 // primary, so all cross-worker behaviour funnels through here.
 import type { Session } from '../net/session.js';
 import type { Hub } from '../net/hub.js';
+import type { Inputs } from '../game/types.js';
 import type { P2W, W2P } from './messages.js';
 
 export class ClusterHub implements Hub {
@@ -15,7 +16,7 @@ export class ClusterHub implements Hub {
       const s = this.sessions.get(m.sid); if (!s) return;
       switch (m.t) {
         case 'matchStart': s.startRemoteVersus(m.mid, m.role, m.yourCursor, m.oppName, m.oppCursor, m.stage); break;
-        case 'state': s.applyRemoteState(m.mid, m.m); break;
+        case 'state': s.applyRemoteState(m.mid, m.m, m.ack); break;
         case 'matchEnd': s.endRemoteVersus(m.mid, m.result); break;
         case 'lounge': s.loungeRoster = m.roster; s.loungeChat = m.chat; s.prevFrame = null; break;
         case 'notice': s.loungeNotice = m.notice; s.prevFrame = null; break;
@@ -32,7 +33,7 @@ export class ClusterHub implements Hub {
   queue(s: Session): void { this.send({ t: 'queue', sid: s.sid, cid: s.connectionId, name: s.displayName, fp: s.fp, cursor: s.cursor, elo: s.player?.elo ?? 1200 }); s.goTo('lobbyWait'); }
   cancelQueue(s: Session): void { this.send({ t: 'dequeue', sid: s.sid }); }
 
-  relayInput(s: Session): void { this.send({ t: 'input', mid: s.remoteMid, sid: s.sid, input: s.fightInput.snapshot() }); }
+  relayInput(s: Session, input: Inputs, seq: number): void { this.send({ t: 'input', mid: s.remoteMid, sid: s.sid, input, seq }); }
   leaveMatch(s: Session): void { this.send({ t: 'leaveMatch', mid: s.remoteMid, sid: s.sid }); }
 
   enterLounge(s: Session): void { this.send({ t: 'loungeJoin', sid: s.sid, cid: s.connectionId, name: s.displayName, fp: s.fp, cursor: s.cursor, elo: s.player?.elo ?? 1200 }); }

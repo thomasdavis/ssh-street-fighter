@@ -24,7 +24,7 @@ export class LocalHub implements Hub {
   }
   cancelQueue(s: Session): void { if (this.waiting === s) this.waiting = null; }
 
-  relayInput(): void { /* local sims in-process, nothing to relay */ }
+  relayInput(): void { /* local sims in-process, nothing to relay or predict */ }
   leaveMatch(): void { /* local forfeit is handled by Session.leaveFight/close */ }
 
   private pair(a: Session, b: Session, source: 'quick_match' | 'direct_challenge'): void {

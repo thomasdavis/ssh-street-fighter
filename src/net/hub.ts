@@ -16,6 +16,7 @@
 //     won't let a hub compile without it, so a feature can't silently work in
 //     single-process while breaking across workers. <<<
 import type { Session } from './session.js';
+import type { Inputs } from '../game/types.js';
 import { LocalHub } from './local-hub.js';
 import { ClusterHub } from '../cluster/cluster-hub.js';
 
@@ -33,7 +34,7 @@ export interface Hub {
 
   // in-fight relay (cluster only — the primary simulates the match; local sims
   // in-process so these are no-ops there)
-  relayInput(s: Session): void;
+  relayInput(s: Session, input: Inputs, seq: number): void;
   leaveMatch(s: Session): void;
 
   // lounge

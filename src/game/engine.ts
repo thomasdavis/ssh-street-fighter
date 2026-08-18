@@ -420,3 +420,26 @@ export function stepMatch(m: Match, inA: Inputs, inB: Inputs): void {
     }
   }
 }
+
+/**
+ * Client-side prediction: advance ONLY one fighter (the local player) using its
+ * own input against the frozen authoritative opponent. A cluster worker calls
+ * this to show the local player's movement/attacks with zero round-trip; the
+ * authoritative state (which arrives a few ms later) then corrects it. Uses the
+ * exact same physics as the server (stepFighter), so predictions match. Only the
+ * local fighter moves — the opponent, hits, hp and projectiles stay authoritative,
+ * so there is never any opponent rubber-banding.
+ */
+export function predictLocal(m: Match, side: 'a' | 'b', inp: Inputs): void {
+  if (m.phase !== 'fight') return;
+  const me = side === 'a' ? m.a : m.b;
+  const other = side === 'a' ? m.b : m.a;
+  stepFighter(me, other, inp, true);
+  // one-sided separation: keep `me` out of the (frozen) opponent, don't move them
+  if (me.y <= JUMP_CLEAR && other.y <= JUMP_CLEAR) {
+    const dx = other.x - me.x;
+    const overlap = 2 * BODY_HALF - Math.abs(dx);
+    if (overlap > 0) me.x -= (dx >= 0 ? 1 : -1) * overlap;
+    me.x = Math.max(STAGE_LEFT, Math.min(STAGE_RIGHT, me.x));
+  }
+}

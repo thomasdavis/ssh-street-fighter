@@ -11,7 +11,7 @@ import type { RosterEntry, ChatLine, ChallengePeer } from '../net/hub.js';
 export type W2P =
   | { t: 'queue'; sid: number; cid: string; name: string; fp: string | null; cursor: number; elo: number }
   | { t: 'dequeue'; sid: number }
-  | { t: 'input'; mid: string; sid: number; input: Inputs }
+  | { t: 'input'; mid: string; sid: number; input: Inputs; seq: number }
   | { t: 'leaveMatch'; mid: string; sid: number }
   | { t: 'loungeJoin'; sid: number; cid: string; name: string; fp: string | null; cursor: number; elo: number }
   | { t: 'loungeLeave'; sid: number }
@@ -23,7 +23,7 @@ export type W2P =
 // primary -> worker (worker routes to a local session by `sid`)
 export type P2W =
   | { t: 'matchStart'; sid: number; mid: string; role: 'a' | 'b'; yourCursor: number; oppName: string; oppCursor: number; stage: string }
-  | { t: 'state'; sid: number; mid: string; m: Match }
+  | { t: 'state'; sid: number; mid: string; m: Match; ack: number } // ack = last input seq the primary applied for this player
   | { t: 'matchEnd'; sid: number; mid: string; result: MatchResult }
   | { t: 'lounge'; sid: number; roster: RosterEntry[]; chat: ChatLine[] }
   | { t: 'notice'; sid: number; notice: string }

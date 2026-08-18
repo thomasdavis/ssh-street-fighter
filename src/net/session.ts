@@ -16,8 +16,8 @@ import { composeSceneCached } from '../game/scene.js';
 import { makeRenderPool } from '../render/render-pool.js';
 import { hub, type RosterEntry, type ChatLine, type ChallengePeer } from './hub.js';
 import { MATCH_IDS } from './match-ids.js';
-import { makeFighter, makeMatch, stepMatch, TICK_HZ } from '../game/engine.js';
-import { emptyInputs, type Match } from '../game/types.js';
+import { makeFighter, makeMatch, stepMatch, predictLocal, TICK_HZ } from '../game/engine.js';
+import { emptyInputs, type Inputs, type Match } from '../game/types.js';
 import { characterAt } from '../game/roster.js';
 import { specialMovesFor } from '../game/moves.js';
 import * as db from '../db/db.js';
@@ -114,6 +114,10 @@ export class Session {
   practice = false;
   remoteVersus = false;   // cluster: match is simulated by the primary, we render + send input
   remoteMid = '';
+  // client-side prediction: our un-acked inputs, replayed on top of authoritative
+  // state so our own fighter moves with zero round-trip latency.
+  private predSeq = 0;
+  private pending: { seq: number; input: Inputs }[] = [];
   fightInput = new InputState();
 
   constructor(
@@ -220,10 +224,6 @@ export class Session {
       // becoming an accidental punch, kick, movement, or quit input.
       if (data.toString('latin1').includes('?')) { this.helpOpen = true; this.prevFrame = null; this.trackEvent('move_help_opened', { fighter: this.ownFighterName() }); return; }
       this.fightInput.feed(data);
-      // Forward the keypress to the primary immediately (don't wait up to a full
-      // tick to sample it) so attacks/motions land with minimal input latency.
-      // The 30Hz tick relay still runs, carrying held-direction release.
-      if (this.remoteVersus) HUB.relayInput(this);
       return;
     }
     for (const key of parseKeys(data)) {
@@ -243,12 +243,22 @@ export class Session {
     this.frame++;
     if (this.screen === 'fight') {
       if (this.remoteVersus) {
-        // cluster: don't simulate locally — stream input up, render relayed state
-        HUB.relayInput(this);
+        // cluster: the primary simulates the match. We (1) send our input up, and
+        // (2) predict our OWN fighter forward locally so it moves with zero
+        // round-trip latency. applyRemoteState reconciles against the authority.
+        const inp = this.fightInput.snapshot();
+        const seq = ++this.predSeq;
+        this.pending.push({ seq, input: inp });
+        if (this.pending.length > 150) this.pending.shift();
+        HUB.relayInput(this, inp, seq);
         if (this.fightInput.quit) {
           HUB.leaveMatch(this);
-          this.remoteVersus = false; this.remoteMid = ''; this.match = null; this.goTo('menu');
+          this.remoteVersus = false; this.remoteMid = ''; this.match = null; this.pending = [];
+          this.goTo('menu'); return;
         }
+        if (this.match && this.match.phase === 'fight') predictLocal(this.match, this.role, inp);
+        if (this.alive && !this.outputBlocked) this.renderCurrent();
+        return; // rendered the predicted frame; skip the throttled render below
       } else if (this.practice) this.stepPractice();
       else if (this.isStepper && this.match && this.peer && this.peer.alive) {
         stepMatch(this.match, this.fightInput.snapshot(), this.peer.fightInput.snapshot());
@@ -262,9 +272,6 @@ export class Session {
     } else {
       SCREENS[this.screen].tick?.(this);
     }
-    // A cluster fight renders event-driven the instant fresh state arrives
-    // (applyRemoteState) — the lowest-latency path — so skip the throttle here.
-    if (this.remoteVersus) return;
     // sim + input run at TICK_HZ (responsive); rendering is throttled to
     // RENDER_HZ to cut the streamed bytes without hurting input latency.
     const renderCells = clamp(this.cols || 120, 24, MAX_COLS) * clamp(this.rows || 40, 12, MAX_ROWS);
@@ -419,21 +426,25 @@ export class Session {
     m.stage = stage;
     this.match = m; this.role = role; this.peer = null; this.isStepper = false; this.practice = false;
     this.remoteVersus = true; this.remoteMid = mid;
+    this.pending = []; this.predSeq = 0;
     this.fightInput = new InputState(this.keyBindings);
     this.lastAttackA = 'none'; this.lastAttackB = 'none';
     this.trackEvent('quick_match_paired', { fighter: ca.name, opponent: oppName });
     this.screen = 'fight'; this.prevFrame = null; this.forceFull = true;
     this.write(CLEAR_SCREEN + HIDE_CURSOR + NOWRAP);
   }
-  applyRemoteState(mid: string, m: Match): void {
+  applyRemoteState(mid: string, m: Match, ack: number): void {
     if (mid !== this.remoteMid) return;
-    this.match = m; // authoritative state from the primary; render reads this
-    if (this.alive && !this.outputBlocked) this.renderCurrent(); // render immediately (event-driven)
+    // Reconcile: drop inputs the primary has already applied, then replay the few
+    // still-pending ones on top of the authoritative state (our fighter only).
+    this.pending = this.pending.filter((p) => p.seq > ack);
+    if (m.phase === 'fight') for (const p of this.pending) predictLocal(m, this.role, p.input);
+    this.match = m; // the next 30Hz tick renders this predicted+reconciled state
   }
   endRemoteVersus(mid: string, result: MatchResult): void {
     if (mid !== this.remoteMid) return;
     this.result = result;
-    this.remoteVersus = false; this.remoteMid = ''; this.match = null;
+    this.remoteVersus = false; this.remoteMid = ''; this.match = null; this.pending = [];
     if (this.fp) this.player = db.getByFingerprint(this.fp) ?? this.player; // refresh elo/stats
     this.goTo('results');
   }

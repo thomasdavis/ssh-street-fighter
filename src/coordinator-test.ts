@@ -32,7 +32,7 @@ const mid = startA!.mid;
 for (let i = 0; i < 100; i++) coord.tick();
 // ALICE (worker A, sid 5) holds right; her input must drive side 'a', not 'b'.
 const inA = emptyInputs(); inA.moveX = 1;
-coord.handle(wA, { t: 'input', mid, sid: 5, input: inA });
+coord.handle(wA, { t: 'input', mid, sid: 5, input: inA, seq: 1 });
 for (let i = 0; i < 40; i++) coord.tick();
 
 const lastState = [...outA].reverse().find((m) => m.t === 'state') as Extract<P2W, { t: 'state' }> | undefined;

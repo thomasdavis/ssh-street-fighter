@@ -26,7 +26,7 @@ export interface WorkerRef { id: number; send: (msg: P2W) => void; }
 
 interface Player { worker: WorkerRef; sid: number; gid: string; name: string; fp: string | null; cursor: number; elo: number; }
 interface LoungeMember extends Player { cid: string; incoming: string | null; outgoing: string | null; } // incoming/outgoing = peer gid
-interface ActiveMatch { mid: string; a: Player; b: Player; match: Match; pendA: Inputs; pendB: Inputs; relayAccum: number; }
+interface ActiveMatch { mid: string; a: Player; b: Player; match: Match; pendA: Inputs; pendB: Inputs; relayAccum: number; ackA: number; ackB: number; }
 
 const gidOf = (workerId: number, sid: number) => `${workerId}:${sid}`;
 
@@ -82,7 +82,7 @@ export class MatchCoordinator {
     const ca = characterAt(a.cursor), cb = characterAt(b.cursor);
     const match = makeMatch(makeFighter('a', ca.name, 'a', ca.palette), makeFighter('b', cb.name, 'b', cb.palette));
     const mid = `m${++this.seq}`;
-    this.matches.set(mid, { mid, a, b, match, pendA: emptyInputs(), pendB: emptyInputs(), relayAccum: 0 });
+    this.matches.set(mid, { mid, a, b, match, pendA: emptyInputs(), pendB: emptyInputs(), relayAccum: 0, ackA: 0, ackB: 0 });
     this.gidToMid.set(a.gid, mid); this.gidToMid.set(b.gid, mid);
     this.send(a, { t: 'matchStart', sid: a.sid, mid, role: 'a', yourCursor: a.cursor, oppName: cb.name, oppCursor: b.cursor, stage: match.stage });
     this.send(b, { t: 'matchStart', sid: b.sid, mid, role: 'b', yourCursor: b.cursor, oppName: ca.name, oppCursor: a.cursor, stage: match.stage });
@@ -98,6 +98,7 @@ export class MatchCoordinator {
     const dst = side === 'a' ? am.pendA : am.pendB;
     dst.moveX = m.input.moveX; dst.down = m.input.down; dst.motion = m.input.motion || dst.motion;
     dst.jump ||= m.input.jump; dst.punch ||= m.input.punch; dst.kick ||= m.input.kick;
+    if (side === 'a') am.ackA = m.seq; else am.ackB = m.seq; // for client-side prediction reconciliation
   }
 
   /** Advance every match one simulation tick; call at TICK_HZ. */
@@ -108,8 +109,8 @@ export class MatchCoordinator {
       am.relayAccum += RELAY_HZ;
       if (am.relayAccum >= TICK_HZ) {
         am.relayAccum -= TICK_HZ;
-        this.send(am.a, { t: 'state', sid: am.a.sid, mid: am.mid, m: am.match });
-        this.send(am.b, { t: 'state', sid: am.b.sid, mid: am.mid, m: am.match });
+        this.send(am.a, { t: 'state', sid: am.a.sid, mid: am.mid, m: am.match, ack: am.ackA });
+        this.send(am.b, { t: 'state', sid: am.b.sid, mid: am.mid, m: am.match, ack: am.ackB });
       }
       if (am.match.phase === 'match-over' && am.match.phaseTimer <= 0) this.finish(am);
     }
