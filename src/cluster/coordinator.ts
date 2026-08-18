@@ -16,7 +16,10 @@ import { clearEdges, type P2W, type W2P } from './messages.js';
 import type { MatchResult } from '../net/session.js';
 import type { RosterEntry, ChatLine, ChallengePeer } from '../net/hub.js';
 
-const RELAY_HZ = 12;
+// How often the primary ships match state to the workers. Relaying every sim
+// tick (30Hz) minimises how stale the opponent's state is when a worker renders;
+// SF_RELAY_HZ can lower it to trade freshness for primary IPC under extreme load.
+const RELAY_HZ = Math.min(TICK_HZ, Math.max(1, parseInt(process.env.SF_RELAY_HZ ?? '30', 10) || 30));
 
 /** Minimal shape of a cluster worker the coordinator needs (real Worker fits). */
 export interface WorkerRef { id: number; send: (msg: P2W) => void; }

@@ -220,6 +220,10 @@ export class Session {
       // becoming an accidental punch, kick, movement, or quit input.
       if (data.toString('latin1').includes('?')) { this.helpOpen = true; this.prevFrame = null; this.trackEvent('move_help_opened', { fighter: this.ownFighterName() }); return; }
       this.fightInput.feed(data);
+      // Forward the keypress to the primary immediately (don't wait up to a full
+      // tick to sample it) so attacks/motions land with minimal input latency.
+      // The 30Hz tick relay still runs, carrying held-direction release.
+      if (this.remoteVersus) HUB.relayInput(this);
       return;
     }
     for (const key of parseKeys(data)) {
@@ -258,6 +262,9 @@ export class Session {
     } else {
       SCREENS[this.screen].tick?.(this);
     }
+    // A cluster fight renders event-driven the instant fresh state arrives
+    // (applyRemoteState) — the lowest-latency path — so skip the throttle here.
+    if (this.remoteVersus) return;
     // sim + input run at TICK_HZ (responsive); rendering is throttled to
     // RENDER_HZ to cut the streamed bytes without hurting input latency.
     const renderCells = clamp(this.cols || 120, 24, MAX_COLS) * clamp(this.rows || 40, 12, MAX_ROWS);
@@ -421,6 +428,7 @@ export class Session {
   applyRemoteState(mid: string, m: Match): void {
     if (mid !== this.remoteMid) return;
     this.match = m; // authoritative state from the primary; render reads this
+    if (this.alive && !this.outputBlocked) this.renderCurrent(); // render immediately (event-driven)
   }
   endRemoteVersus(mid: string, result: MatchResult): void {
     if (mid !== this.remoteMid) return;
