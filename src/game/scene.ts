@@ -371,3 +371,17 @@ export function composeScene(m: Match, hud = true, pw = WORLD_W, ph = WORLD_H, p
   }
   return g;
 }
+
+// Both players of a versus match see the SAME pixel scene (it is not mirrored
+// per-viewer — only the HUD text overlay differs). The two sessions render on
+// their own timers but almost always at the same sim frame, so memoize the
+// composed grid per (match, frame, size): the first session to render a frame
+// composes it, the second reuses it for free. Halves the per-match scene cost.
+const SCENE_CACHE = new WeakMap<Match, { frame: number; pw: number; ph: number; grid: PixelGrid }>();
+export function composeSceneCached(m: Match, pw: number, ph: number, practice = false): PixelGrid {
+  const c = SCENE_CACHE.get(m);
+  if (c && c.frame === m.frame && c.pw === pw && c.ph === ph) return c.grid;
+  const grid = composeScene(m, false, pw, ph, practice);
+  SCENE_CACHE.set(m, { frame: m.frame, pw, ph, grid });
+  return grid;
+}

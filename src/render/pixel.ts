@@ -123,6 +123,27 @@ export function halfCell(grid: PixelGrid, x: number, y: number): Fit {
   return { char: HALF_BLOCK_TOP, fg: avgBlock(grid, x, y, 2), bg: avgBlock(grid, x, y + 2, 2) };
 }
 
+/** Average the `rows`x2 block at (x,y) INTO an existing RGB (no allocation). */
+function avgBlockInto(grid: PixelGrid, x: number, y: number, rows: number, out: RGB): void {
+  let r = 0, g = 0, b = 0, n = 0;
+  for (let dy = 0; dy < rows; dy++) {
+    const row = grid[y + dy];
+    for (let dx = 0; dx < 2; dx++) {
+      const c = (row ? row[x + dx] ?? null : null) ?? DEFAULT_BG;
+      r += c.r; g += c.g; b += c.b; n++;
+    }
+  }
+  out.r = Math.round(r / n); out.g = Math.round(g / n); out.b = Math.round(b / n);
+}
+
+/** Half-block cell written INTO existing fg/bg RGB objects (allocation-free hot
+ * path for the per-frame render loop). Returns the glyph. */
+export function halfCellInto(grid: PixelGrid, x: number, y: number, outFg: RGB, outBg: RGB): string {
+  avgBlockInto(grid, x, y, 2, outFg);
+  avgBlockInto(grid, x, y + 2, 2, outBg);
+  return HALF_BLOCK_TOP;
+}
+
 function fitCell(grid: PixelGrid, x: number, y: number): Fit {
   // gather the 2x4 sub-pixels; bit index = dy*2 + dx
   const px: Pixel[] = new Array(8);

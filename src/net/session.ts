@@ -12,7 +12,7 @@ import {
   type BindingToken,
   type KeyBindings,
 } from '../input/bindings.js';
-import { composeScene } from '../game/scene.js';
+import { composeSceneCached } from '../game/scene.js';
 import { makeFighter, makeMatch, stepMatch, TICK_HZ } from '../game/engine.js';
 import { emptyInputs, type Match } from '../game/types.js';
 import { characterAt } from '../game/roster.js';
@@ -48,6 +48,10 @@ export class Session {
   // transport
   cols = 120; rows = 40;
   prevFrame: Cell[] | null = null;
+  // two persistent cell buffers; render ping-pongs between them so steady-state
+  // rendering reuses them in place (zero per-frame allocation, minimal GC).
+  private cellsA: Cell[] | null = null;
+  private cellsB: Cell[] | null = null;
   alive = true;
   private loopTimer: NodeJS.Timeout | null = null;
   private outputBlocked = false;
@@ -236,13 +240,19 @@ export class Session {
       // Render the stage at native pixel resolution. Critical HUD information
       // is a separate text-cell overlay, so font zoom never scales it below one
       // readable terminal glyph per character.
-      f.usePixel(composeScene(this.match, false, cols * 2, rows * 4, this.practice));
+      f.usePixel(composeSceneCached(this.match, cols * 2, rows * 4, this.practice));
       drawFightHud(f, this.match, this.practice, this.keyBindings);
     } else {
       SCREENS[this.screen].render(this, f);
     }
     if (this.helpOpen) SCREENS.help.render(this, f);
-    const nextCells = f.toCells(COLOR_STEP);
+    // fill the buffer that ISN'T the current prevFrame (double-buffer); toCells
+    // reuses it in place when the size matches, else allocates a fresh one.
+    const reuse = this.prevFrame === this.cellsA ? this.cellsB : this.prevFrame === this.cellsB ? this.cellsA : null;
+    const nextCells = f.toCells(COLOR_STEP, reuse ?? undefined);
+    if (nextCells !== this.cellsA && nextCells !== this.cellsB) {
+      if (this.prevFrame === this.cellsA) this.cellsB = nextCells; else this.cellsA = nextCells;
+    }
     const out = diffCells(this.prevFrame, nextCells, cols, rows, INDEXED_COLOR);
     if (out) this.write(out);
     this.prevFrame = nextCells;

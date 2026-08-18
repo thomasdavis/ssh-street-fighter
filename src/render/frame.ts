@@ -2,7 +2,7 @@
 // text character (crisp — the terminal's own font) or, where no text is set,
 // an octant pixel block sampled from an optional pixel layer. HUD/menus use
 // text cells (sharp at any size); the game viewport uses the pixel layer.
-import { createGrid, octantCell, halfCell, quantize, rgbTo256, rgb, type PixelGrid, type RGB } from './pixel.js';
+import { createGrid, octantCell, halfCell, halfCellInto, quantize, rgbTo256, rgb, type PixelGrid, type RGB } from './pixel.js';
 
 const ESC = '\x1b';
 const DEFAULT_BG: RGB = rgb(10, 9, 18);
@@ -106,17 +106,43 @@ export class Frame {
   }
 
   /** Resolve every terminal cell (text wins over the pixel layer). `colorStep`
-   * collapses near-identical truecolors before diffing, improving compression. */
-  toCells(colorStep = 1): Cell[] {
-    const out: Cell[] = new Array(this.cols * this.rows);
-    const q = (c: RGB) => colorStep > 1 ? quantize(c, colorStep) : c;
+   * collapses near-identical truecolors before diffing, improving compression.
+   *
+   * Pass a `reuse` buffer (from a prior toCells of the SAME size) to fill it in
+   * place with zero allocation — the render loop double-buffers two of these so
+   * a busy fight allocates nothing per frame (huge GC relief at scale). */
+  toCells(colorStep = 1, reuse?: Cell[]): Cell[] {
+    const n = this.cols * this.rows;
+    const reusing = !!reuse && reuse.length === n;
+    const out: Cell[] = reusing ? reuse! : new Array(n);
+    const step = colorStep > 1 ? colorStep : 0;
+    const qc = (dst: RGB, src: RGB) => {
+      if (step) { dst.r = Math.min(255, Math.round(src.r / step) * step); dst.g = Math.min(255, Math.round(src.g / step) * step); dst.b = Math.min(255, Math.round(src.b / step) * step); }
+      else { dst.r = src.r; dst.g = src.g; dst.b = src.b; }
+    };
     for (let y = 0; y < this.rows; y++) {
       for (let x = 0; x < this.cols; x++) {
         const i = this.idx(x, y);
+        if (!reusing) {
+          // allocating path (first frame / one-off callers)
+          const t = this.text[i];
+          const q = (c: RGB) => step ? quantize(c, step) : { r: c.r, g: c.g, b: c.b };
+          if (t) { out[i] = { ch: t.ch, fg: q(t.fg), bg: q(t.bg), bold: t.bold }; continue; }
+          if (this._pixel) { const c = (this.mode === 'half' ? halfCell : octantCell)(this._pixel, x * 2, y * 4); out[i] = { ch: c.char, fg: q(c.fg), bg: q(c.bg), bold: false }; continue; }
+          out[i] = { ch: ' ', fg: { ...DEFAULT_BG }, bg: { ...DEFAULT_BG }, bold: false };
+          continue;
+        }
+        // reuse path: mutate the existing cell + its RGB objects in place
+        const cell = out[i]!;
         const t = this.text[i];
-        if (t) { out[i] = { ch: t.ch, fg: q(t.fg), bg: q(t.bg), bold: t.bold }; continue; }
-        if (this._pixel) { const c = (this.mode === 'half' ? halfCell : octantCell)(this._pixel, x * 2, y * 4); out[i] = { ch: c.char, fg: q(c.fg), bg: q(c.bg), bold: false }; continue; }
-        out[i] = { ch: ' ', fg: DEFAULT_BG, bg: DEFAULT_BG, bold: false };
+        if (t) { cell.ch = t.ch; cell.bold = t.bold; qc(cell.fg, t.fg); qc(cell.bg, t.bg); continue; }
+        if (this._pixel) {
+          cell.bold = false;
+          if (this.mode === 'half') { cell.ch = halfCellInto(this._pixel, x * 2, y * 4, cell.fg, cell.bg); if (step) { qc(cell.fg, cell.fg); qc(cell.bg, cell.bg); } }
+          else { const c = octantCell(this._pixel, x * 2, y * 4); cell.ch = c.char; qc(cell.fg, c.fg); qc(cell.bg, c.bg); }
+          continue;
+        }
+        cell.ch = ' '; cell.bold = false; qc(cell.fg, DEFAULT_BG); qc(cell.bg, DEFAULT_BG);
       }
     }
     return out;
