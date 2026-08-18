@@ -143,10 +143,10 @@ export class Session {
     } else {
       landing = 'username'; // guests still pick a display name (not persisted)
     }
-    // Show the display-calibration screen first: always for guests/new players,
-    // once for a verified player (remembered by their SSH key).
+    // Show the display-calibration screen first on EVERY connect (terminals /
+    // font sizes vary per session), then hand off to the username or menu screen.
     this.postCalibrate = landing;
-    this.screen = this.player?.calibrated ? landing : 'calibrate';
+    this.screen = 'calibrate';
     this.fightInput = new InputState(this.keyBindings);
     HUB.register(this);
   }
