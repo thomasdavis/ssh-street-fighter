@@ -1,0 +1,31 @@
+[Unit]
+Description=sshfighter.com — terminal versus fighting game over SSH
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=@APP_USER@
+WorkingDirectory=@APP_DIR@
+EnvironmentFile=/etc/sshfighter.env
+# Run the game. tsx runs the TypeScript directly (matches dev); swap to
+# `node dist/index.js` after a `pnpm build` for a small perf win.
+ExecStart=/usr/bin/env pnpm exec tsx src/index.ts
+Restart=always
+RestartSec=2
+
+# Bind port 22 without running as root: grant just the one capability.
+AmbientCapabilities=CAP_NET_BIND_SERVICE
+CapabilityBoundingSet=CAP_NET_BIND_SERVICE
+NoNewPrivileges=true
+
+# Light hardening (the game only needs its own dir + /etc/sshfighter.env).
+ProtectSystem=full
+ProtectHome=false
+PrivateTmp=true
+
+# Give the event loop headroom; keep it off the box's other work if shared.
+Nice=-5
+
+[Install]
+WantedBy=multi-user.target

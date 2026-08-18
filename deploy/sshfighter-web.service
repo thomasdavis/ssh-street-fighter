@@ -1,0 +1,17 @@
+[Unit]
+Description=sshfighter.com — web homepage (Next.js sprite gallery)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=@APP_USER@
+WorkingDirectory=@APP_DIR@/web
+EnvironmentFile=-/etc/sshfighter.env
+ExecStart=/usr/bin/env pnpm start
+Restart=always
+RestartSec=3
+NoNewPrivileges=true
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,12 @@
+# sshfighter.com — reverse proxy + automatic HTTPS for the web homepage.
+# The SSH game itself does NOT go through Caddy; it binds port 22 directly.
+#
+# Install: copy to /etc/caddy/Caddyfile (or import it), then `systemctl reload caddy`.
+# DNS: sshfighter.com A -> <box ip>. For the web to get a public Let's Encrypt
+# cert, the record can be proxied or DNS-only; if you also want `ssh sshfighter.com`
+# to hit the game, keep the A record DNS-only (grey) so SSH is not proxied.
+
+sshfighter.com, www.sshfighter.com {
+	encode zstd gzip
+	reverse_proxy localhost:3130
+}
