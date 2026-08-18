@@ -64,6 +64,10 @@ export function initDb(): void {
   mkdirSync(dirname(DB_PATH), { recursive: true });
   db = new Database(DB_PATH);
   db.pragma('journal_mode = WAL');
+  // In cluster mode several worker processes share this DB. WAL already allows
+  // concurrent readers + one writer; busy_timeout makes a write wait for the
+  // lock (up to 5s) instead of throwing SQLITE_BUSY under contention.
+  db.pragma('busy_timeout = 5000');
   db.exec(`
     CREATE TABLE IF NOT EXISTS players (
       id INTEGER PRIMARY KEY AUTOINCREMENT,

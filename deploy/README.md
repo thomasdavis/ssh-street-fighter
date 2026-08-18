@@ -62,6 +62,24 @@ journalctl -u sshfighter -f              # logs
 `SF_DISCORD_WEBHOOK`. The SSH host key is auto-generated at `keys/host.key` on
 first start.
 
+### Scaling (cluster)
+For high concurrency, run a **cluster** so SSH handshakes, simulation and
+rendering spread across every core:
+- `SF_WORKERS=N` — N worker processes (a good default is `cores - 2`). The
+  primary round-robins connections to workers. `1`/unset = single process.
+- `SF_RENDER_WORKERS` — render worker-threads *per process*. In a cluster set
+  this to `0` (each worker renders inline; the processes already parallelize).
+  Single-process mode can set it to ~4 to use multiple cores for rendering.
+- `UV_THREADPOOL_SIZE` — libuv threads per process for zlib SSH compression
+  (`6` is fine per worker; raise for single-process).
+
+Stats, leaderboard and chat are shared through the SQLite DB (WAL +
+`busy_timeout`), so they're global across workers. Quick-match and the live
+lounge shard per worker — fine at scale (each shard holds hundreds of players).
+Measured: 6 workers on an 8-core box absorbed an 1100-connection burst with zero
+errors. Tune with `src/loadtest.ts` (`node node_modules/tsx/dist/cli.mjs
+src/loadtest.ts <N> <host> <port> <seconds>`).
+
 ## Notes
 - Runs as your unprivileged user; it binds :22 via `CAP_NET_BIND_SERVICE` in the
   systemd unit, not root.
