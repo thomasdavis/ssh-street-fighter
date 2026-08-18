@@ -58,3 +58,30 @@ sudo ufw delete allow 22/tcp
 Note: once the origin only sees Fly's IP, region-aware matchmaking loses the real
 client IP. Recover it with the PROXY protocol (haproxy `send-proxy` on the
 backend + parse it on the origin) — a small follow-up when you cut over.
+
+## Origin lockdown (applied)
+
+The OVH origin's game port is firewalled to Fly's **static egress IPs** only, so
+the origin can't be reached directly from the internet — all player traffic must
+go through the anycast edge.
+
+Fly static egress IPs (allocated per relay machine, `fly machine egress-ip list`):
+- `209.71.99.130`  (machine 86321ea15d6508)
+- `209.71.99.50`   (machine 850d59a0531038)
+
+ufw on the origin:
+```bash
+sudo ufw allow from 209.71.99.130 to any port 22 proto tcp comment 'fly relay egress'
+sudo ufw allow from 209.71.99.50  to any port 22 proto tcp comment 'fly relay egress'
+sudo ufw delete allow 22/tcp        # remove the world-open rule (v4 + v6)
+# admin :2222 stays open (world) as the safety net
+```
+
+Verified from an external host: direct `origin:22` → BLOCKED; `anycast:22` → OK.
+
+**Operational caveat:** static egress IPs survive a machine *restart* but are tied
+to the machine — if a relay machine is **destroyed and recreated** (e.g. some
+deploys), it gets a NEW egress IP and you must re-allow it (and drop the old one),
+or players via that machine are blocked. After a deploy, check
+`fly machine egress-ip list --app sshfighter-relay` and reconcile the ufw rules.
+Admin `:2222` is unaffected, so you can always get in to fix it.
