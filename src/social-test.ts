@@ -28,12 +28,14 @@ async function connect(handle: string): Promise<Client> {
     conn.on('error', reject);
     conn.connect({ host: '127.0.0.1', port: PORT, username: handle, password: 'x', hostVerifier: () => true });
   });
-  await sleep(200);
+  await sleep(250);
+  client.stream.write('\r');   // pass the first-run calibration screen
+  await sleep(220);
   client.stream.write(handle);
-  client.stream.write('\r\n');
-  await sleep(180);
-  client.stream.write('s');
-  client.stream.write('\r'); // second menu item = lounge
+  client.stream.write('\r');   // confirm handle -> main menu
+  await sleep(250);
+  client.stream.write('s');    // menu: down to FIGHT LOUNGE
+  client.stream.write('\r');   // enter the lounge
   return client;
 }
 

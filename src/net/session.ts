@@ -14,7 +14,8 @@ import {
 } from '../input/bindings.js';
 import { composeSceneCached } from '../game/scene.js';
 import { makeRenderPool } from '../render/render-pool.js';
-import { makeWorkerLink } from '../cluster/link.js';
+import { hub, type RosterEntry, type ChatLine, type ChallengePeer } from './hub.js';
+import { MATCH_IDS } from './match-ids.js';
 import { makeFighter, makeMatch, stepMatch, TICK_HZ } from '../game/engine.js';
 import { emptyInputs, type Match } from '../game/types.js';
 import { characterAt } from '../game/roster.js';
@@ -31,16 +32,16 @@ const WRAP = '\x1b[?7h';
 const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
 const COLOR_STEP = clamp(parseInt(process.env.SF_COLOR_STEP ?? '1', 10) || 1, 1, 64);
 const INDEXED_COLOR = process.env.SF_COLOR_MODE === '256';
-const MATCH_IDS = new WeakMap<Match, string>();
 
 // Optional pool of render worker threads (SF_RENDER_WORKERS>0). When enabled,
 // the heavy fight render runs off the main thread so the game uses every core;
 // everything else (sim, matchmaking, lounge, menus) stays single-process.
 const RENDER_POOL = makeRenderPool();
 
-// In a cluster worker this links to the primary for global matchmaking + the
-// versus relay; null in single-process (local Arena handles matchmaking).
-const CLUSTER = makeWorkerLink();
+// The one seam for cross-session features (matchmaking, lounge, challenges).
+// LocalHub in-process; ClusterHub forwards to the primary. Session code is
+// identical either way — see hub.ts.
+const HUB = hub();
 
 export interface MatchResult {
   winner: string;
@@ -94,8 +95,12 @@ export class Session {
   loungeCursor = 0;
   chatBuf = '';
   loungeNotice = '';
-  incomingChallenge: Session | null = null;
-  outgoingChallenge: Session | null = null;
+  // lounge caches, filled by the hub (never Session references, so they work
+  // whether the peer is local or on another worker)
+  loungeRoster: RosterEntry[] = [];
+  loungeChat: ChatLine[] = [];
+  incoming: ChallengePeer | null = null;
+  outgoing: ChallengePeer | null = null;
   private lastChatAt = 0;
   private startedAt = Date.now();
   private lastAttackA = 'none';
@@ -135,7 +140,7 @@ export class Session {
     this.postCalibrate = landing;
     this.screen = this.player?.calibrated ? landing : 'calibrate';
     this.fightInput = new InputState(this.keyBindings);
-    CLUSTER?.register(this);
+    HUB.register(this);
   }
 
   get displayName(): string { return this.player?.username ?? this.username; }
@@ -180,7 +185,7 @@ export class Session {
 
   goTo(screen: ScreenName): void {
     const previous = this.screen;
-    if (this.screen === 'lounge' && screen !== 'lounge') SOCIAL.leave(this);
+    if (this.screen === 'lounge' && screen !== 'lounge') HUB.leaveLounge(this);
     this.screen = screen;
     this.menuIndex = 0;
     this.errorMsg = '';
@@ -235,9 +240,9 @@ export class Session {
     if (this.screen === 'fight') {
       if (this.remoteVersus) {
         // cluster: don't simulate locally — stream input up, render relayed state
-        CLUSTER!.input(this.remoteMid, this.sid, this.fightInput.snapshot());
+        HUB.relayInput(this);
         if (this.fightInput.quit) {
-          CLUSTER!.leaveMatch(this.remoteMid, this.sid);
+          HUB.leaveMatch(this);
           this.remoteVersus = false; this.remoteMid = ''; this.match = null; this.goTo('menu');
         }
       } else if (this.practice) this.stepPractice();
@@ -391,11 +396,10 @@ export class Session {
 
   joinLobby(): void {
     this.trackEvent('quick_match_queued', { fighter: characterAt(this.cursor).name });
-    if (CLUSTER) { CLUSTER.queue(this); this.goTo('lobbyWait'); } // primary pairs across workers
-    else ARENA.enqueue(this);
+    HUB.queue(this); // hub sends us to lobbyWait, then pairs (globally, across workers)
   }
   cancelLobby(): void {
-    if (CLUSTER) CLUSTER.dequeue(this); else ARENA.remove(this);
+    HUB.cancelQueue(this);
     this.trackEvent('quick_match_cancelled'); this.goTo('menu');
   }
 
@@ -427,13 +431,12 @@ export class Session {
   }
 
   enterLounge(): void {
+    this.loungeRoster = []; this.loungeChat = []; this.incoming = null; this.outgoing = null;
     this.goTo('lounge');
-    SOCIAL.enter(this);
+    HUB.enterLounge(this);
     this.loungeNotice = 'ESC RETURNS TO MAIN MENU  ·  TAB SWITCHES PANELS';
     this.trackEvent('lounge_joined', { fighter: characterAt(this.cursor).name });
   }
-  loungePlayers(): Session[] { return SOCIAL.online(this); }
-  loungeMessages(): readonly db.ChatMessage[] { return SOCIAL.history(); }
   sendChat(): void {
     const message = this.chatBuf.replace(/[^\x20-\x7e]/g, '').trim().slice(0, 140);
     if (!message) return;
@@ -442,17 +445,16 @@ export class Session {
     if (now - this.lastChatAt < 700) { this.loungeNotice = 'SLOW DOWN - ONE MESSAGE AT A TIME'; return; }
     this.lastChatAt = now;
     this.chatBuf = '';
-    SOCIAL.send(this, message);
+    HUB.sendChat(this, message);
   }
   challengeSelected(): void {
-    const players = this.loungePlayers();
-    if (!players.length) { this.loungeNotice = 'NO OTHER PLAYERS IN THE LOUNGE'; return; }
-    this.loungeCursor = clamp(this.loungeCursor, 0, players.length - 1);
-    SOCIAL.challenge(this, players[this.loungeCursor]!);
+    if (!this.loungeRoster.length) { this.loungeNotice = 'NO OTHER PLAYERS IN THE LOUNGE'; return; }
+    this.loungeCursor = clamp(this.loungeCursor, 0, this.loungeRoster.length - 1);
+    HUB.challenge(this, this.loungeRoster[this.loungeCursor]!.id);
   }
-  cancelChallenge(): void { SOCIAL.cancel(this); }
-  acceptChallenge(): void { SOCIAL.accept(this); }
-  declineChallenge(): void { SOCIAL.decline(this); }
+  cancelChallenge(): void { HUB.cancelChallenge(this); }
+  acceptChallenge(): void { HUB.acceptChallenge(this); }
+  declineChallenge(): void { HUB.declineChallenge(this); }
 
   setKeyBinding(action: BindableAction, binding: BindingToken): void {
     this.keyBindings = withBinding(this.keyBindings, action, binding);
@@ -478,9 +480,10 @@ export class Session {
     this.trackEvent('game_session_ended', { screen: this.screen, duration_seconds: Math.round((Date.now() - this.startedAt) / 1000) });
     if (this.loopTimer) { clearInterval(this.loopTimer); this.loopTimer = null; }
     RENDER_POOL?.free(this.sid);
-    if (CLUSTER) { if (this.remoteVersus) CLUSTER.leaveMatch(this.remoteMid, this.sid); CLUSTER.dequeue(this); CLUSTER.unregister(this); }
-    ARENA.remove(this);
-    SOCIAL.leave(this);
+    if (this.remoteVersus) HUB.leaveMatch(this);
+    HUB.cancelQueue(this);
+    HUB.leaveLounge(this);
+    HUB.unregister(this);
     // if mid versus fight, award the peer
     if (this.screen === 'fight' && !this.practice && this.peer && this.peer.alive) {
       const other = this.peer;
@@ -527,136 +530,3 @@ export class Session {
     this.lastAttackB = inspect('b', this.lastAttackB);
   }
 }
-
-// ---------- matchmaking ----------
-class Arena {
-  private waiting: Session | null = null;
-
-  enqueue(s: Session): void {
-    if (this.waiting && this.waiting.alive && this.waiting !== s) {
-      const a = this.waiting; this.waiting = null;
-      this.pair(a, s, 'quick_match');
-    } else {
-      this.waiting = s;
-      s.goTo('lobbyWait');
-    }
-  }
-
-  pair(a: Session, b: Session, source: 'quick_match' | 'direct_challenge' = 'quick_match'): void {
-    const ca = characterAt(a.cursor);
-    const cb = characterAt(b.cursor);
-    const fa = makeFighter('a', ca.name, 'a', ca.palette);
-    const fb = makeFighter('b', cb.name, 'b', cb.palette);
-    const match = makeMatch(fa, fb);
-    const matchId = eventId('match');
-    MATCH_IDS.set(match, matchId);
-    track('match_started', {
-      match_id: matchId, source, stage: match.stage,
-      player_a: a.displayName, actor_a: actorRef(a.fp, a.connectionId), fighter_a: ca.name, elo_a: a.player?.elo,
-      player_b: b.displayName, actor_b: actorRef(b.fp, b.connectionId), fighter_b: cb.name, elo_b: b.player?.elo,
-      rated: !!(a.fp && b.fp && a.fp !== b.fp),
-    });
-    a.startVersus(match, 'a', b, true);
-    b.startVersus(match, 'b', a, false);
-  }
-
-  remove(s: Session): void { if (this.waiting === s) this.waiting = null; }
-}
-
-export const ARENA = new Arena();
-
-class SocialHub {
-  private members = new Set<Session>();
-  private messages: db.ChatMessage[] | null = null;
-
-  enter(s: Session): void {
-    this.members.add(s);
-    s.loungeNotice = 'TAB SWITCHES BETWEEN CHAT AND PLAYERS';
-    this.touch();
-  }
-
-  leave(s: Session): void {
-    if (!this.members.delete(s) && !s.incomingChallenge && !s.outgoingChallenge) return;
-    const incoming = s.incomingChallenge;
-    const outgoing = s.outgoingChallenge;
-    s.incomingChallenge = null; s.outgoingChallenge = null;
-    if (incoming?.outgoingChallenge === s) { incoming.outgoingChallenge = null; incoming.loungeNotice = `${s.displayName} LEFT THE LOUNGE`; }
-    if (outgoing?.incomingChallenge === s) { outgoing.incomingChallenge = null; outgoing.loungeNotice = `${s.displayName} CANCELLED THE CHALLENGE`; }
-    s.trackEvent('lounge_left');
-    this.touch();
-  }
-
-  online(viewer: Session): Session[] {
-    return [...this.members]
-      .filter((s) => s !== viewer && s.alive && s.screen === 'lounge')
-      .sort((a, b) => a.displayName.localeCompare(b.displayName));
-  }
-
-  history(): readonly db.ChatMessage[] {
-    if (!this.messages) this.messages = db.chatHistory(100);
-    return this.messages;
-  }
-
-  send(s: Session, text: string): void {
-    const message = db.addChatMessage(s.displayName, text);
-    const list = this.messages ?? db.chatHistory(99);
-    list.push(message);
-    this.messages = list.slice(-100);
-    s.loungeNotice = 'MESSAGE SENT';
-    s.trackEvent('chat_message', { message: text });
-    this.touch();
-  }
-
-  challenge(from: Session, to: Session): void {
-    if (!this.members.has(from) || !this.members.has(to) || !from.alive || !to.alive) { from.loungeNotice = 'PLAYER IS NO LONGER AVAILABLE'; return; }
-    if (from.incomingChallenge || from.outgoingChallenge) { from.loungeNotice = 'FINISH YOUR CURRENT CHALLENGE FIRST'; return; }
-    if (to.incomingChallenge || to.outgoingChallenge) { from.loungeNotice = `${to.displayName} IS ALREADY BUSY`; return; }
-    from.outgoingChallenge = to;
-    to.incomingChallenge = from;
-    from.loungeNotice = `CHALLENGE SENT TO ${to.displayName}`;
-    to.loungeNotice = `${from.displayName} CHALLENGED YOU`;
-    from.prevFrame = null; to.prevFrame = null;
-    track('challenge_sent', {
-      challenger: from.displayName, challenger_actor: actorRef(from.fp, from.connectionId), fighter: characterAt(from.cursor).name,
-      challenged: to.displayName, challenged_actor: actorRef(to.fp, to.connectionId), opponent_fighter: characterAt(to.cursor).name,
-    });
-  }
-
-  accept(to: Session): void {
-    const from = to.incomingChallenge;
-    if (!from || !from.alive || from.outgoingChallenge !== to || !this.members.has(from) || !this.members.has(to)) {
-      to.incomingChallenge = null; to.loungeNotice = 'CHALLENGE EXPIRED'; return;
-    }
-    from.outgoingChallenge = null; to.incomingChallenge = null;
-    this.members.delete(from); this.members.delete(to);
-    track('challenge_accepted', { challenger: from.displayName, challenged: to.displayName });
-    this.touch();
-    ARENA.pair(from, to, 'direct_challenge');
-  }
-
-  cancel(from: Session): void {
-    const to = from.outgoingChallenge;
-    if (!to) { from.loungeNotice = 'NO OUTGOING CHALLENGE'; return; }
-    from.outgoingChallenge = null;
-    if (to.incomingChallenge === from) to.incomingChallenge = null;
-    from.loungeNotice = `CANCELLED CHALLENGE TO ${to.displayName}`;
-    to.loungeNotice = `${from.displayName} CANCELLED THE CHALLENGE`;
-    from.prevFrame = null; to.prevFrame = null;
-    track('challenge_cancelled', { challenger: from.displayName, challenged: to.displayName });
-  }
-
-  decline(to: Session): void {
-    const from = to.incomingChallenge;
-    if (!from) { to.loungeNotice = 'NO CHALLENGE TO DECLINE'; return; }
-    to.incomingChallenge = null;
-    if (from.outgoingChallenge === to) from.outgoingChallenge = null;
-    to.loungeNotice = `DECLINED ${from.displayName}`;
-    from.loungeNotice = `${to.displayName} DECLINED YOUR CHALLENGE`;
-    from.prevFrame = null; to.prevFrame = null;
-    track('challenge_declined', { challenger: from.displayName, challenged: to.displayName });
-  }
-
-  private touch(): void { for (const s of this.members) s.prevFrame = null; }
-}
-
-const SOCIAL = new SocialHub();

@@ -49,5 +49,29 @@ const endB = outB.find((m) => m.t === 'matchEnd') as Extract<P2W, { t: 'matchEnd
 check('opponent leaving ends the match as a win', !!endB && endB.result.youWon === true, `bob end=${JSON.stringify(endB?.result?.youWon)}`);
 check('match cleaned up', coord.activeMatches === 0 && coord.queued === 0);
 
+// ---- lounge across workers ----
+const lounge = (m: P2W | undefined) => m as Extract<P2W, { t: 'lounge' }> | undefined;
+const chal = (m: P2W | undefined) => m as Extract<P2W, { t: 'challengeState' }> | undefined;
+outA.length = 0; outB.length = 0;
+coord.handle(wA, { t: 'loungeJoin', sid: 10, cid: 'la', name: 'LOUA', fp: null, cursor: 0, elo: 1200 });
+coord.handle(wB, { t: 'loungeJoin', sid: 10, cid: 'lb', name: 'LOUB', fp: null, cursor: 1, elo: 1200 });
+const rA = lounge([...outA].reverse().find((m) => m.t === 'lounge'));
+const rB = lounge([...outB].reverse().find((m) => m.t === 'lounge'));
+check('lounge presence is global across workers',
+  !!rA?.roster.some((r) => r.name === 'LOUB') && !!rB?.roster.some((r) => r.name === 'LOUA') && coord.loungeSize === 2);
+
+outB.length = 0;
+coord.handle(wA, { t: 'chat', sid: 10, text: 'hey there' });
+check('chat broadcasts to other workers', !!lounge([...outB].reverse().find((m) => m.t === 'lounge'))?.chat.some((c) => c.message === 'hey there'));
+
+outA.length = 0; outB.length = 0;
+coord.handle(wA, { t: 'challenge', sid: 10, targetId: 'lb' });
+check('challenge crosses workers', chal(outB.find((m) => m.t === 'challengeState'))?.incoming?.name === 'LOUA');
+
+outA.length = 0; outB.length = 0;
+coord.handle(wB, { t: 'respondChallenge', sid: 10, accept: true });
+check('accepting a cross-worker challenge starts a match',
+  !!outA.find((m) => m.t === 'matchStart') && !!outB.find((m) => m.t === 'matchStart') && coord.loungeSize === 0);
+
 console.log(pass ? '\nCOORDINATOR TEST: PASS' : '\nCOORDINATOR TEST: FAIL');
 process.exit(pass ? 0 : 1);

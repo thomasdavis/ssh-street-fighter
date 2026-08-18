@@ -73,12 +73,17 @@ rendering spread across every core:
 - `UV_THREADPOOL_SIZE` — libuv threads per process for zlib SSH compression
   (`6` is fine per worker; raise for single-process).
 
-Stats, leaderboard and chat are shared through the SQLite DB (WAL +
-`busy_timeout`), so they're global across workers. **Quick-match is global too**:
-the primary process holds one matchmaking queue and simulates every versus match,
-relaying state to the two players' workers — so players on different workers are
-paired and play normally. (The lounge's direct-challenge / online-player list is
-still per-worker; a follow-up.)
+Everything cross-session is global across workers, routed through the `Hub`
+abstraction (`src/net/hub.ts`): quick-match, the lounge (presence + chat +
+direct challenges), and every versus match. The primary process holds one
+matchmaking queue + lounge, simulates every match, and relays state/inputs;
+workers just render and forward input. Stats/leaderboard/chat also persist to the
+shared SQLite DB (WAL + `busy_timeout`).
+
+> Adding a new cross-session feature? Add a method to the `Hub` interface and
+> implement it in both `LocalHub` and `ClusterHub` (+ the primary coordinator).
+> TypeScript won't compile a hub that's missing it, so a feature can't work
+> single-process while silently breaking across workers.
 
 Measured: 6 workers on an 8-core box absorbed an 1100-connection burst with zero
 errors, and held 2028 concurrent connections at ~2 cores. Tune with
