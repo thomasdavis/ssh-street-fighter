@@ -5,6 +5,7 @@ import { dirname, resolve } from 'path';
 import { fileURLToPath } from 'url';
 import { startServer } from './net/ssh-server.js';
 import { initDb } from './db/db.js';
+import { runCoordinator } from './cluster/coordinator.js';
 import { flushTelemetry, track } from './telemetry/discord.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -49,6 +50,8 @@ if (WORKERS > 1 && cluster.isPrimary) {
   console.log(`SSH Street Fighter primary (pid ${process.pid}): forking ${WORKERS} workers`);
   track('cluster_started', { workers: WORKERS, pid: process.pid });
   for (let i = 0; i < WORKERS; i++) cluster.fork();
+  // the primary owns global matchmaking + runs every versus simulation
+  runCoordinator();
 
   let shuttingDown = false;
   cluster.on('exit', (worker, code, signal) => {

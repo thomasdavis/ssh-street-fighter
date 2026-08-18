@@ -14,6 +14,7 @@ import {
 } from '../input/bindings.js';
 import { composeSceneCached } from '../game/scene.js';
 import { makeRenderPool } from '../render/render-pool.js';
+import { makeWorkerLink } from '../cluster/link.js';
 import { makeFighter, makeMatch, stepMatch, TICK_HZ } from '../game/engine.js';
 import { emptyInputs, type Match } from '../game/types.js';
 import { characterAt } from '../game/roster.js';
@@ -36,6 +37,10 @@ const MATCH_IDS = new WeakMap<Match, string>();
 // the heavy fight render runs off the main thread so the game uses every core;
 // everything else (sim, matchmaking, lounge, menus) stays single-process.
 const RENDER_POOL = makeRenderPool();
+
+// In a cluster worker this links to the primary for global matchmaking + the
+// versus relay; null in single-process (local Arena handles matchmaking).
+const CLUSTER = makeWorkerLink();
 
 export interface MatchResult {
   winner: string;
@@ -102,6 +107,8 @@ export class Session {
   peer: Session | null = null;
   isStepper = false;
   practice = false;
+  remoteVersus = false;   // cluster: match is simulated by the primary, we render + send input
+  remoteMid = '';
   fightInput = new InputState();
 
   constructor(
@@ -128,6 +135,7 @@ export class Session {
     this.postCalibrate = landing;
     this.screen = this.player?.calibrated ? landing : 'calibrate';
     this.fightInput = new InputState(this.keyBindings);
+    CLUSTER?.register(this);
   }
 
   get displayName(): string { return this.player?.username ?? this.username; }
@@ -225,7 +233,14 @@ export class Session {
     if (!this.alive) return;
     this.frame++;
     if (this.screen === 'fight') {
-      if (this.practice) this.stepPractice();
+      if (this.remoteVersus) {
+        // cluster: don't simulate locally — stream input up, render relayed state
+        CLUSTER!.input(this.remoteMid, this.sid, this.fightInput.snapshot());
+        if (this.fightInput.quit) {
+          CLUSTER!.leaveMatch(this.remoteMid, this.sid);
+          this.remoteVersus = false; this.remoteMid = ''; this.match = null; this.goTo('menu');
+        }
+      } else if (this.practice) this.stepPractice();
       else if (this.isStepper && this.match && this.peer && this.peer.alive) {
         stepMatch(this.match, this.fightInput.snapshot(), this.peer.fightInput.snapshot());
         this.trackSpecialAttacks();
@@ -374,8 +389,42 @@ export class Session {
 
   private leaveFight(): void { this.match = null; this.peer = null; this.isStepper = false; this.goTo('menu'); }
 
-  joinLobby(): void { this.trackEvent('quick_match_queued', { fighter: characterAt(this.cursor).name }); ARENA.enqueue(this); }
-  cancelLobby(): void { ARENA.remove(this); this.trackEvent('quick_match_cancelled'); this.goTo('menu'); }
+  joinLobby(): void {
+    this.trackEvent('quick_match_queued', { fighter: characterAt(this.cursor).name });
+    if (CLUSTER) { CLUSTER.queue(this); this.goTo('lobbyWait'); } // primary pairs across workers
+    else ARENA.enqueue(this);
+  }
+  cancelLobby(): void {
+    if (CLUSTER) CLUSTER.dequeue(this); else ARENA.remove(this);
+    this.trackEvent('quick_match_cancelled'); this.goTo('menu');
+  }
+
+  // ---- cluster remote versus (match simulated by the primary) ----
+  startRemoteVersus(mid: string, role: 'a' | 'b', yourCursor: number, oppName: string, oppCursor: number, stage: string): void {
+    const aCursor = role === 'a' ? yourCursor : oppCursor;
+    const bCursor = role === 'a' ? oppCursor : yourCursor;
+    const ca = characterAt(aCursor), cb = characterAt(bCursor);
+    const m = makeMatch(makeFighter('a', ca.name, 'a', ca.palette), makeFighter('b', cb.name, 'b', cb.palette));
+    m.stage = stage;
+    this.match = m; this.role = role; this.peer = null; this.isStepper = false; this.practice = false;
+    this.remoteVersus = true; this.remoteMid = mid;
+    this.fightInput = new InputState(this.keyBindings);
+    this.lastAttackA = 'none'; this.lastAttackB = 'none';
+    this.trackEvent('quick_match_paired', { fighter: ca.name, opponent: oppName });
+    this.screen = 'fight'; this.prevFrame = null; this.forceFull = true;
+    this.write(CLEAR_SCREEN + HIDE_CURSOR + NOWRAP);
+  }
+  applyRemoteState(mid: string, m: Match): void {
+    if (mid !== this.remoteMid) return;
+    this.match = m; // authoritative state from the primary; render reads this
+  }
+  endRemoteVersus(mid: string, result: MatchResult): void {
+    if (mid !== this.remoteMid) return;
+    this.result = result;
+    this.remoteVersus = false; this.remoteMid = ''; this.match = null;
+    if (this.fp) this.player = db.getByFingerprint(this.fp) ?? this.player; // refresh elo/stats
+    this.goTo('results');
+  }
 
   enterLounge(): void {
     this.goTo('lounge');
@@ -429,6 +478,7 @@ export class Session {
     this.trackEvent('game_session_ended', { screen: this.screen, duration_seconds: Math.round((Date.now() - this.startedAt) / 1000) });
     if (this.loopTimer) { clearInterval(this.loopTimer); this.loopTimer = null; }
     RENDER_POOL?.free(this.sid);
+    if (CLUSTER) { if (this.remoteVersus) CLUSTER.leaveMatch(this.remoteMid, this.sid); CLUSTER.dequeue(this); CLUSTER.unregister(this); }
     ARENA.remove(this);
     SOCIAL.leave(this);
     // if mid versus fight, award the peer

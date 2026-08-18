@@ -74,11 +74,16 @@ rendering spread across every core:
   (`6` is fine per worker; raise for single-process).
 
 Stats, leaderboard and chat are shared through the SQLite DB (WAL +
-`busy_timeout`), so they're global across workers. Quick-match and the live
-lounge shard per worker — fine at scale (each shard holds hundreds of players).
+`busy_timeout`), so they're global across workers. **Quick-match is global too**:
+the primary process holds one matchmaking queue and simulates every versus match,
+relaying state to the two players' workers — so players on different workers are
+paired and play normally. (The lounge's direct-challenge / online-player list is
+still per-worker; a follow-up.)
+
 Measured: 6 workers on an 8-core box absorbed an 1100-connection burst with zero
-errors. Tune with `src/loadtest.ts` (`node node_modules/tsx/dist/cli.mjs
-src/loadtest.ts <N> <host> <port> <seconds>`).
+errors, and held 2028 concurrent connections at ~2 cores. Tune with
+`src/loadtest.ts` (`node node_modules/tsx/dist/cli.mjs src/loadtest.ts <N> <host>
+<port> <seconds> [fight%]`).
 
 ## Notes
 - Runs as your unprivileged user; it binds :22 via `CAP_NET_BIND_SERVICE` in the
