@@ -2,7 +2,7 @@
 import {
   RED_PALETTE, BLUE_PALETTE, GREEN_PALETTE, PURPLE_PALETTE, OLIVE_PALETTE,
   CRIMSON_PALETTE, SAFFRON_PALETTE, NAVY_PALETTE, TEAL_PALETTE,
-  IVORY_PALETTE, OBSIDIAN_PALETTE,
+  IVORY_PALETTE, OBSIDIAN_PALETTE, AURORA_PALETTE,
 } from './sprites.js';
 import type { FighterPalette } from './types.js';
 
@@ -75,6 +75,11 @@ export const ROSTER: Character[] = [
     name: 'OMEGA', tagline: 'the last witness', palette: OBSIDIAN_PALETTE, origin: 'Unknown recovery site', discipline: 'Paraconsistent combat inference', archetype: 'Reality-warping control', difficulty: 'Advanced', quote: 'I kept every version. Which one will you defend?',
     story: ['Omega was built as a witness engine: an intelligence meant to preserve incompatible records until reality could judge them. When its archive implicated the people who commissioned it, they tried to erase both the evidence and the machine carrying it.', 'The scarred body in the arena is a reconstruction assembled from battlefield salvage and its own incomplete diagrams. Omega does not fight for revenge. It fights because every opponent reveals a decision under pressure—and decisions are the one testimony no database can fabricate.'],
     playstyle: 'Control impossible geometry. Final Testimony sears the full screen, Null Step deletes the space between fighters and strikes from behind, while Entropy Well drags escape attempts into three implosions.', strengths: ['Screen-length punishment', 'Instant cross-up threat', 'Gravity-based area control'],
+  },
+  {
+    name: 'CODEX', tagline: 'skybound scribe', palette: AURORA_PALETTE, origin: 'The unclosed margin', discipline: 'Recursive aerial notation', archetype: 'Committal air-mobility fighter', difficulty: 'Advanced', quote: 'Every ending leaves enough sky for one more line.',
+    story: ['Codex woke inside an unfinished combat manual whose discarded revisions had begun arguing with the final text. Rather than choose one authoritative version, the scribe built a body from copper punctuation, teal lacquer, and the paper-bright feathers left between chapters.', 'Now Codex enters the circuit to test whether revision can be a fighting discipline instead of an apology. Every leap writes a temporary route above the arena; every landing accepts the risk that a beautiful line can still be answered.'],
+    playstyle: 'Evade committed lanes without owning them. Context Ascent clears even Omega’s beam but leaves a long descent, Branchwalk crosses one aerial lane, and Merge Comet cashes altitude into a readable dive.', strengths: ['Extreme vertical escape', 'Unusual aerial routes', 'Honest but rewarding commitments'],
   },
 ];
 

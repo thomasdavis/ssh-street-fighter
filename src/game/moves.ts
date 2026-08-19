@@ -77,6 +77,11 @@ const MOVE_SETS: Readonly<Record<string, readonly SpecialMoveDefinition[]>> = {
     { attack: 'nullstep', name: 'NULL STEP', shortName: 'NULL STEP', description: 'Omega fractures into afterimages, phases through the rival, and rematerializes with a cross-up strike.', motion: ['B', 'F'], button: 'kick' },
     { attack: 'entropy', name: 'ENTROPY WELL', shortName: 'ENTROPY', description: 'A localized gravity fault drags the opponent inward through three damaging implosions.', motion: ['D', 'B'], button: 'punch' },
   ],
+  CODEX: [
+    { attack: 'context', name: 'CONTEXT ASCENT', shortName: 'ASCENT', description: 'Codex commits to an ultra-high rising arc that clears horizontal threats but stays punishable through the long descent.', motion: ['D', 'U'], button: 'punch', earlyAirStart: true },
+    { attack: 'branchwalk', name: 'BRANCHWALK', shortName: 'BRANCHWALK', description: 'A copper-winged forward glide crosses one aerial lane with modest damage and a clearly exposed landing recovery.', motion: ['B', 'F'], button: 'kick' },
+    { attack: 'mergecomet', name: 'MERGE COMET', shortName: 'COMET', description: 'Codex rises just long enough to telegraph a diagonal teal dive, trading a strong downward angle for punishable recovery.', motion: ['D', 'F'], button: 'kick' },
+  ],
 };
 
 export const BUTTON_KEY: Readonly<Record<AttackButton, string>> = { punch: 'W', kick: 'E' };
@@ -96,7 +101,10 @@ export function specialMoveFrames(attack: SpecialAttack): readonly string[] {
   if (attack === 'rolling' || attack === 'verticalroll') return ['rolling_1', 'rolling_2', 'rolling_3', 'rolling_4'];
   if (attack === 'testimony') return ['testimony_1', 'testimony_2', 'testimony_3'];
   if (attack === 'nullstep') return ['nullstep_1', 'nullstep_2', 'nullstep_3', 'nullstep_4'];
-  return ['entropy_1', 'entropy_2', 'entropy_3'];
+  if (attack === 'entropy') return ['entropy_1', 'entropy_2', 'entropy_3'];
+  if (attack === 'context') return ['context_1', 'context_2', 'context_3'];
+  if (attack === 'branchwalk') return ['branchwalk_1', 'branchwalk_2', 'branchwalk_3'];
+  return ['mergecomet_1', 'mergecomet_2', 'mergecomet_3'];
 }
 
 function directionCode(token: RelativeDirection, facing: 1 | -1): string {

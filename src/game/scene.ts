@@ -5,7 +5,7 @@
 // and sprites are downscaled from their high-res source to the on-screen size.
 import { createGrid, fillRect, blit, resizeGridH, rgb, type PixelGrid, type RGB } from '../render/pixel.js';
 import { drawFighter } from './sprites.js';
-import { WORLD_W, WORLD_H, GROUND_Y, STAGE_LEFT, STAGE_RIGHT, ENTROPY, TESTIMONY, attackActive, attackExtension } from './engine.js';
+import { WORLD_W, WORLD_H, GROUND_Y, STAGE_LEFT, STAGE_RIGHT, ENTROPY, TESTIMONY, CONTEXT, BRANCHWALK, MERGE_COMET, attackActive, attackExtension } from './engine.js';
 import { SPRITES } from './sprite-set.js';
 import { STAGES } from './stage-set.js';
 import { specialMoveForAttack } from './moves.js';
@@ -31,6 +31,9 @@ function frameName(f: Fighter): string {
     case 'testimony': return `testimony_${f.attackFrame < TESTIMONY.startup ? 1 : (f.attackFrame < 17 ? 2 : 3)}`;
     case 'nullstep': return `nullstep_${f.attackFrame < 4 ? 1 : (f.attackFrame < 7 ? 2 : (f.attackFrame < 11 ? 3 : 4))}`;
     case 'entropy': return `entropy_${f.attackFrame < 8 ? 1 : (f.attackFrame < 27 ? 2 : 3)}`;
+    case 'context': return `context_${f.attackFrame < CONTEXT.startup ? 1 : (f.attackFrame < CONTEXT.startup + CONTEXT.active ? 2 : 3)}`;
+    case 'branchwalk': return `branchwalk_${f.attackFrame < BRANCHWALK.startup ? 1 : (f.attackFrame < BRANCHWALK.startup + BRANCHWALK.active ? 2 : 3)}`;
+    case 'mergecomet': return `mergecomet_${f.attackFrame < MERGE_COMET.startup ? 1 : (f.attackFrame < MERGE_COMET.startup + MERGE_COMET.active ? 2 : 3)}`;
     default: return f.pose;
   }
 }
@@ -182,6 +185,28 @@ function drawOmegaTech(g: PixelGrid, v: View, f: Fighter): void {
         wrect(g, v, side === 1 ? sx : sx - 6, sy, 6, 1, i % 3 === 0 ? hot : red);
       }
     }
+  }
+}
+
+/** Codex's aerial notation stays readable even when sprites are heavily downscaled. */
+function drawCodexTrails(g: PixelGrid, v: View, f: Fighter): void {
+  if (f.attack !== 'context' && f.attack !== 'branchwalk' && f.attack !== 'mergecomet') return;
+  const teal = rgb(62, 226, 210), pale = rgb(224, 255, 242), copper = rgb(244, 142, 58);
+  const cy = GROUND_Y - f.y - 28;
+  if (f.attack === 'context') {
+    for (let i = 0; i < 7; i++) {
+      const x = f.x + (i % 2 ? 1 : -1) * (7 + i * 2);
+      const y = cy + 22 + i * 7 + (f.attackFrame % 3);
+      wrect(g, v, x, y, 1 + (i % 2), 5, i % 3 === 0 ? copper : teal);
+    }
+    return;
+  }
+  const active = attackActive(f);
+  const count = active ? 7 : 4;
+  for (let i = 1; i <= count; i++) {
+    const x = f.x - f.facing * (8 + i * 6);
+    const y = cy + (f.attack === 'mergecomet' ? -i * 3 : i % 2 ? -4 : 5);
+    wrect(g, v, f.facing === 1 ? x : x - (4 + i), y, 4 + i, 1, i % 3 === 0 ? pale : (i % 2 ? teal : copper));
   }
 }
 
@@ -360,7 +385,7 @@ export function composeScene(m: Match, pw = WORLD_W, ph = WORLD_H, practice = fa
   else drawBackground(g, v);
   if (MOTIFS_ON) drawMotifs(g, v, m.frame, m.stage);
   const order = m.a.x <= m.b.x ? [m.a, m.b] : [m.b, m.a];
-  for (const f of order) { drawFighterOnStage(g, v, f); drawSpecialAura(g, v, f); drawOmegaTech(g, v, f); }
+  for (const f of order) { drawFighterOnStage(g, v, f); drawSpecialAura(g, v, f); drawOmegaTech(g, v, f); drawCodexTrails(g, v, f); }
   drawProjectiles(g, v, m);
   drawSparks(g, v, m);
   return g;

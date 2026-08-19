@@ -1450,5 +1450,138 @@
         }
       }
     ]
+  },
+  {
+    "name": "CODEX",
+    "tagline": "skybound scribe",
+    "palette": {
+      "skin": {
+        "r": 80,
+        "g": 98,
+        "b": 112
+      },
+      "gi": {
+        "r": 38,
+        "g": 194,
+        "b": 184
+      },
+      "giDark": {
+        "r": 18,
+        "g": 72,
+        "b": 92
+      },
+      "hair": {
+        "r": 242,
+        "g": 222,
+        "b": 156
+      },
+      "belt": {
+        "r": 246,
+        "g": 142,
+        "b": 56
+      }
+    },
+    "origin": "The unclosed margin",
+    "discipline": "Recursive aerial notation",
+    "archetype": "Committal air-mobility fighter",
+    "difficulty": "Advanced",
+    "quote": "Every ending leaves enough sky for one more line.",
+    "story": [
+      "Codex woke inside an unfinished combat manual whose discarded revisions had begun arguing with the final text. Rather than choose one authoritative version, the scribe built a body from copper punctuation, teal lacquer, and the paper-bright feathers left between chapters.",
+      "Now Codex enters the circuit to test whether revision can be a fighting discipline instead of an apology. Every leap writes a temporary route above the arena; every landing accepts the risk that a beautiful line can still be answered."
+    ],
+    "playstyle": "Evade committed lanes without owning them. Context Ascent clears even Omega’s beam but leaves a long descent, Branchwalk crosses one aerial lane, and Merge Comet cashes altitude into a readable dive.",
+    "strengths": [
+      "Extreme vertical escape",
+      "Unusual aerial routes",
+      "Honest but rewarding commitments"
+    ],
+    "moves": [
+      {
+        "attack": "context",
+        "name": "CONTEXT ASCENT",
+        "shortName": "ASCENT",
+        "description": "Codex commits to an ultra-high rising arc that clears horizontal threats but stays punishable through the long descent.",
+        "motion": [
+          "D",
+          "U"
+        ],
+        "button": "punch",
+        "earlyAirStart": true,
+        "input": "↓ ↑ + W",
+        "frames": [
+          "context_1",
+          "context_2",
+          "context_3"
+        ],
+        "stats": {
+          "startup": 5,
+          "active": 9,
+          "recovery": 30,
+          "damagePerHit": 9,
+          "maxHits": 1,
+          "maxDamage": 9,
+          "chipPerHit": 2,
+          "range": 27,
+          "impact": "Ultra-high evasive ascent"
+        }
+      },
+      {
+        "attack": "branchwalk",
+        "name": "BRANCHWALK",
+        "shortName": "BRANCHWALK",
+        "description": "A copper-winged forward glide crosses one aerial lane with modest damage and a clearly exposed landing recovery.",
+        "motion": [
+          "B",
+          "F"
+        ],
+        "button": "kick",
+        "input": "← → + E",
+        "frames": [
+          "branchwalk_1",
+          "branchwalk_2",
+          "branchwalk_3"
+        ],
+        "stats": {
+          "startup": 7,
+          "active": 8,
+          "recovery": 18,
+          "damagePerHit": 10,
+          "maxHits": 1,
+          "maxDamage": 10,
+          "chipPerHit": 2,
+          "range": 29,
+          "impact": "Committing aerial glide"
+        }
+      },
+      {
+        "attack": "mergecomet",
+        "name": "MERGE COMET",
+        "shortName": "COMET",
+        "description": "Codex rises just long enough to telegraph a diagonal teal dive, trading a strong downward angle for punishable recovery.",
+        "motion": [
+          "D",
+          "F"
+        ],
+        "button": "kick",
+        "input": "↓ → + E",
+        "frames": [
+          "mergecomet_1",
+          "mergecomet_2",
+          "mergecomet_3"
+        ],
+        "stats": {
+          "startup": 10,
+          "active": 7,
+          "recovery": 15,
+          "damagePerHit": 12,
+          "maxHits": 1,
+          "maxDamage": 12,
+          "chipPerHit": 3,
+          "range": 32,
+          "impact": "Telegraphed diagonal dive"
+        }
+      }
+    ]
   }
 ]

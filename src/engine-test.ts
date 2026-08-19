@@ -1,5 +1,5 @@
 // Headless mechanics test for the fluid engine.
-import { makeFighter, makeMatch, stepMatch, ATTACKS, STAGE_RIGHT } from './game/engine.js';
+import { makeFighter, makeMatch, stepMatch, ATTACKS, STAGE_RIGHT, specialMoveStats } from './game/engine.js';
 import { emptyInputs, type Inputs } from './game/types.js';
 import { ROSTER } from './game/roster.js';
 import { specialMoveMotionCode, specialMovesFor } from './game/moves.js';
@@ -175,7 +175,33 @@ const entropyGap = m.b.x - m.a.x;
 for (let k = 0; k < 29; k++) stepMatch(m, idle(), idle());
 check('ENTROPY WELL pulls inward and pulses repeatedly', m.b.x - m.a.x < entropyGap && hp - m.b.hp >= 8, `gap=${entropyGap.toFixed(1)}→${(m.b.x - m.a.x).toFixed(1)} dmg=${hp - m.b.hp}`);
 
-// 18) Every projectile fighter's appearance follows its move definition, not a character-name conditional.
+// 18) CODEX uses three unique, lower-damage aerial commitments. Context Ascent
+// clears Omega's beam vertically without introducing immunity or reflection.
+const codexMoves = specialMovesFor('CODEX');
+const nonCodexAttacks = new Set(ROSTER.filter((character) => character.name !== 'CODEX').flatMap((character) => specialMovesFor(character.name).map((move) => move.attack)));
+check('CODEX specials use three unique attack kinds', new Set(codexMoves.map((move) => move.attack)).size === 3 && codexMoves.every((move) => !nonCodexAttacks.has(move.attack)), codexMoves.map((move) => move.attack).join(','));
+check('CODEX specials stay below Final Testimony damage', codexMoves.every((move) => specialMoveStats(move.attack).maxDamage < specialMoveStats('testimony').maxDamage));
+
+m = fresh('CODEX', 'OMEGA'); m.a.x = 58; m.b.x = 182; hp = m.a.hp;
+{
+  const codex = idle(); codex.motion = 'DU'; codex.punch = true;
+  const omega = idle(); omega.motion = 'DL'; omega.punch = true;
+  stepMatch(m, codex, omega);
+}
+for (let k = 0; k < 18; k++) stepMatch(m, idle(), idle());
+check('CONTEXT ASCENT clears a simultaneous Omega beam', m.a.hp === hp && m.a.y > 48, `hp=${m.a.hp} y=${m.a.y.toFixed(1)}`);
+
+m = fresh('CODEX'); m.a.x = 72; m.b.x = 116; hp = m.b.hp;
+{ const i = idle(); i.motion = 'LR'; i.kick = true; stepMatch(m, i, idle()); }
+for (let k = 0; k < 18; k++) stepMatch(m, idle(), idle());
+check('BRANCHWALK commits forward through one aerial lane', m.a.x > 95 && m.a.y > 0 && m.b.hp < hp, `x=${m.a.x.toFixed(1)} y=${m.a.y.toFixed(1)} dmg=${hp - m.b.hp}`);
+
+m = fresh('CODEX'); m.a.x = 76; m.b.x = 112; hp = m.b.hp;
+{ const i = idle(); i.motion = 'DR'; i.kick = true; stepMatch(m, i, idle()); }
+for (let k = 0; k < 22; k++) stepMatch(m, idle(), idle());
+check('MERGE COMET telegraphs a rise before the damaging dive', m.b.hp < hp && m.a.y < 30, `y=${m.a.y.toFixed(1)} dmg=${hp - m.b.hp}`);
+
+// 19) Every projectile fighter's appearance follows its move definition, not a character-name conditional.
 for (const character of ROSTER) {
   const move = specialMovesFor(character.name).find((x) => x.attack === 'hadouken');
   if (!move) continue;

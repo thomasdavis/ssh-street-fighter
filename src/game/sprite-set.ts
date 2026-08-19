@@ -19,7 +19,7 @@ class SpriteSet {
   private missing = new Set<string>();
   private scaleCache = new Map<string, Placed>();
 
-  /** Load one pose on first use; selection needs 11 idle frames, not all 277 animations. */
+  /** Load one pose on first use; selection needs one idle frame per fighter, not every animation. */
   private loadFrame(charId: string, name: string): Frame | null {
     const id = charId.toUpperCase();
     const key = `${id}/${name}`;

@@ -51,6 +51,10 @@ export const OBSIDIAN_PALETTE: FighterPalette = {
   skin: { r: 54, g: 58, b: 62 }, gi: { r: 42, g: 44, b: 48 }, giDark: { r: 14, g: 16, b: 20 },
   hair: { r: 176, g: 22, b: 24 }, belt: { r: 244, g: 54, b: 44 },
 };
+export const AURORA_PALETTE: FighterPalette = {
+  skin: { r: 80, g: 98, b: 112 }, gi: { r: 38, g: 194, b: 184 }, giDark: { r: 18, g: 72, b: 92 },
+  hair: { r: 242, g: 222, b: 156 }, belt: { r: 246, g: 142, b: 56 },
+};
 
 const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
 const shade = (c: RGB): RGB => ({ r: c.r >> 1, g: c.g >> 1, b: c.b >> 1 });

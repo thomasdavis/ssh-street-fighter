@@ -4,10 +4,12 @@ export type Pose = 'idle' | 'walk' | 'crouch' | 'jump' | 'fall' | 'punch' | 'kic
   | 'crouchpunch' | 'crouchkick' | 'hit' | 'ko' | 'block' | 'crouchblock'
   | 'hadouken' | 'shoryuken' | 'hurricane'
   | 'electric' | 'rolling' | 'verticalroll'
-  | 'testimony' | 'nullstep' | 'entropy';
+  | 'testimony' | 'nullstep' | 'entropy'
+  | 'context' | 'branchwalk' | 'mergecomet';
 export type AttackKind = 'none' | 'punch' | 'kick' | 'hadouken' | 'shoryuken' | 'hurricane'
   | 'electric' | 'rolling' | 'verticalroll'
-  | 'testimony' | 'nullstep' | 'entropy';
+  | 'testimony' | 'nullstep' | 'entropy'
+  | 'context' | 'branchwalk' | 'mergecomet';
 
 export interface FighterPalette {
   skin: RGB; gi: RGB; giDark: RGB; hair: RGB; belt: RGB;

@@ -37,6 +37,9 @@ function attackTotal(k: AttackKind): number {
   if (k === 'testimony') return TESTIMONY.total;
   if (k === 'nullstep') return NULL_STEP.total;
   if (k === 'entropy') return ENTROPY.total;
+  if (k === 'context') return CONTEXT.total;
+  if (k === 'branchwalk') return BRANCHWALK.total;
+  if (k === 'mergecomet') return MERGE_COMET.total;
   if (k === 'punch' || k === 'kick') { const a = ATTACKS[k]; return a.startup + a.active + a.recovery; }
   return 0;
 }
@@ -50,6 +53,9 @@ export function attackActive(f: Fighter): boolean {
   if (f.attack === 'testimony') return f.attackFrame >= TESTIMONY.startup && f.attackFrame < TESTIMONY.startup + TESTIMONY.active;
   if (f.attack === 'nullstep') return f.attackFrame >= NULL_STEP.startup && f.attackFrame < NULL_STEP.startup + NULL_STEP.active;
   if (f.attack === 'entropy') return f.attackFrame >= ENTROPY.startup && f.attackFrame < ENTROPY.startup + ENTROPY.active;
+  if (f.attack === 'context') return f.attackFrame >= CONTEXT.startup && f.attackFrame < CONTEXT.startup + CONTEXT.active;
+  if (f.attack === 'branchwalk') return f.attackFrame >= BRANCHWALK.startup && f.attackFrame < BRANCHWALK.startup + BRANCHWALK.active;
+  if (f.attack === 'mergecomet') return f.attackFrame >= MERGE_COMET.startup && f.attackFrame < MERGE_COMET.startup + MERGE_COMET.active;
   return false; // hadouken has no melee hitbox
 }
 
@@ -63,6 +69,9 @@ const VERTICAL_ROLL = { startup: 4, active: 16, recovery: 15, total: 35, dmg: 14
 export const TESTIMONY = { startup: 10, active: 5, recovery: 18, total: 33, dmg: 17, range: 176, kb: 5.2, chip: 4, vert: 48 }; // screen-length beam
 export const NULL_STEP = { startup: 6, shift: 6, active: 4, recovery: 17, total: 27, dmg: 13, range: 31, kb: 3.2, chip: 2, vert: 48 }; // phase-through cross-up
 export const ENTROPY = { startup: 8, active: 18, recovery: 12, total: 38, dmg: 4, range: 96, kb: 0.8, chip: 1, vert: 56, hitEvery: 6, wellOffset: 42, pull: 1.2 }; // pull + three pulses
+export const CONTEXT = { startup: 5, active: 9, recovery: 30, total: 44, dmg: 9, range: 27, kb: 2.4, chip: 2, vert: 44, jumpV: 10.8, vx: 0.8 }; // ultra-high evasive rise
+export const BRANCHWALK = { startup: 7, active: 8, recovery: 18, total: 33, dmg: 10, range: 29, kb: 2.8, chip: 2, vert: 48, jumpV: 5.4, vx: 3.7 }; // committing forward glide
+export const MERGE_COMET = { startup: 10, active: 7, recovery: 15, total: 32, dmg: 12, range: 32, kb: 3.8, chip: 3, vert: 54, jumpV: 7.2, riseVx: 0.8, diveV: -6.4, diveVx: 3.5 }; // telegraphed diagonal dive
 const FIRE_SPEED = 3.4, FIRE_R = 11, FIGHTER_WORLD_H = 56, FIRE_DMG = 12, FIRE_CHIP = 3;
 const EARLY_UP_GRACE_Y = 26;
 
@@ -88,6 +97,9 @@ export function specialMoveStats(attack: SpecialAttack): SpecialMoveStats {
   if (attack === 'verticalroll') return { startup: VERTICAL_ROLL.startup, active: VERTICAL_ROLL.active, recovery: VERTICAL_ROLL.recovery, damagePerHit: VERTICAL_ROLL.dmg, maxHits: 1, maxDamage: VERTICAL_ROLL.dmg, chipPerHit: VERTICAL_ROLL.chip, range: VERTICAL_ROLL.range, impact: 'Vertical launcher' };
   if (attack === 'testimony') return { startup: TESTIMONY.startup, active: TESTIMONY.active, recovery: TESTIMONY.recovery, damagePerHit: TESTIMONY.dmg, maxHits: 1, maxDamage: TESTIMONY.dmg, chipPerHit: TESTIMONY.chip, range: TESTIMONY.range, impact: 'Instant screen beam' };
   if (attack === 'nullstep') return { startup: NULL_STEP.startup, active: NULL_STEP.active, recovery: NULL_STEP.recovery, damagePerHit: NULL_STEP.dmg, maxHits: 1, maxDamage: NULL_STEP.dmg, chipPerHit: NULL_STEP.chip, range: NULL_STEP.range, impact: 'Phase-through cross-up' };
+  if (attack === 'context') return { startup: CONTEXT.startup, active: CONTEXT.active, recovery: CONTEXT.recovery, damagePerHit: CONTEXT.dmg, maxHits: 1, maxDamage: CONTEXT.dmg, chipPerHit: CONTEXT.chip, range: CONTEXT.range, impact: 'Ultra-high evasive ascent' };
+  if (attack === 'branchwalk') return { startup: BRANCHWALK.startup, active: BRANCHWALK.active, recovery: BRANCHWALK.recovery, damagePerHit: BRANCHWALK.dmg, maxHits: 1, maxDamage: BRANCHWALK.dmg, chipPerHit: BRANCHWALK.chip, range: BRANCHWALK.range, impact: 'Committing aerial glide' };
+  if (attack === 'mergecomet') return { startup: MERGE_COMET.startup, active: MERGE_COMET.active, recovery: MERGE_COMET.recovery, damagePerHit: MERGE_COMET.dmg, maxHits: 1, maxDamage: MERGE_COMET.dmg, chipPerHit: MERGE_COMET.chip, range: MERGE_COMET.range, impact: 'Telegraphed diagonal dive' };
   const hits = Math.ceil(ENTROPY.active / ENTROPY.hitEvery);
   return { startup: ENTROPY.startup, active: ENTROPY.active, recovery: ENTROPY.recovery, damagePerHit: ENTROPY.dmg, maxHits: hits, maxDamage: ENTROPY.dmg * hits, chipPerHit: ENTROPY.chip, range: ENTROPY.range, impact: 'Pulling gravity field' };
 }
@@ -103,6 +115,9 @@ function meleeSpec(k: AttackKind): MeleeSpec | null {
   if (k === 'testimony') return { dmg: TESTIMONY.dmg, range: TESTIMONY.range, kb: TESTIMONY.kb, chip: TESTIMONY.chip, vert: TESTIMONY.vert };
   if (k === 'nullstep') return { dmg: NULL_STEP.dmg, range: NULL_STEP.range, kb: NULL_STEP.kb, chip: NULL_STEP.chip, vert: NULL_STEP.vert };
   if (k === 'entropy') return { dmg: ENTROPY.dmg, range: ENTROPY.range, kb: ENTROPY.kb, chip: ENTROPY.chip, vert: ENTROPY.vert };
+  if (k === 'context') return { dmg: CONTEXT.dmg, range: CONTEXT.range, kb: CONTEXT.kb, chip: CONTEXT.chip, vert: CONTEXT.vert };
+  if (k === 'branchwalk') return { dmg: BRANCHWALK.dmg, range: BRANCHWALK.range, kb: BRANCHWALK.kb, chip: BRANCHWALK.chip, vert: BRANCHWALK.vert };
+  if (k === 'mergecomet') return { dmg: MERGE_COMET.dmg, range: MERGE_COMET.range, kb: MERGE_COMET.kb, chip: MERGE_COMET.chip, vert: MERGE_COMET.vert };
   return null;
 }
 
@@ -121,6 +136,9 @@ export function attackExtension(f: Fighter): number {
   if (f.attack === 'testimony') return f.attackFrame < TESTIMONY.startup ? f.attackFrame / TESTIMONY.startup : 1;
   if (f.attack === 'nullstep') return Math.min(1, f.attackFrame / NULL_STEP.shift);
   if (f.attack === 'entropy') return (Math.sin(f.attackFrame * 1.1) + 1) / 2;
+  if (f.attack === 'context') return Math.min(1, f.attackFrame / CONTEXT.startup);
+  if (f.attack === 'branchwalk') return Math.min(1, f.attackFrame / BRANCHWALK.startup);
+  if (f.attack === 'mergecomet') return Math.min(1, f.attackFrame / MERGE_COMET.startup);
   const a = ATTACKS[f.attack];
   if (f.attackFrame < a.startup) return 0.35 * (f.attackFrame / Math.max(1, a.startup));
   if (f.attackFrame < a.startup + a.active) return 1;
@@ -183,6 +201,9 @@ function derivePose(f: Fighter): void {
   if (f.attack === 'testimony') { f.pose = 'testimony'; return; }
   if (f.attack === 'nullstep') { f.pose = 'nullstep'; return; }
   if (f.attack === 'entropy') { f.pose = 'entropy'; return; }
+  if (f.attack === 'context') { f.pose = 'context'; return; }
+  if (f.attack === 'branchwalk') { f.pose = 'branchwalk'; return; }
+  if (f.attack === 'mergecomet') { f.pose = 'mergecomet'; return; }
   if (f.attack === 'punch') { f.pose = f.attackCrouch ? 'crouchpunch' : 'punch'; return; }
   if (f.attack === 'kick') { f.pose = f.attackCrouch ? 'crouchkick' : 'kick'; return; }
   const airborne = f.y > 0.5;
@@ -258,6 +279,11 @@ function stepFighter(f: Fighter, other: Fighter, inp: Inputs, live: boolean): vo
       other.vx += Math.max(-ENTROPY.pull, Math.min(ENTROPY.pull, delta * 0.045));
     }
   }
+  // Merge Comet pauses on a readable rise, then commits to one diagonal descent.
+  if (f.attack === 'mergecomet' && f.attackFrame === MERGE_COMET.startup) {
+    f.vy = MERGE_COMET.diveV;
+    f.vx = f.facing * MERGE_COMET.diveVx;
+  }
 
   // horizontal movement — allowed while blocking (walk-back) but not crouching
   const canGroundMove = grounded && !busy2 && !f.crouching;
@@ -297,6 +323,9 @@ function startAttack(f: Fighter, kind: AttackKind): void {
   if (kind === 'rolling') { f.vy = ROLLING.jumpV; f.y = Math.max(f.y, 0.001); f.vx = f.facing * ROLLING.vx; f.crouching = false; }
   if (kind === 'verticalroll') { f.vy = VERTICAL_ROLL.jumpV; f.y = Math.max(f.y, 0.001); f.vx = f.facing * VERTICAL_ROLL.vx; f.crouching = false; }
   if (kind === 'testimony' || kind === 'nullstep' || kind === 'entropy') { f.y = 0; f.vy = 0; f.vx = 0; f.crouching = false; }
+  if (kind === 'context') { f.vy = CONTEXT.jumpV; f.y = Math.max(f.y, 0.001); f.vx = f.facing * CONTEXT.vx; f.crouching = false; }
+  if (kind === 'branchwalk') { f.vy = BRANCHWALK.jumpV; f.y = Math.max(f.y, 0.001); f.vx = f.facing * BRANCHWALK.vx; f.crouching = false; }
+  if (kind === 'mergecomet') { f.vy = MERGE_COMET.jumpV; f.y = Math.max(f.y, 0.001); f.vx = f.facing * MERGE_COMET.riseVx; f.crouching = false; }
 }
 
 /** Push grounded, overlapping fighters apart. Airborne fighters pass over. */
@@ -339,6 +368,8 @@ function resolveHit(att: Fighter, def: Fighter): HitFx | null {
     if (att.attack === 'shoryuken') { def.vy = 5.5; def.y = Math.max(def.y, 0.001); } // launch up
     if (att.attack === 'rolling') { def.vy = 3.2; def.y = Math.max(def.y, 0.001); }
     if (att.attack === 'verticalroll') { def.vy = 6.2; def.y = Math.max(def.y, 0.001); }
+    if (att.attack === 'context') { def.vy = 4.8; def.y = Math.max(def.y, 0.001); }
+    if (att.attack === 'branchwalk') { def.vy = 2.4; def.y = Math.max(def.y, 0.001); }
   }
   // contact point between the fighters, ~chest height above the ground
   return { x: (att.x + def.x) / 2, y: Math.max(att.y, def.y) + 18, heavy: !guarding && spec.dmg >= 8, blocked: guarding };
