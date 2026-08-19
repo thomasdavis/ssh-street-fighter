@@ -2,7 +2,10 @@
 // challenge delivery/acceptance, then direct transition into a streamed fight.
 // Set SF_TEST_PORT to exercise an already-running server instead of booting one.
 const externalPort = parseInt(process.env.SF_TEST_PORT ?? '0', 10);
-if (!externalPort) process.env.SF_DB = '/tmp/sf-social-test.db';
+if (!externalPort) {
+  process.env.SF_DB = '/tmp/sf-social-test.db';
+  process.env.SF_UI = 'cell';
+}
 import ssh2 from 'ssh2';
 import { unlinkSync } from 'fs';
 

@@ -2,7 +2,10 @@
 // (username -> menu -> join lobby -> pick fighter -> fight), confirm both stream.
 // Set SF_TEST_PORT to exercise an already-running server instead of booting one.
 const externalPort = parseInt(process.env.SF_TEST_PORT ?? '0', 10);
-if (!externalPort) process.env.SF_DB = '/tmp/sf-test.db';
+if (!externalPort) {
+  process.env.SF_DB = '/tmp/sf-test.db';
+  process.env.SF_UI = 'cell';
+}
 import ssh2 from 'ssh2';
 import { unlinkSync } from 'fs';
 
@@ -35,6 +38,7 @@ function connect(name: string): Promise<C> {
 const send = (c: C, s: string) => c.stream?.write(s);
 
 async function typeName(c: C, name: string): Promise<void> {
+  send(c, '\r'); await sleep(150);           // first-run calibration -> username
   for (const ch of name) { send(c, ch); await sleep(30); }
   send(c, '\r'); await sleep(150);           // confirm username -> menu
   send(c, '\r'); await sleep(150);           // JOIN LOBBY -> select
