@@ -95,7 +95,10 @@ export class Session {
   controlsCursor = 0;
   bindingCapture: BindableAction | null = null;
   controlsNotice = '';
-  renderMode: RenderMode = 'half';
+  // Octant (2x4 sub-pixels/cell) is the crisp default — the whole UI already
+  // renders in it, and the "terminal too small" gate only lets octant-capable
+  // terminals in. 'v' toggles to half-block as a fallback for older terminals.
+  renderMode: RenderMode = 'octant';
   leader: db.LeaderRow[] = [];
   result: MatchResult | null = null;
   loungeFocus: 'chat' | 'players' = 'chat';
