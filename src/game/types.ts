@@ -1,12 +1,12 @@
 import type { RGB } from '../render/pixel.js';
 
 export type Pose = 'idle' | 'walk' | 'crouch' | 'jump' | 'fall' | 'punch' | 'kick'
-  | 'crouchpunch' | 'crouchkick' | 'hit' | 'ko' | 'block' | 'crouchblock'
+  | 'crouchpunch' | 'crouchkick' | 'hit' | 'ko' | 'block' | 'crouchblock' | 'throw'
   | 'hadouken' | 'shoryuken' | 'hurricane'
   | 'electric' | 'rolling' | 'verticalroll'
   | 'testimony' | 'nullstep' | 'entropy'
   | 'context' | 'branchwalk' | 'mergecomet';
-export type AttackKind = 'none' | 'punch' | 'kick' | 'hadouken' | 'shoryuken' | 'hurricane'
+export type AttackKind = 'none' | 'punch' | 'kick' | 'throw' | 'hadouken' | 'shoryuken' | 'hurricane'
   | 'electric' | 'rolling' | 'verticalroll'
   | 'testimony' | 'nullstep' | 'entropy'
   | 'context' | 'branchwalk' | 'mergecomet';
@@ -50,11 +50,12 @@ export interface Inputs {
   jump: boolean;    // edge (↑)
   punch: boolean;   // edge (W)
   kick: boolean;    // edge (E)
+  throw: boolean;   // edge (F) — close-range unblockable grab
   motion: string;   // recent directional buffer (e.g. "DR") for special moves
 }
 
 export function emptyInputs(): Inputs {
-  return { moveX: 0, down: false, jump: false, punch: false, kick: false, motion: '' };
+  return { moveX: 0, down: false, jump: false, punch: false, kick: false, throw: false, motion: '' };
 }
 
 export interface Projectile {

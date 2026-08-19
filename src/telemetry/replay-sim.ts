@@ -96,8 +96,8 @@ export { charSpriteMeta };
 function paletteFor(char: string) {
   return ROSTER.find((c) => c.name === char)?.palette ?? ROSTER[0]!.palette;
 }
-function decode(byte: number): Pick<Inputs, 'moveX' | 'jump' | 'down' | 'punch' | 'kick'> {
-  return { moveX: (byte & 3) - 1, jump: !!((byte >> 2) & 1), down: !!((byte >> 3) & 1), punch: !!((byte >> 4) & 1), kick: !!((byte >> 5) & 1) };
+function decode(byte: number): Pick<Inputs, 'moveX' | 'jump' | 'down' | 'punch' | 'kick' | 'throw'> {
+  return { moveX: (byte & 3) - 1, jump: !!((byte >> 2) & 1), down: !!((byte >> 3) & 1), punch: !!((byte >> 4) & 1), kick: !!((byte >> 5) & 1), throw: !!((byte >> 6) & 1) };
 }
 
 export function simulateReplay(matchId: string): Track | null {

@@ -29,4 +29,4 @@ export type P2W =
   | { t: 'notice'; sid: number; notice: string }
   | { t: 'challengeState'; sid: number; incoming: ChallengePeer | null; outgoing: ChallengePeer | null };
 
-export function clearEdges(i: Inputs): void { i.jump = false; i.punch = false; i.kick = false; }
+export function clearEdges(i: Inputs): void { i.jump = false; i.punch = false; i.kick = false; i.throw = false; }

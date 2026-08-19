@@ -127,7 +127,7 @@ export function startBotServer(coord: MatchCoordinator): void {
       if (!c.mid) return;   // not in a match
       const input: Inputs = { ...emptyInputs(),
         moveX: Math.sign(Number(msg.moveX) || 0), down: !!msg.down, jump: !!msg.jump,
-        punch: !!msg.punch, kick: !!msg.kick, motion: typeof msg.motion === 'string' ? msg.motion : '' };
+        punch: !!msg.punch, kick: !!msg.kick, throw: !!msg.throw, motion: typeof msg.motion === 'string' ? msg.motion : '' };
       coord.handle(botWorker, { t: 'input', mid: c.mid, sid: c.sid, input, seq: ++c.seq });
       return;
     }

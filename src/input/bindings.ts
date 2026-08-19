@@ -1,6 +1,6 @@
 import type { Key } from '../ui/key.js';
 
-export const BINDABLE_ACTIONS = ['left', 'right', 'crouch', 'jump', 'jumpAlt', 'punch', 'kick'] as const;
+export const BINDABLE_ACTIONS = ['left', 'right', 'crouch', 'jump', 'jumpAlt', 'punch', 'kick', 'throw'] as const;
 export type BindableAction = typeof BINDABLE_ACTIONS[number];
 
 export type BindingToken =
@@ -17,6 +17,7 @@ export const DEFAULT_KEY_BINDINGS: KeyBindings = Object.freeze({
   jumpAlt: 'key: ',
   punch: 'key:w',
   kick: 'key:e',
+  throw: 'key:f',
 });
 
 export const ACTION_LABEL: Readonly<Record<BindableAction, string>> = {
@@ -27,6 +28,7 @@ export const ACTION_LABEL: Readonly<Record<BindableAction, string>> = {
   jumpAlt: 'JUMP (ALT)',
   punch: 'PUNCH',
   kick: 'KICK',
+  throw: 'THROW',
 };
 
 const ARROWS = new Set<BindingToken>(['arrow-left', 'arrow-right', 'arrow-up', 'arrow-down']);
@@ -93,9 +95,13 @@ export function parseKeyBindings(raw: string | null | undefined): KeyBindings {
     const seen = new Set<BindingToken>();
     for (const action of BINDABLE_ACTIONS) {
       const binding = value[action];
-      if (!isBindingToken(binding) || bindingProblem(binding) || seen.has(binding)) return DEFAULT_KEY_BINDINGS;
-      parsed[action] = binding;
-      seen.add(binding);
+      // Keep the stored key when it's valid + unused; otherwise fall back to this
+      // action's default. Per-action (not all-or-nothing) so older saves missing a
+      // newly-added action like 'throw' keep their other custom keys.
+      const chosen: BindingToken = (isBindingToken(binding) && !bindingProblem(binding) && !seen.has(binding))
+        ? binding : DEFAULT_KEY_BINDINGS[action];
+      parsed[action] = chosen;
+      seen.add(chosen);
     }
     return Object.freeze(parsed);
   } catch {

@@ -26,6 +26,7 @@ export class InputState {
   private jumpEdge = false;
   private punchEdge = false;
   private kickEdge = false;
+  private throwEdge = false;
   private motion: { d: string; t: number }[] = []; // recent directions for special moves
   private carry = ''; // bytes left over when a chunk split mid escape-sequence
   quit = false;
@@ -53,6 +54,7 @@ export class InputState {
     else if (action === 'crouch') { this.downUntil = now + HOLD_MS; this.pushMotion('D', now); }
     else if (action === 'punch') this.punchEdge = true;
     else if (action === 'kick') this.kickEdge = true;
+    else if (action === 'throw') this.throwEdge = true;
   }
 
   feed(data: Buffer): void {
@@ -92,9 +94,10 @@ export class InputState {
     inp.jump = this.jumpEdge;
     inp.punch = this.punchEdge;
     inp.kick = this.kickEdge;
+    inp.throw = this.throwEdge;
     while (this.motion.length && now - this.motion[0]!.t > MOTION_MS) this.motion.shift();
     inp.motion = this.motion.map((m) => m.d).join('');
-    this.jumpEdge = this.punchEdge = this.kickEdge = false;
+    this.jumpEdge = this.punchEdge = this.kickEdge = this.throwEdge = false;
     return inp;
   }
 }

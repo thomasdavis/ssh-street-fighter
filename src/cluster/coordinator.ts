@@ -117,7 +117,7 @@ export class MatchCoordinator {
     const side = this.sideOf(am, gidOf(worker.id, m.sid)); if (!side) return;
     const dst = side === 'a' ? am.pendA : am.pendB;
     dst.moveX = m.input.moveX; dst.down = m.input.down; dst.motion = m.input.motion || dst.motion;
-    dst.jump ||= m.input.jump; dst.punch ||= m.input.punch; dst.kick ||= m.input.kick;
+    dst.jump ||= m.input.jump; dst.punch ||= m.input.punch; dst.kick ||= m.input.kick; dst.throw ||= m.input.throw;
     if (side === 'a') am.ackA = m.seq; else am.ackB = m.seq; // for client-side prediction reconciliation
   }
 

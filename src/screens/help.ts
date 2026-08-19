@@ -8,7 +8,7 @@ import { attackButtonLabels, bindingLabel } from '../input/bindings.js';
 
 const NOTES = [
   'BLOCK BY HOLDING BACK (AWAY FROM YOUR FOE).',
-  'YOU CAN PUNCH AND KICK WHILE CROUCHING.',
+  'THROWS ARE UNBLOCKABLE — GRAB A TURTLE UP CLOSE.',
   'YOU ALWAYS FACE YOUR RIVAL; JUMP TO CROSS UP.',
   'FIRST TO 2 ROUNDS WINS; 60S PER ROUND.',
 ];
@@ -25,8 +25,8 @@ export const helpOverlay = {
       ['CROUCH', bindingLabel(b.crouch)],
       ['PUNCH', `${bindingLabel(b.punch)}    FAST, SHORT REACH`],
       ['KICK', `${bindingLabel(b.kick)}    SLOWER, LONGER`],
+      ['THROW', `${bindingLabel(b.throw)}    CLOSE GRAB — BEATS BLOCK`],
       ['BLOCK', 'HOLD AWAY FROM RIVAL'],
-      ['QUIT', 'Q  (LEAVE THE FIGHT)'],
     ];
     const contentH = 0.6 + controls.length * SP.row + SP.gap + SP.row + NOTES.length * SP.line + 1.4;
     const ph = Math.min(ui.rows - 2, Math.ceil(contentH + 2));
@@ -56,6 +56,7 @@ function renderFightMoves(s: Session, f: Frame): void {
     ? specials.map((m) => [m.name.slice(0, 16), specialMoveInput(m, fighter.facing, false, buttons)] as [string, string])
     : [['NO SPECIAL MOVES YET', '']];
   const comboRows: [string, string][] = [
+    ['THROW', `${bindingLabel(s.keyBindings.throw)}  — CLOSE, UNBLOCKABLE`],
     ['LOW PUNCH', `↓ + ${buttons.punch}`],
     ['LOW KICK', `↓ + ${buttons.kick}`],
   ];

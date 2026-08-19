@@ -40,6 +40,7 @@ function attackTotal(k: AttackKind): number {
   if (k === 'context') return CONTEXT.total;
   if (k === 'branchwalk') return BRANCHWALK.total;
   if (k === 'mergecomet') return MERGE_COMET.total;
+  if (k === 'throw') return THROW.total;
   if (k === 'punch' || k === 'kick') { const a = ATTACKS[k]; return a.startup + a.active + a.recovery; }
   return 0;
 }
@@ -56,6 +57,7 @@ export function attackActive(f: Fighter): boolean {
   if (f.attack === 'context') return f.attackFrame >= CONTEXT.startup && f.attackFrame < CONTEXT.startup + CONTEXT.active;
   if (f.attack === 'branchwalk') return f.attackFrame >= BRANCHWALK.startup && f.attackFrame < BRANCHWALK.startup + BRANCHWALK.active;
   if (f.attack === 'mergecomet') return f.attackFrame >= MERGE_COMET.startup && f.attackFrame < MERGE_COMET.startup + MERGE_COMET.active;
+  if (f.attack === 'throw') return f.attackFrame >= THROW.startup && f.attackFrame < THROW.startup + THROW.active;
   return false; // hadouken has no melee hitbox
 }
 
@@ -72,6 +74,7 @@ export const ENTROPY = { startup: 8, active: 18, recovery: 12, total: 38, dmg: 4
 export const CONTEXT = { startup: 5, active: 9, recovery: 30, total: 44, dmg: 9, range: 27, kb: 2.4, chip: 2, vert: 44, jumpV: 10.8, vx: 0.8 }; // ultra-high evasive rise
 export const BRANCHWALK = { startup: 7, active: 8, recovery: 18, total: 33, dmg: 10, range: 29, kb: 2.8, chip: 2, vert: 48, jumpV: 5.4, vx: 3.7 }; // committing forward glide
 export const MERGE_COMET = { startup: 10, active: 7, recovery: 15, total: 32, dmg: 12, range: 32, kb: 3.8, chip: 3, vert: 54, jumpV: 7.2, riseVx: 0.8, diveV: -6.4, diveVx: 3.5 }; // telegraphed diagonal dive
+export const THROW = { startup: 3, active: 3, recovery: 14, total: 20, dmg: 14, range: 30, kb: 6.5, vert: 22 }; // close-range UNBLOCKABLE grab (beats guard; whiff is punishable)
 const FIRE_SPEED = 3.4, FIRE_R = 11, FIGHTER_WORLD_H = 56, FIRE_DMG = 12, FIRE_CHIP = 3;
 const EARLY_UP_GRACE_Y = 26;
 
@@ -118,6 +121,7 @@ function meleeSpec(k: AttackKind): MeleeSpec | null {
   if (k === 'context') return { dmg: CONTEXT.dmg, range: CONTEXT.range, kb: CONTEXT.kb, chip: CONTEXT.chip, vert: CONTEXT.vert };
   if (k === 'branchwalk') return { dmg: BRANCHWALK.dmg, range: BRANCHWALK.range, kb: BRANCHWALK.kb, chip: BRANCHWALK.chip, vert: BRANCHWALK.vert };
   if (k === 'mergecomet') return { dmg: MERGE_COMET.dmg, range: MERGE_COMET.range, kb: MERGE_COMET.kb, chip: MERGE_COMET.chip, vert: MERGE_COMET.vert };
+  if (k === 'throw') return { dmg: THROW.dmg, range: THROW.range, kb: THROW.kb, chip: 0, vert: THROW.vert };
   return null;
 }
 
@@ -139,6 +143,7 @@ export function attackExtension(f: Fighter): number {
   if (f.attack === 'context') return Math.min(1, f.attackFrame / CONTEXT.startup);
   if (f.attack === 'branchwalk') return Math.min(1, f.attackFrame / BRANCHWALK.startup);
   if (f.attack === 'mergecomet') return Math.min(1, f.attackFrame / MERGE_COMET.startup);
+  if (f.attack === 'throw') return f.attackFrame < THROW.startup ? f.attackFrame / THROW.startup : 1;
   const a = ATTACKS[f.attack];
   if (f.attackFrame < a.startup) return 0.35 * (f.attackFrame / Math.max(1, a.startup));
   if (f.attackFrame < a.startup + a.active) return 1;
@@ -204,6 +209,7 @@ function derivePose(f: Fighter): void {
   if (f.attack === 'context') { f.pose = 'context'; return; }
   if (f.attack === 'branchwalk') { f.pose = 'branchwalk'; return; }
   if (f.attack === 'mergecomet') { f.pose = 'mergecomet'; return; }
+  if (f.attack === 'throw') { f.pose = 'throw'; return; }
   if (f.attack === 'punch') { f.pose = f.attackCrouch ? 'crouchpunch' : 'punch'; return; }
   if (f.attack === 'kick') { f.pose = f.attackCrouch ? 'crouchkick' : 'kick'; return; }
   const airborne = f.y > 0.5;
@@ -248,6 +254,7 @@ function stepFighter(f: Fighter, other: Fighter, inp: Inputs, live: boolean): vo
     const special = matchingSpecialMove(f.name, inp, f.facing);
     const earlyAirStart = special?.earlyAirStart && f.y <= EARLY_UP_GRACE_Y && f.vy > 0;
     if (special && (grounded || earlyAirStart)) { startAttack(f, special.attack); }
+    else if (inp.throw && grounded) { startAttack(f, 'throw'); }
     else if (inp.punch) { startAttack(f, 'punch'); }
     else if (inp.kick) { startAttack(f, 'kick'); }
     else if (inp.jump && grounded && !inp.down) {
@@ -353,6 +360,16 @@ function resolveHit(att: Fighter, def: Fighter): HitFx | null {
   if (Math.abs(dx) > spec.range) return null;
   if (Math.abs(att.y - def.y) > spec.vert) return null;
   att.attackHit = true;
+
+  if (att.attack === 'throw') {
+    // UNBLOCKABLE grab: ignores guard, tosses a grounded target away in a short arc
+    def.hp = Math.max(0, def.hp - spec.dmg);
+    def.stun = HIT_STUN + 6;
+    def.attack = 'none'; def.attackFrame = 0;
+    def.vx = att.facing * spec.kb; def.vy = 3.4; def.y = Math.max(def.y, 0.001);
+    att.vx = -att.facing * 1.0; // thrower recoils slightly
+    return { x: (att.x + def.x) / 2, y: Math.max(att.y, def.y) + 16, heavy: true, blocked: false };
+  }
 
   const guarding = def.blocking && def.stun <= 0 && def.facing === -att.facing && def.y <= JUMP_CLEAR;
   if (guarding) {

@@ -5,8 +5,8 @@ import type { Match, Inputs, Fighter } from '../game/types.js';
 import { captureMatch, captureEvents, captureReplay, type MatchRecord, type MatchEvent, type SideRec } from './store.js';
 
 /** Bumped whenever a sim change would make older replays re-simulate differently.
- *  sf-2: TESTIMONY beam nerf (lower vert so it's jumpable, more recovery, less dmg). */
-export const ENGINE_VERSION = 'sf-2';
+ *  sf-2: TESTIMONY beam nerf. sf-3: throw mechanic (F) — close-range unblockable grab. */
+export const ENGINE_VERSION = 'sf-3';
 
 const SPECIALS = new Set(['hadouken', 'shoryuken', 'hurricane']);
 const KEYFRAME_EVERY = 300;        // 10s at 30 Hz — seek points for the replayer
@@ -27,6 +27,7 @@ function pack(inp: Inputs, motions: Map<string, number>): [number, number] {
   if (inp.down) flags |= 1 << 3;
   if (inp.punch) flags |= 1 << 4;
   if (inp.kick) flags |= 1 << 5;
+  if (inp.throw) flags |= 1 << 6;
   let mi = motions.get(inp.motion);
   if (mi === undefined) { mi = motions.size; motions.set(inp.motion, mi); }
   return [flags, Math.min(mi, 255)];

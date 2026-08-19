@@ -21,8 +21,9 @@ function controls(cols: number, practice: boolean, bindings: KeyBindings): [stri
   const crouch = bindingLabel(bindings.crouch);
   const punch = bindingLabel(bindings.punch);
   const kick = bindingLabel(bindings.kick);
-  if (cols >= 78) return [[move, 'MOVE'], [jump, 'JUMP'], [crouch, 'CROUCH'], [punch, 'PUNCH'], [kick, 'KICK'], ['BACK', 'BLOCK'], ['?', 'MOVES'], ...exit];
-  if (cols >= 58) return [[move, 'MOVE'], [jump, 'JUMP'], [punch, 'PUNCH'], [kick, 'KICK'], ['?', 'MOVES'], ...exit];
+  const grab = bindingLabel(bindings.throw);
+  if (cols >= 78) return [[move, 'MOVE'], [jump, 'JUMP'], [crouch, 'CROUCH'], [punch, 'PUNCH'], [kick, 'KICK'], [grab, 'THROW'], ['BACK', 'BLOCK'], ['?', 'MOVES'], ...exit];
+  if (cols >= 58) return [[move, 'MOVE'], [jump, 'JUMP'], [punch, 'PUNCH'], [kick, 'KICK'], [grab, 'THROW'], ['?', 'MOVES'], ...exit];
   if (cols >= 42) return [[move, 'MOVE'], [punch, 'HIT'], [kick, 'KICK'], ['?', 'MOVES'], ...exit];
   return [[punch, 'HIT'], [kick, 'KICK'], ['?', 'MOVES'], ...exit];
 }
