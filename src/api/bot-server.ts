@@ -8,7 +8,7 @@
 import { createServer, type Server, type Socket } from 'net';
 import { emptyInputs, type Inputs, type Match, type Fighter } from '../game/types.js';
 import { attackActive, specialMoveStats } from '../game/engine.js';
-import type { SpecialAttack } from '../game/moves.js';
+import { SPECIAL_ATTACK_KINDS, type SpecialAttack } from '../game/moves.js';
 import { ROSTER } from '../game/roster.js';
 import { getByFingerprint } from '../db/db.js';
 import { apiKeyLookup } from '../telemetry/store.js';
@@ -33,7 +33,9 @@ interface Conn {
   queued: boolean; inLounge: boolean; lastChatAt: number;
 }
 
-const SPECIAL_KINDS = new Set(['hadouken', 'shoryuken', 'hurricane', 'rolling', 'verticalroll', 'electric', 'testimony', 'nullstep', 'entropy', 'context', 'branchwalk', 'mergecomet', 'storyarc', 'plottwist', 'inktempest', 'construct', 'nova', 'volley', 'boomerang', 'armor', 'phase']);
+// Derived from MOVE_SETS so no fighter's specials are ever silently missing from
+// the wire view (a stale hand-copied list once hid lasso/reflect/blink wind-ups).
+const SPECIAL_KINDS = SPECIAL_ATTACK_KINDS;
 
 function fighterView(f: Fighter): object {
   // Attack phase so bots can REACT to the opponent committing a move:
