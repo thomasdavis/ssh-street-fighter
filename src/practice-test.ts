@@ -1,5 +1,6 @@
 // Verify PRACTICE mode: one client, no opponent, should get live fight frames.
 process.env.SF_DB = '/tmp/sf-prac.db';
+process.env.SF_UI = 'cell';
 import ssh2 from 'ssh2';
 import { unlinkSync } from 'fs';
 const externalPort = parseInt(process.env.SF_TEST_PORT ?? '0', 10);
@@ -36,6 +37,7 @@ conn.connect({ host: '127.0.0.1', port: PORT, username: 'solo', password: 'x', h
 
 await shellReady;
 await sleep(externalPort ? 150 : 500);
+stream.write('\r'); await sleep(150);   // first-run calibration -> username
 const testName = externalPort ? `MV${Date.now().toString().slice(-6)}` : 'SOLO';
 for (const ch of testName) { stream.write(ch); await sleep(30); }
 stream.write('\r'); await sleep(150);   // username -> menu

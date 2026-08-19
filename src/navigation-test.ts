@@ -2,7 +2,10 @@
 // must stop at the main menu, never bleed through into the lounge. Also proves
 // both advertised lounge exits over a real SSH session.
 const externalPort = parseInt(process.env.SF_TEST_PORT ?? '0', 10);
-if (!externalPort) process.env.SF_DB = '/tmp/sf-navigation-test.db';
+if (!externalPort) {
+  process.env.SF_DB = '/tmp/sf-navigation-test.db';
+  process.env.SF_UI = 'cell';
+}
 import ssh2 from 'ssh2';
 import { unlinkSync } from 'fs';
 
@@ -33,15 +36,17 @@ const stream = await new Promise<any>((resolve, reject) => {
 });
 
 await sleep(200);
+stream.write('\r');
+await waitFor(() => transcript.includes('CHOOSE YOUR HANDLE'));
 const handle = externalPort ? `NAV${Date.now().toString().slice(-6)}` : 'NAVTEST';
 stream.write(`${handle}\r\n`);
 const mainMenuAfterCrlf = await waitFor(() => transcript.includes('MAIN MENU'));
 await sleep(180);
-const didNotEnterLounge = !transcript.includes('/MENU ALSO EXITS');
+const didNotEnterLounge = !transcript.includes('[ESC] MAIN MENU');
 
 const loungeStart = transcript.length;
 stream.write('s\r');
-const loungeOpened = await waitFor(() => transcript.slice(loungeStart).includes('/MENU ALSO EXITS'));
+const loungeOpened = await waitFor(() => transcript.slice(loungeStart).includes('[ESC] MAIN MENU'));
 const exitIsVisible = await waitFor(() => transcript.slice(loungeStart).includes('[ESC] MAIN MENU'));
 stream.write('\x1b');
 const escapeStart = transcript.length;
@@ -50,7 +55,7 @@ const escapeReturned = await waitFor(() => transcript.slice(escapeStart).include
 await sleep(150);
 const secondLoungeStart = transcript.length;
 stream.write('s\r');
-await waitFor(() => transcript.slice(secondLoungeStart).includes('/MENU ALSO EXITS'));
+await waitFor(() => transcript.slice(secondLoungeStart).includes('[ESC] MAIN MENU'));
 const commandStart = transcript.length;
 stream.write('/menu\r');
 const commandReturned = await waitFor(() => transcript.slice(commandStart).includes('MAIN MENU'));
@@ -60,6 +65,10 @@ const checks = { mainMenuAfterCrlf, didNotEnterLounge, loungeOpened, exitIsVisib
 for (const [name, passed] of Object.entries(checks)) console.log(`${passed ? 'PASS' : 'FAIL'}  ${name}`);
 const ok = Object.values(checks).every(Boolean);
 console.log(ok ? 'NAVIGATION TEST: PASS' : 'NAVIGATION TEST: FAIL');
+if (!ok) {
+  const probes = ['CALIBRATE', 'MAIN MENU', 'FIGHT LOUNGE', '[ESC] MAIN MENU', 'WELCOME'];
+  console.log(`TRANSCRIPT (${transcript.length} bytes): ${probes.map((probe) => `${probe}=${transcript.includes(probe)}`).join(' ')}`);
+}
 if (server) await new Promise<void>((resolve) => server!.close(() => resolve()));
 await sleep(100);
 process.exit(ok ? 0 : 1);
