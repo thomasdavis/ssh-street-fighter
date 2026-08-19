@@ -67,6 +67,20 @@ export class Frame {
     }
   }
 
+  /** Darken the pixel layer (for modal overlays drawn over a pixel-rendered screen).
+   *  Allocates fresh cells — grid cells share RGB objects, so in-place mutation
+   *  would darken a shared color once per cell. Rare (help-open frames only). */
+  dimPixel(factor = 0.35): void {
+    if (!this._pixel) return;
+    for (const row of this._pixel) {
+      for (let x = 0; x < row.length; x++) {
+        const c = row[x];
+        if (!c) continue;
+        row[x] = { r: Math.round(c.r * factor), g: Math.round(c.g * factor), b: Math.round(c.b * factor) };
+      }
+    }
+  }
+
   /** Vertical gradient background across the whole frame (text-cell based). */
   gradient(top: RGB, bot: RGB): void {
     for (let y = 0; y < this.rows; y++) {

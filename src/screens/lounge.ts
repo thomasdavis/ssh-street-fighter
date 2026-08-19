@@ -1,94 +1,101 @@
 import type { Frame } from '../render/frame.js';
 import type { Key } from '../ui/key.js';
 import type { Session } from '../net/session.js';
-import { box, bigCenter, input, keyHints } from '../ui/tui.js';
+import type { Surface } from '../ui/surface.js';
+import { makeSurface } from '../ui/surface.js';
+import { hints, inputField, centerText } from '../ui/widgets.js';
 import { THEME } from '../ui/theme.js';
 import { characterAt } from '../game/roster.js';
 
 // Reads only the session's hub-filled caches (loungeRoster / loungeChat /
 // incoming / outgoing) — plain data, so it renders identically whether the
 // other players are in this process or on other cluster workers.
-function drawMessages(s: Session, f: Frame, x: number, y: number, w: number, h: number): void {
+function drawMessages(s: Session, ui: Surface, x: number, y: number, w: number, h: number): void {
   type Line = { prefix?: string; text: string };
   const lines: Line[] = [];
+  const iw = Math.floor(w);
   for (const message of s.loungeChat) {
-    const prefix = `${message.username}> `;
-    const firstW = Math.max(1, w - prefix.length);
+    const prefix = `${message.username}: `;
+    const firstW = Math.max(1, iw - prefix.length);
     lines.push({ prefix, text: message.message.slice(0, firstW) });
     let rest = message.message.slice(firstW);
-    while (rest.length) { lines.push({ text: `  ${rest.slice(0, Math.max(1, w - 2))}` }); rest = rest.slice(Math.max(1, w - 2)); }
+    while (rest.length) { lines.push({ text: `  ${rest.slice(0, Math.max(1, iw - 2))}` }); rest = rest.slice(Math.max(1, iw - 2)); }
   }
-  const visible = lines.slice(-Math.max(0, h));
+  const visible = lines.slice(-Math.max(0, Math.floor(h)));
   if (!visible.length) {
-    f.write(x, y + 1, 'NO MESSAGES YET.', THEME.textDim, THEME.panel);
-    f.write(x, y + 2, 'TYPE BELOW AND PRESS ENTER.', THEME.textDim, THEME.panel);
+    ui.text(x, y + 1, 'NO MESSAGES YET.', { color: THEME.textDim });
+    ui.text(x, y + 2, 'TYPE BELOW AND PRESS ENTER.', { color: THEME.textDim });
     return;
   }
   for (let i = 0; i < visible.length; i++) {
     const line = visible[i]!;
     if (line.prefix) {
-      f.write(x, y + i, line.prefix, THEME.accent, THEME.panel, true);
-      f.write(x + line.prefix.length, y + i, line.text, THEME.text, THEME.panel);
-    } else f.write(x, y + i, line.text, THEME.textDim, THEME.panel);
+      ui.text(x, y + i, line.prefix, { color: THEME.accent, bold: true });
+      ui.text(x + line.prefix.length, y + i, line.text, { color: THEME.text });
+    } else ui.text(x, y + i, line.text, { color: THEME.textDim });
   }
 }
 
 export const lounge = {
   render(s: Session, f: Frame): void {
-    f.gradient(THEME.bgTop, THEME.bgBot);
-    bigCenter(f, 1, 'FIGHT LOUNGE', THEME.accent, THEME.bgTop, 1);
+    const ui = makeSurface(f);
+    ui.gradient(THEME.bgTop, THEME.bgBot);
+    ui.heading(1, 'FIGHT LOUNGE', THEME.accent, 1);
+    const hy = ui.headingHeight(1) + 1;
     const you = characterAt(s.cursor);
     const ownElo = s.player ? String(s.player.elo) : 'UNRATED';
-    f.center(6, `${s.displayName}  ·  ${you.name}  ·  ELO ${ownElo}`, THEME.accent2, THEME.bgTop, true);
+    centerText(ui, hy, `${s.displayName}  ·  ${you.name}  ·  ELO ${ownElo}`, { color: THEME.accent2, bold: true });
 
+    const banner = hy + 1;
     if (s.incoming) {
-      f.fill(0, 7, f.cols, 1, THEME.select);
-      f.center(7, `${s.incoming.name} CHALLENGED YOU  ·  Y ACCEPT  /  N DECLINE`, THEME.selectText, THEME.select, true);
+      ui.fill(0, banner, ui.cols, 1, THEME.select);
+      centerText(ui, banner, `${s.incoming.name} CHALLENGED YOU  ·  Y ACCEPT / N DECLINE`, { color: THEME.selectText, bold: true });
     } else if (s.outgoing) {
-      f.fill(0, 7, f.cols, 1, THEME.select);
-      f.center(7, `CHALLENGE SENT TO ${s.outgoing.name}  ·  X CANCEL`, THEME.selectText, THEME.select, true);
+      ui.fill(0, banner, ui.cols, 1, THEME.select);
+      centerText(ui, banner, `CHALLENGE SENT TO ${s.outgoing.name}  ·  X CANCEL`, { color: THEME.selectText, bold: true });
     } else {
-      f.center(7, '[ESC] MAIN MENU  ·  [TAB] SWITCH CHAT / PLAYERS  ·  /MENU ALSO EXITS', THEME.textDim, THEME.bgTop, true);
+      centerText(ui, banner, '[ESC] MAIN MENU  ·  [TAB] SWITCH CHAT / PLAYERS', { color: THEME.textDim, bold: true });
     }
 
-    const narrow = f.cols < 76;
-    const top = 9, bottom = Math.max(top + 4, f.rows - 8), panelH = bottom - top;
+    const narrow = ui.cols < 76;
+    const top = banner + 2;
+    const bottom = Math.max(top + 4, ui.rows - 6);
+    const panelH = bottom - top;
     const roster = s.loungeRoster;
     if (narrow) {
-      const names = roster.length ? roster.map((p) => p.name).join(' · ').slice(0, f.cols - 8) : 'NOBODY ELSE ONLINE';
-      f.center(8, `ONLINE: ${names}`, roster.length ? THEME.text : THEME.textDim, THEME.bgTop);
-      const chat = box(f, 2, top, f.cols - 4, panelH, { title: s.loungeFocus === 'chat' ? 'CHAT · ACTIVE' : 'CHAT', fg: s.loungeFocus === 'chat' ? THEME.accent : THEME.panelBorder });
-      drawMessages(s, f, chat.x, chat.y, chat.w, chat.h);
+      const names = roster.length ? roster.map((p) => p.name).join(' · ').slice(0, ui.cols - 9) : 'NOBODY ELSE ONLINE';
+      centerText(ui, top - 1, `ONLINE: ${names}`, { color: roster.length ? THEME.text : THEME.textDim });
+      const chat = ui.panel(2, top, ui.cols - 4, panelH, { title: s.loungeFocus === 'chat' ? 'CHAT · ACTIVE' : 'CHAT', border: s.loungeFocus === 'chat' ? THEME.accent : THEME.panelBorder });
+      drawMessages(s, ui, chat.x, chat.y, chat.w, chat.h);
     } else {
-      const playersW = 31, chatW = f.cols - playersW - 6;
-      const chat = box(f, 2, top, chatW, panelH, { title: s.loungeFocus === 'chat' ? 'CHAT · ACTIVE' : 'CHAT', fg: s.loungeFocus === 'chat' ? THEME.accent : THEME.panelBorder });
-      drawMessages(s, f, chat.x, chat.y, chat.w, chat.h);
+      const playersW = 30, chatW = ui.cols - playersW - 6;
+      const chat = ui.panel(2, top, chatW, panelH, { title: s.loungeFocus === 'chat' ? 'CHAT · ACTIVE' : 'CHAT', border: s.loungeFocus === 'chat' ? THEME.accent : THEME.panelBorder });
+      drawMessages(s, ui, chat.x, chat.y, chat.w, chat.h);
 
-      const list = box(f, chatW + 3, top, playersW, panelH, { title: s.loungeFocus === 'players' ? 'PLAYERS · ACTIVE' : 'PLAYERS', fg: s.loungeFocus === 'players' ? THEME.accent : THEME.panelBorder });
+      const list = ui.panel(chatW + 3, top, playersW, panelH, { title: s.loungeFocus === 'players' ? 'PLAYERS · ACTIVE' : 'PLAYERS', border: s.loungeFocus === 'players' ? THEME.accent : THEME.panelBorder });
       if (!roster.length) {
-        f.write(list.x, list.y + 1, 'NOBODY ELSE ONLINE', THEME.textDim, THEME.panel);
-        f.write(list.x, list.y + 3, 'INVITE A FRIEND TO SSH IN.', THEME.textDim, THEME.panel);
+        ui.text(list.x, list.y + 1, 'NOBODY ELSE ONLINE', { color: THEME.textDim });
+        ui.text(list.x, list.y + 3, 'INVITE A FRIEND TO SSH IN.', { color: THEME.textDim });
       } else {
         s.loungeCursor = Math.max(0, Math.min(roster.length - 1, s.loungeCursor));
         for (let i = 0; i < roster.length && i < list.h; i++) {
           const p = roster[i]!, selected = s.loungeFocus === 'players' && i === s.loungeCursor;
-          const bg = selected ? THEME.select : THEME.panel;
-          if (selected) f.fill(list.x - 1, list.y + i, list.w + 2, 1, bg);
+          if (selected) ui.fill(list.x - 0.5, list.y + i, list.w + 1, 1, THEME.select);
           const elo = p.elo ?? '---';
           const row = `${selected ? '▶' : ' '} ${p.name.slice(0, 12).padEnd(12)} ${characterAt(p.cursor).name.padEnd(6)} ${elo}`;
-          f.write(list.x, list.y + i, row.slice(0, list.w), selected ? THEME.selectText : THEME.text, bg, selected);
+          ui.text(list.x, list.y + i, row.slice(0, Math.floor(list.w)), { color: selected ? THEME.selectText : THEME.text, bold: selected });
         }
       }
     }
 
-    input(f, 2, f.rows - 6, f.cols - 4, s.chatBuf, { label: s.loungeFocus === 'chat' ? 'MESSAGE · ENTER TO SEND' : 'MESSAGE · TAB TO TYPE', focus: s.loungeFocus === 'chat', frame: s.frame, placeholder: 'say something...' });
-    f.center(f.rows - 2, s.loungeNotice.slice(0, Math.max(0, f.cols - 4)), THEME.accent2, THEME.bgBot, true);
-    const hints: [string, string][] = s.incoming
+    inputField(ui, 2, ui.rows - 5, ui.cols - 4, s.chatBuf, { focus: s.loungeFocus === 'chat', frame: s.frame, placeholder: s.loungeFocus === 'chat' ? 'SAY SOMETHING...' : 'TAB TO TYPE' });
+    centerText(ui, ui.rows - 2, s.loungeNotice.slice(0, Math.max(0, ui.cols - 4)), { color: THEME.accent2, bold: true });
+    const keyhints: [string, string][] = s.incoming
       ? [['Y/ENTER', 'ACCEPT'], ['N/ESC', 'DECLINE']]
       : s.loungeFocus === 'chat'
-        ? [['TYPE', 'CHAT'], ['ENTER', 'SEND'], ['TAB', 'PLAYERS'], ['ESC', 'MAIN MENU']]
-        : [['↑/↓', 'PLAYER'], ['ENTER', 'CHALLENGE'], ['TAB', 'CHAT'], ['ESC', 'MAIN MENU']];
-    keyHints(f, f.rows - 1, hints);
+        ? [['TYPE', 'CHAT'], ['ENTER', 'SEND'], ['TAB', 'PLAYERS'], ['ESC', 'MENU']]
+        : [['↑/↓', 'PLAYER'], ['ENTER', 'CHALLENGE'], ['TAB', 'CHAT'], ['ESC', 'MENU']];
+    hints(ui, ui.rows - 1, keyhints);
   },
 
   onKey(s: Session, k: Key): void {

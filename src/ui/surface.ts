@@ -38,6 +38,10 @@ export interface Surface {
   heading(y: number, str: string, color: RGB, scale?: number): void;
   headingHeight(scale?: number): number;   // units tall
   width(str: string): number;              // width of body text in units (== length)
+  /** Convert a pixel-layer sub-pixel coordinate to layout units (for overlays
+   *  positioned over a rendered scene). The scene grid is 2*cols x 4*rows. */
+  unitX(subPx: number): number;
+  unitY(subPy: number): number;
 }
 
 // ---------- crisp one-cell backend ----------
@@ -62,6 +66,8 @@ class CellSurface implements Surface {
   }
   headingHeight(scale = 1): number { return 5 * scale; }
   width(str: string): number { return str.length; }
+  unitX(subPx: number): number { return subPx / 2; }
+  unitY(subPy: number): number { return subPy / 4; }
 }
 
 // ---------- constant-size pixel-font backend ----------
@@ -130,6 +136,8 @@ class PixelSurface implements Surface {
   }
   headingHeight(scale = 1): number { return Math.ceil((5 * (scale + 1)) / 6) + 1; }
   width(str: string): number { return str.length; }
+  unitX(subPx: number): number { return subPx / this.cw; }
+  unitY(subPy: number): number { return subPy / this.lh; }
 }
 
 /** Pick the backend by terminal resolution: the constant-size pixel font ONLY

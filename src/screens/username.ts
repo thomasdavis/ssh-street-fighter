@@ -1,7 +1,8 @@
 import type { Frame } from '../render/frame.js';
 import type { Key } from '../ui/key.js';
 import type { Session } from '../net/session.js';
-import { box, bigCenter, input, keyHints } from '../ui/tui.js';
+import { makeSurface } from '../ui/surface.js';
+import { hints, inputField, centerText } from '../ui/widgets.js';
 import { THEME } from '../ui/theme.js';
 import * as db from '../db/db.js';
 
@@ -9,17 +10,19 @@ const NAME_RE = /^[A-Za-z0-9_\-]$/;
 
 export const username = {
   render(s: Session, f: Frame): void {
-    f.gradient(THEME.bgTop, THEME.bgBot);
-    bigCenter(f, 2, 'STREET FIGHTER', THEME.accent, THEME.bgTop, 1);
-    const pw = Math.min(52, f.cols - 6);
-    const px = Math.floor((f.cols - pw) / 2);
-    const inner = box(f, px, 9, pw, 8, { title: 'CHOOSE YOUR HANDLE', style: 'double' });
-    input(f, inner.x, inner.y + 1, inner.w, s.usernameBuf, { focus: true, frame: s.frame, placeholder: '3-12 letters / numbers' });
+    const ui = makeSurface(f);
+    ui.gradient(THEME.bgTop, THEME.bgBot);
+    ui.heading(1, 'STREET FIGHTER', THEME.accent, 1);
+    const py = ui.headingHeight(1) + 3;
+    const pw = Math.min(48, ui.cols - 6);
+    const px = Math.floor((ui.cols - pw) / 2);
+    const inner = ui.panel(px, py, pw, 7, { title: 'CHOOSE YOUR HANDLE' });
+    inputField(ui, inner.x, inner.y + 1, inner.w, s.usernameBuf, { focus: true, frame: s.frame, placeholder: '3-12 LETTERS / NUMBERS' });
     const msg = s.errorMsg ? [THEME.bad, s.errorMsg] as const
-      : s.guest ? [THEME.textDim, 'GUEST — name not saved (connect with an SSH key)'] as const
-      : [THEME.good, 'TIED TO YOUR SSH KEY — remembered next time'] as const;
-    f.center(inner.y + 5, msg[1], msg[0], THEME.panel);
-    keyHints(f, f.rows - 2, [['TYPE', 'NAME'], ['ENTER', 'CONFIRM'], ['CTRL-C', 'QUIT']]);
+      : s.guest ? [THEME.textDim, 'GUEST - NAME NOT SAVED (CONNECT WITH AN SSH KEY)'] as const
+      : [THEME.good, 'TIED TO YOUR SSH KEY - REMEMBERED NEXT TIME'] as const;
+    centerText(ui, inner.y + 5, msg[1], { color: msg[0] });
+    hints(ui, ui.rows - 2, [['TYPE', 'NAME'], ['ENTER', 'CONFIRM'], ['CTRL-C', 'QUIT']]);
   },
 
   onKey(s: Session, k: Key): void {

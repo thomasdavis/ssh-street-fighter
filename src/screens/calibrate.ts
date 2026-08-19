@@ -13,7 +13,8 @@ import { drawFightHud } from './fight-hud.js';
 import { makeFighter, makeMatch, stepMatch } from '../game/engine.js';
 import { emptyInputs, type Inputs, type Match } from '../game/types.js';
 import { characterAt } from '../game/roster.js';
-import { box, keyHints } from '../ui/tui.js';
+import { makeSurface } from '../ui/surface.js';
+import { hints, meter } from '../ui/widgets.js';
 import { THEME } from '../ui/theme.js';
 import * as db from '../db/db.js';
 
@@ -82,42 +83,42 @@ export const calibrate = {
     if (s.calibMatch) {
       f.usePixel(composeSceneCached(s.calibMatch, cols * 2, rows * 4, false));
       drawFightHud(f, s.calibMatch, false, s.keyBindings);
-    } else {
-      f.gradient(THEME.bgTop, THEME.bgBot);
     }
+    const ui = makeSurface(f);
+    if (!s.calibMatch) ui.gradient(THEME.bgTop, THEME.bgBot);
 
     // Instruction panel, centered over the live scene.
-    const w = Math.min(66, Math.max(30, cols - 4));
-    const h = Math.min(rows - 4, 13);
-    const x = Math.floor((cols - w) / 2);
-    const y = Math.max(3, Math.floor((rows - h) / 2));
-    const inner = box(f, x, y, w, h, { title: 'CALIBRATE YOUR VIEW', style: 'double' });
-    const iw = inner.w;
-    const line = (row: number, str: string, fg = THEME.text, bold = false) => {
-      if (row >= inner.y + inner.h) return;
-      f.write(inner.x, row, str.slice(0, iw), fg, THEME.panel, bold);
-    };
+    const w = Math.min(58, Math.max(28, ui.cols - 4));
+    const h = Math.min(ui.rows - 4, 12);
+    const x = Math.floor((ui.cols - w) / 2);
+    const y = Math.max(2, Math.floor((ui.rows - h) / 2));
+    const inner = ui.panel(x, y, w, h, { title: 'CALIBRATE YOUR VIEW' });
+    const iw = Math.floor(inner.w);
     let r = inner.y;
-    line(r++, 'This is exactly how a fight looks. Tune your', THEME.textDim);
-    line(r++, 'terminal so BOTH read clean:', THEME.textDim);
+    const line = (str: string, fg = THEME.text, bold = false) => {
+      if (r < inner.y + inner.h) ui.text(inner.x, r, str.slice(0, iw), { color: fg, bold });
+      r++;
+    };
+    line('THIS IS EXACTLY HOW A FIGHT LOOKS. TUNE YOUR', THEME.textDim);
+    line('TERMINAL SO BOTH READ CLEAN:', THEME.textDim);
     r++;
-    line(r++, 'ZOOM OUT  (Ctrl -  /  Cmd -)  smoother fighters', THEME.accent2, true);
-    line(r++, 'ZOOM IN   (Ctrl +  /  Cmd +)  larger HUD text', THEME.accent2, true);
+    line('ZOOM OUT  (CTRL - / CMD -)  SMOOTHER FIGHTERS', THEME.accent2, true);
+    line('ZOOM IN   (CTRL + / CMD +)  LARGER HUD TEXT', THEME.accent2, true);
     r++;
 
-    // live resolution + quality meter
+    // live resolution + quality meter (fidelity tracks the TERMINAL resolution)
     const q = quality(cols, rows);
     const qcol = q <= 0 ? THEME.bad : q === 1 ? THEME.accent : q >= QMAX ? THEME.good : THEME.accent2;
-    line(r++, `Canvas ${cols}x${rows} cells  ->  ${cols * 2}x${rows * 4} sub-pixels`, THEME.text);
-    const segs = QUALITY.length;
-    let mx = inner.x;
-    f.write(mx, r, 'FIDELITY ', THEME.textDim, THEME.panel); mx += 9;
-    for (let i = 0; i < segs; i++) { f.putChar(mx++, r, i <= q ? '█' : '░', i <= q ? qcol : THEME.textDim, THEME.panel, false); }
-    f.write(mx + 1, r, QUALITY[q]!, qcol, THEME.panel, true);
-    if (q < QMAX) f.write(mx + 1 + QUALITY[q]!.length + 1, r, '(zoom out for more)', THEME.textDim, THEME.panel);
-    r++;
+    line(`CANVAS ${cols}x${rows} CELLS - ${cols * 2}x${rows * 4} SUBPIXELS`, THEME.text);
+    if (r < inner.y + inner.h) {
+      ui.text(inner.x, r, 'FIDELITY', { color: THEME.textDim });
+      meter(ui, inner.x + 9, r, QUALITY.length, q + 1, qcol);
+      const mx = inner.x + 9 + QUALITY.length * 1.1 + 1;
+      ui.text(mx, r, QUALITY[q]!, { color: qcol, bold: true });
+      if (q < QMAX) ui.text(mx + QUALITY[q]!.length + 1, r, '(ZOOM OUT FOR MORE)', { color: THEME.textDim });
+    }
 
-    keyHints(f, f.rows - 1, [['V', `GFX:${s.renderMode.toUpperCase()}`], ['?', 'MOVES'], ['ENTER', "READY - LET'S FIGHT"]]);
+    hints(ui, ui.rows - 1, [['V', `GFX:${s.renderMode.toUpperCase()}`], ['?', 'MOVES'], ['ENTER', 'READY - LETS FIGHT']]);
   },
 
   onKey(s: Session, k: Key): void {

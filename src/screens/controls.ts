@@ -1,7 +1,8 @@
 import type { Frame } from '../render/frame.js';
 import type { Key } from '../ui/key.js';
 import type { Session } from '../net/session.js';
-import { box, bigCenter, keyHints } from '../ui/tui.js';
+import { makeSurface } from '../ui/surface.js';
+import { hints, centerText } from '../ui/widgets.js';
 import { THEME } from '../ui/theme.js';
 import {
   ACTION_LABEL,
@@ -14,42 +15,39 @@ import {
 
 export const controls = {
   render(s: Session, f: Frame): void {
-    f.gradient(THEME.bgTop, THEME.bgBot);
-    if (f.rows >= 22) bigCenter(f, 1, 'CONTROLS', THEME.accent, THEME.bgTop, 1);
-    else f.center(0, 'COMBAT CONTROLS', THEME.accent, THEME.bgTop, true);
+    const ui = makeSurface(f);
+    ui.gradient(THEME.bgTop, THEME.bgBot);
+    ui.heading(1, 'CONTROLS', THEME.accent, 1);
 
-    const panelY = f.rows >= 22 ? 7 : 1;
-    const panelW = Math.min(54, f.cols - 4);
-    const panelH = Math.min(11, f.rows - panelY - 3);
-    const inner = box(f, Math.floor((f.cols - panelW) / 2), panelY, panelW, panelH, { title: 'YOUR KEY BINDINGS', style: 'double' });
-    const maxRows = Math.max(0, Math.min(BINDABLE_ACTIONS.length, inner.h));
+    const py = ui.headingHeight(1) + 2;
+    const pw = Math.min(50, ui.cols - 4);
+    const px = Math.floor((ui.cols - pw) / 2);
+    const rowsAvail = Math.max(0, Math.min(BINDABLE_ACTIONS.length, ui.rows - py - 6));
+    const ph = rowsAvail + 3;
+    const inner = ui.panel(px, py, pw, ph, { title: 'YOUR KEY BINDINGS' });
+    const valX = Math.min(16, Math.floor(inner.w * 0.5));
 
-    for (let i = 0; i < maxRows; i++) {
+    for (let i = 0; i < rowsAvail; i++) {
       const action = BINDABLE_ACTIONS[i]!;
       const y = inner.y + i;
       const selected = i === s.controlsCursor;
       const capturing = selected && s.bindingCapture === action;
-      const bg = selected ? THEME.select : THEME.panel;
-      if (selected) f.fill(inner.x - 1, y, inner.w + 2, 1, bg);
-      const marker = selected ? '▶' : ' ';
-      const label = ACTION_LABEL[action].padEnd(14);
-      const value = capturing ? 'PRESS A KEY…' : bindingLabel(s.keyBindings[action]);
-      f.write(inner.x, y, `${marker} ${label}`.slice(0, inner.w), selected ? THEME.selectText : THEME.text, bg, selected);
-      const valueX = inner.x + Math.min(18, Math.max(0, inner.w - value.length));
-      f.write(valueX, y, value.slice(0, Math.max(0, inner.w - (valueX - inner.x))), capturing ? THEME.accent2 : THEME.accent, bg, true);
+      if (selected) ui.fill(inner.x - 0.5, y, inner.w + 1, 1, THEME.select);
+      ui.text(inner.x, y, ACTION_LABEL[action], { color: selected ? THEME.selectText : THEME.text, bold: selected });
+      const value = capturing ? 'PRESS A KEY...' : bindingLabel(s.keyBindings[action]);
+      ui.text(inner.x + valX, y, value, { color: capturing ? THEME.accent2 : THEME.accent, bold: true });
     }
 
-    if (f.rows >= 20) {
-      const persistence = s.guest ? 'GUEST SETTINGS LAST FOR THIS SESSION' : 'SAVED TO YOUR VERIFIED SSH IDENTITY';
-      f.center(panelY + panelH + 1, 'BLOCK = HOLD AWAY  ·  ? MOVES  ·  V GFX  ·  Q EXIT', THEME.textDim, THEME.bgBot);
-      f.center(panelY + panelH + 2, persistence, s.guest ? THEME.textDim : THEME.good, THEME.bgBot, true);
-    }
-    const noticeY = f.rows >= 20 ? panelY + panelH + 4 : f.rows - 3;
-    if (s.controlsNotice) f.center(noticeY, s.controlsNotice.slice(0, Math.max(0, f.cols - 4)), THEME.accent2, THEME.bgBot, true);
-    const normalHints: [string, string][] = f.cols < 52
+    const infoY = py + ph + 1;
+    const persistence = s.guest ? 'GUEST SETTINGS LAST FOR THIS SESSION' : 'SAVED TO YOUR VERIFIED SSH IDENTITY';
+    centerText(ui, infoY, 'BLOCK = HOLD AWAY  ·  ? MOVES  ·  V GFX  ·  Q EXIT', { color: THEME.textDim });
+    centerText(ui, infoY + 1, persistence, { color: s.guest ? THEME.textDim : THEME.good, bold: true });
+    if (s.controlsNotice) centerText(ui, infoY + 3, s.controlsNotice, { color: THEME.accent2, bold: true });
+
+    const normalHints: [string, string][] = ui.cols < 52
       ? [['↑/↓', 'PICK'], ['ENTER', 'CHANGE'], ['ESC', 'BACK']]
       : [['↑/↓', 'ACTION'], ['ENTER', 'CHANGE'], ['R', 'RESET'], ['ESC', 'BACK']];
-    keyHints(f, f.rows - 1, s.bindingCapture ? [['KEY', 'ASSIGN'], ['ESC', 'CANCEL']] : normalHints);
+    hints(ui, ui.rows - 1, s.bindingCapture ? [['KEY', 'ASSIGN'], ['ESC', 'CANCEL']] : normalHints);
   },
 
   onKey(s: Session, key: Key): void {
