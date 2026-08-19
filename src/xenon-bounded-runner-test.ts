@@ -18,9 +18,10 @@ import {
   type AuditSink, type HealthPayload, type RunnerOptions, type RunnerTransport, type SshChild, type TokenChild,
 } from './tools/xenon-bounded-runner.js';
 import {
-  FROZEN_XENON_MATCHUP_CONFIG, matchupXenonDecision,
+  FROZEN_XENON_MATCHUP_CONFIG, matchupXenonDecision, special,
   type LatencyPolicyContext, type OpponentName,
 } from './policies/xenon-matchup.js';
+import { createXenonActuator } from './policies/xenon-actuation.js';
 
 type Message = Record<string, unknown>;
 
@@ -408,6 +409,38 @@ assert.ok(hitStop.audit.rows.some((row) => row.event === 'decision'
   && JSON.stringify(row.payload).includes('hitstop-edge-suppressed')));
 console.log('PASS  hitStop suppresses every edge while preserving an audited decision');
 
+const directObservation = (frame: number, ack: number, attack: 'none' | 'phase' | 'kick') => ({
+  frame, ack, phase: 'fight' as const, hitStop: 0,
+  you: { attack, stun: 0, facing: 1 as const, x: 80, y: 0, vy: 0 },
+  opponent: {
+    attack: 'none' as const, attackFrame: 0, stun: 0, facing: -1 as const,
+    x: 130, active: false, casting: false,
+  },
+  observationAgeFrames: 0, applicationDelayFrames: 0,
+});
+const phaseIntent = special('XENON', 'phase', 1);
+for (const preAckAttack of ['phase', 'kick'] as const) {
+  const direct = createXenonActuator();
+  let decisions = 0;
+  const first = direct.step(directObservation(1, 0, 'none'), () => { decisions++; return phaseIntent; });
+  assert.equal(first.emission?.reason, 'new-canonical-edge', preAckAttack);
+  const preAck = direct.step(directObservation(2, 0, preAckAttack), () => { decisions++; return emptyInputs(); });
+  assert.equal(preAck.failure, undefined, preAckAttack);
+  assert.equal(preAck.emission, undefined, preAckAttack);
+  assert.equal(direct.status().pending?.expectedAttack, 'phase', preAckAttack);
+  assert.equal(decisions, 1, `${preAckAttack}: pre-ack attack must not reach policy decision`);
+  const acknowledged = direct.step(directObservation(3, 1, preAckAttack), () => emptyInputs());
+  if (preAckAttack === 'phase') {
+    assert.equal(acknowledged.failure, undefined);
+    assert.equal(direct.status().pending, null);
+    assert.ok(acknowledged.audits.some((audit) => audit.event === 'attack-confirmed'));
+  } else {
+    assert.match(acknowledged.failure ?? '', /attack confirmation mismatch/);
+    assert.equal(direct.status().pending?.expectedAttack, 'phase');
+  }
+}
+console.log('PASS  direct actuator ignores pre-ack expected/mismatch and interprets attack only after ack');
+
 const retry = harness();
 await enterMatch(retry);
 await retry.controller.handle(state({ frame: 10 }));
@@ -555,15 +588,24 @@ for (const runnerSide of ['a', 'b'] as const) {
   assert.equal(self.attack, 'phase', `${runnerSide}: coalesced edge must retain Phase motion`);
 
   await coalescing.controller.handle(state({
-    frame: 587, ack: 1, you: fighter({ attack: 'phase', attackFrame: 1 }),
+    frame: 587, ack: 0, you: fighter({ attack: 'phase', attackFrame: 1 }),
+  }));
+  assert.equal(coalescing.sent.length, sentAfterEdge, `${runnerSide}: pre-ack Phase must remain observational`);
+  assert.equal(coalescing.controller.status().pending?.expectedAttack, 'phase', runnerSide);
+  await coalescing.controller.handle(state({
+    frame: 588, ack: 1, you: fighter({ attack: 'phase', attackFrame: 2 }),
   }));
   assert.equal(coalescing.controller.status().pending, null, runnerSide);
   assert.equal(coalescing.controller.status().stopped, false, runnerSide);
 
   // Sensitivity check: the exact former N emission would reproduce the bad
   // normal kick under the same real merge and engine path.
+  const mismatchGate = harness(baseOptions({ opponent: 'FABLE', target: 'TARGET_FABLE' }));
+  await enterMatch(mismatchGate, { role: runnerSide });
+  await mismatchGate.controller.handle(state({ frame: 584, ack: 0 }));
+  const mismatchPhase = messageInputs(mismatchGate.sent.at(-1)!);
   const overwritten = emptyInputs();
-  mergeCoordinatorInput(overwritten, phase);
+  mergeCoordinatorInput(overwritten, mismatchPhase);
   mergeCoordinatorInput(overwritten, { ...emptyInputs(), motion: 'N' });
   const counterfactual = runnerSide === 'a'
     ? makeMatch(makeFighter('a', 'XENON', 'a'), makeFighter('b', 'FABLE', 'b'))
@@ -578,8 +620,20 @@ for (const runnerSide of ['a', 'b'] as const) {
     runnerSide === 'b' ? overwritten : emptyInputs(),
   );
   assert.equal(counterSelf.attack, 'kick', `${runnerSide}: fixture must reproduce former LR overwrite`);
+  const mismatchSentAfterEdge = mismatchGate.sent.length;
+  await mismatchGate.controller.handle(state({
+    frame: 587, ack: 0, you: fighter({ attack: 'kick', attackFrame: 1 }),
+  }));
+  assert.equal(mismatchGate.sent.length, mismatchSentAfterEdge, `${runnerSide}: pre-ack kick must not emit/leave`);
+  assert.equal(mismatchGate.controller.status().pending?.expectedAttack, 'phase', runnerSide);
+  assert.equal(mismatchGate.controller.status().stopped, false, runnerSide);
+  await mismatchGate.controller.handle(state({
+    frame: 588, ack: 1, you: fighter({ attack: 'kick', attackFrame: 2 }),
+  }));
+  assert.equal(mismatchGate.controller.status().stopped, true, runnerSide);
+  assert.match(JSON.stringify(mismatchGate.audit.rows), /attack confirmation mismatch/);
 }
-console.log('PASS  unacked Phase emits nothing; actual coordinator merge and engine preserve Phase on both seats');
+console.log('PASS  real merge/engine pre-ack expected and mismatch stay pending; ack then confirms or fails');
 
 const sticky = emptyInputs();
 const phaseEdge = {

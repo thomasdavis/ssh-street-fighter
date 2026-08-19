@@ -269,7 +269,7 @@ export function createXenonActuator(
       motionResetSeq = null;
     }
 
-    if (pending && you.attack !== 'none') {
+    if (pending && ack >= pending.sentSeq && you.attack !== 'none') {
       if (pending.expectedAttack === 'unknown')
         return { audits, failure: `cannot confirm unknown intended attack at frame ${frame}` };
       if (you.attack !== pending.expectedAttack)
