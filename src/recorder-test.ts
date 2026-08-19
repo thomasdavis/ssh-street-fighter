@@ -66,20 +66,31 @@ check('OMEGA and CODEX canonical specials are counted once', sides[0]?.specials 
   `A=${sides[0]?.specials} B=${sides[1]?.specials}`);
 check('a second recorder finish cannot replace the authoritative result', stored.winner === 'a' && stored.end_reason === 'ko', JSON.stringify(stored));
 
-const fableMatch = makeMatch(makeFighter('a', 'FABLE', 'a'), makeFighter('b', 'BYU', 'b'));
-const fable = recorder('telemetry-fable', fableMatch);
-fable.frame(fableMatch, inputs, inputs);
-fableMatch.a.attack = specialMovesFor('FABLE')[0]!.attack;
-fable.frame(fableMatch, inputs, inputs);
-for (let i = 0; i < 30; i++) fable.frame(fableMatch, inputs, inputs);
-fableMatch.a.wins = 2;
-fable.finish(fableMatch, { winner: 'a', endReason: 'ko' });
-const fableSide = db.getDb().prepare("SELECT specials FROM match_players WHERE match_id = ? AND side = 'a'").get('telemetry-fable') as { specials: number };
-const modernKinds = db.getDb().prepare("SELECT data_json FROM match_events WHERE type = 'special' ORDER BY id").all() as Array<{ data_json: string }>;
-const kinds = modernKinds.map((row) => (JSON.parse(row.data_json) as { kind: string }).kind);
-check('FABLE special is recognized from the same canonical move definitions', fableSide.specials === 1 && kinds.includes(specialMovesFor('FABLE')[0]!.attack),
-  `specials=${fableSide.specials} kinds=${kinds.join(',')}`);
-check('modern special events cover OMEGA, CODEX, and FABLE', ['testimony', 'context', 'storyarc'].every((kind) => kinds.includes(kind)), kinds.join(','));
+// Exercise every modern move rather than one representative per character. A
+// neutral frame separates each attack so the recorder sees three distinct
+// rising edges and stores the exact canonical attack kinds.
+for (const character of ['OMEGA', 'CODEX', 'FABLE'] as const) {
+  const match = makeMatch(makeFighter('a', character, 'a'), makeFighter('b', 'BYU', 'b'));
+  const id = `telemetry-all-specials-${character.toLowerCase()}`;
+  const modern = recorder(id, match);
+  modern.frame(match, inputs, inputs);
+  const expected = specialMovesFor(character).map((move) => move.attack);
+  for (const attack of expected) {
+    match.a.attack = attack;
+    modern.frame(match, inputs, inputs);
+    match.a.attack = 'none';
+    modern.frame(match, inputs, inputs);
+  }
+  for (let i = 0; i < 25; i++) modern.frame(match, inputs, inputs);
+  match.a.wins = 2;
+  modern.finish(match, { winner: 'a', endReason: 'ko' });
+
+  const side = db.getDb().prepare("SELECT specials FROM match_players WHERE match_id = ? AND side = 'a'").get(id) as { specials: number };
+  const rows = db.getDb().prepare("SELECT data_json FROM match_events WHERE match_id = ? AND type = 'special' ORDER BY id").all(id) as Array<{ data_json: string }>;
+  const actual = rows.map((row) => (JSON.parse(row.data_json) as { kind: string }).kind);
+  check(`${character} counts all canonical specials exactly once`, side.specials === expected.length && JSON.stringify(actual) === JSON.stringify(expected),
+    `specials=${side.specials} kinds=${actual.join(',')}`);
+}
 
 console.log(pass ? '\nRECORDER TEST: PASS' : '\nRECORDER TEST: FAIL');
 process.exit(pass ? 0 : 1);

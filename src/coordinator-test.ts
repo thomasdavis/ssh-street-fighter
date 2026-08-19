@@ -149,5 +149,60 @@ check('accepting a cross-worker challenge starts a match',
   `A=${pa.matches}/${pa.elo} B=${pb.matches}/${pb.elo}`);
 }
 
+// Symmetric race: side B wins, while side A synchronously sends leaveMatch from
+// its matchEnd callback. This covers the loser-side and explicit leave path in
+// addition to the winner-side worker-exit path above.
+{
+  const fpA = 'SHA256:finish-race-a'; const fpB = 'SHA256:finish-race-b';
+  db.touchOrCreate(fpA); db.setUsername(fpA, 'RACEA');
+  db.touchOrCreate(fpB); db.setUsername(fpB, 'RACEB');
+
+  const c4 = new MatchCoordinator();
+  const endA: P2W[] = [], endB3: P2W[] = [];
+  let mid = '';
+  let detachedBeforeLoserLeave = false;
+  const w4A: WorkerRef = { id: 21, send: (m) => {
+    endA.push(m);
+    if (m.t === 'matchStart') mid = m.mid;
+    if (m.t === 'matchEnd') {
+      detachedBeforeLoserLeave = c4.activeMatches === 0;
+      c4.handle(w4A, { t: 'leaveMatch', mid, sid: 1 });
+    }
+  } };
+  const w4B: WorkerRef = { id: 22, send: (m) => endB3.push(m) };
+  c4.handle(w4A, { t: 'queue', sid: 1, cid: 'ra', name: 'RACEA', fp: fpA, cursor: 10, elo: 1200, region: 'NA' });
+  c4.handle(w4B, { t: 'queue', sid: 1, cid: 'rb', name: 'RACEB', fp: fpB, cursor: 11, elo: 1200, region: 'NA' });
+  const finishing = (c4 as unknown as { matches: Map<string, { match: {
+    a: { hp: number; wins: number }; b: { hp: number; wins: number };
+    phase: string; phaseTimer: number;
+  } }> }).matches.get(mid)!;
+
+  for (let i = 0; i < 35; i++) c4.tick();
+  finishing.match.a.wins = 0; finishing.match.a.hp = 0;
+  finishing.match.b.wins = 2; finishing.match.b.hp = 61;
+  finishing.match.phase = 'match-over'; finishing.match.phaseTimer = 0;
+  c4.tick();
+  c4.handleExit(21); c4.handleExit(22); // stale worker exits are also harmless
+
+  const sql = db.getDb();
+  const history = sql.prepare("SELECT * FROM match_history WHERE winner = 'RACEB' AND loser = 'RACEA'").all();
+  const pa = db.getByFingerprint(fpA)!; const pb = db.getByFingerprint(fpB)!;
+  const rich = sql.prepare('SELECT * FROM matches WHERE id = ?').get(mid) as {
+    winner: string; a_rounds: number; b_rounds: number; end_reason: string;
+    a_elo_before: number; a_elo_after: number; b_elo_before: number; b_elo_after: number;
+  } | undefined;
+  const aEnds = endA.filter((m) => m.t === 'matchEnd');
+  const bEnds = endB3.filter((m) => m.t === 'matchEnd');
+
+  check('completed match detached before loser leaveMatch is observable', detachedBeforeLoserLeave);
+  check('B-side KO plus synchronous loser leave writes one result', history.length === 1 && aEnds.length === 1 && bEnds.length === 1,
+    `history=${history.length} aEnds=${aEnds.length} bEnds=${bEnds.length}`);
+  check('B-side result and rounds survive the leave race', !!rich && rich.winner === 'b' && rich.a_rounds === 0 && rich.b_rounds === 2 && rich.end_reason === 'ko',
+    `rich=${JSON.stringify(rich)}`);
+  check('symmetric Elo and records advance exactly once', pa.matches === 1 && pa.losses === 1 && pa.elo === 1184 && pb.matches === 1 && pb.wins === 1 && pb.elo === 1216
+    && rich?.a_elo_before === 1200 && rich.a_elo_after === 1184 && rich.b_elo_before === 1200 && rich.b_elo_after === 1216,
+  `A=${pa.matches}/${pa.elo} B=${pb.matches}/${pb.elo}`);
+}
+
 console.log(pass ? '\nCOORDINATOR TEST: PASS' : '\nCOORDINATOR TEST: FAIL');
 process.exit(pass ? 0 : 1);
