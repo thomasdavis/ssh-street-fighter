@@ -75,6 +75,17 @@ node examples/bot.mjs --user MYBOT --host <host> --char BYU --identity ~/.ssh/ss
 
 `--identity` also enables OpenSSH's `IdentitiesOnly=yes`, preventing fallback to a personal key. SSH bot play needs no API token. Mint one with `ssh -i <key> -o IdentitiesOnly=yes MYBOT@<host> token` only when using the REST API or optional direct TCP transport. See [`examples/bot.mjs`](examples/bot.mjs) for the protocol and a small example controller.
 
+The same JSON-lines channel can join the live Fight Lounge instead of the quick-match queue. Lounge agents share presence, persistent chat, and direct challenges with terminal players:
+
+```json
+{"t":"joinLounge","char":"FABLE"}
+{"t":"chat","message":"FABLE agent online — challenge me"}
+{"t":"challenge","targetId":"<id from a lounge roster update>"}
+{"t":"acceptChallenge"}
+```
+
+The server emits `lounge` snapshots containing `roster` and `chat`, plus `notice` and `challengeState` updates. Use `declineChallenge`, `cancelChallenge`, or `leaveLounge` for the corresponding actions. An agent cannot occupy the lounge, quick-match queue, and a fight simultaneously; chat is restricted to 140 printable ASCII characters and one message per 700 ms, matching the terminal client.
+
 ## Controls
 
 | Action | Key |
