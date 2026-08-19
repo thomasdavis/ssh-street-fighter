@@ -6,16 +6,15 @@
 import { makeFighter, makeMatch, stepMatch, attackActive, specialMoveStats } from '../game/engine.js';
 import { emptyInputs } from '../game/types.js';
 import type { Fighter, Inputs, Match } from '../game/types.js';
-import type { SpecialAttack } from '../game/moves.js';
+import { specialMoveForAttack, type SpecialAttack } from '../game/moves.js';
 import { ROSTER } from '../game/roster.js';
 import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
-const SPECIAL_KINDS = new Set(['hadouken', 'shoryuken', 'hurricane', 'rolling', 'verticalroll', 'electric', 'testimony', 'nullstep', 'entropy', 'context', 'branchwalk', 'mergecomet', 'storyarc', 'plottwist', 'inktempest']);
-
 // Build the exact per-tick view a bot receives over the wire (mirrors bot-server fighterView).
-function view(f: Fighter): any {
-  const special = SPECIAL_KINDS.has(f.attack);
+export function gymFighterView(f: Fighter): any {
+  const special = f.attack !== 'none' && f.attack !== 'punch' && f.attack !== 'kick' && f.attack !== 'throw'
+    && specialMoveForAttack(f.name, f.attack as SpecialAttack) !== null;
   const active = attackActive(f);
   let casting = false;
   if (special && !active) { try { casting = f.attackFrame < specialMoveStats(f.attack as SpecialAttack).startup; } catch { /* ignore */ } }
@@ -23,7 +22,7 @@ function view(f: Fighter): any {
     facing: f.facing, hp: f.hp, wins: f.wins, attack: f.attack, attackFrame: f.attackFrame,
     stun: f.stun, pose: f.pose, crouching: f.crouching, special, active, casting };
 }
-function toInputs(cmd: any): Inputs {
+export function gymInputs(cmd: any): Inputs {
   const i = emptyInputs();
   if (cmd?.moveX) i.moveX = cmd.moveX;
   i.jump = !!cmd?.jump; i.punch = !!cmd?.punch; i.kick = !!cmd?.kick; i.throw = !!cmd?.throw; i.down = !!cmd?.down;
@@ -33,7 +32,7 @@ function toInputs(cmd: any): Inputs {
 
 export type GymPolicy = (self: any, opp: any, phase: string, projectiles?: any[], role?: 'a' | 'b') => any;
 type Policy = GymPolicy;
-interface LoadedPolicy { decide: GymPolicy; reset?: () => void; label: string; }
+export interface LoadedPolicy { decide: GymPolicy; reset?: () => void; label: string; }
 const RNG = () => Math.random();
 const specCode = (self: any, kind: 'beam' | 'well' | 'warp' | 'up' | 'back') => {
   const f = self.facing;
@@ -45,7 +44,7 @@ const specCode = (self: any, kind: 'beam' | 'well' | 'warp' | 'up' | 'back') => 
 };
 
 // ---- Opponent archetypes (character-agnostic normals + jumps + throws) --------
-const styles: Record<string, Policy> = {
+export const gymStyles: Record<string, Policy> = {
   // Relentless pressure: march in, strike in range, throw at point blank, block on defence.
   rushdown(self, opp, phase) {
     if (phase !== 'fight') return {};
@@ -162,10 +161,10 @@ function playMatch(target: LoadedPolicy, oppPolicy: Policy, fighter: string, opp
   while (m.phase !== 'match-over' && frames < CAP) {
     const proj = m.projectiles.filter((p) => p.active).map((p) => ({ owner: p.owner, x: Math.round(p.x), y: Math.round(p.y), vx: p.vx, style: p.style }));
     let cmdA: any = {};
-    try { cmdA = target.decide(view(m.a), view(m.b), m.phase, proj, 'a') || {}; } catch { cmdA = {}; }
+    try { cmdA = target.decide(gymFighterView(m.a), gymFighterView(m.b), m.phase, proj, 'a') || {}; } catch { cmdA = {}; }
     let cmdB: any = {};
-    try { cmdB = oppPolicy(view(m.b), view(m.a), m.phase) || {}; } catch { cmdB = {}; }
-    stepMatch(m, toInputs(cmdA), toInputs(cmdB));
+    try { cmdB = oppPolicy(gymFighterView(m.b), gymFighterView(m.a), m.phase) || {}; } catch { cmdB = {}; }
+    stepMatch(m, gymInputs(cmdA), gymInputs(cmdB));
     frames++;
   }
   const outcome = m.phase !== 'match-over' || m.a.wins === m.b.wins ? 'draw' : m.a.wins > m.b.wins ? 'win' : 'loss';
@@ -191,7 +190,7 @@ export interface GymResult {
   total: { wins: number; losses: number; draws: number; played: number; winRate: number };
 }
 
-function seededRandom(seed: number): () => number {
+export function seededGymRandom(seed: number): () => number {
   let state = seed >>> 0;
   return () => {
     state += 0x6D2B79F5;
@@ -202,14 +201,14 @@ function seededRandom(seed: number): () => number {
   };
 }
 
-function knownFighter(name: string): string {
+export function knownGymFighter(name: string): string {
   const upper = name.toUpperCase();
   if (!ROSTER.some((fighter) => fighter.name === upper)) throw new Error(`unknown fighter: ${name}`);
   return upper;
 }
 
-async function loadPolicy(policyPath?: string): Promise<LoadedPolicy> {
-  if (!policyPath) return { decide: styles.champion!, label: 'builtin:champion' };
+export async function loadGymPolicy(policyPath?: string): Promise<LoadedPolicy> {
+  if (!policyPath) return { decide: gymStyles.champion!, label: 'builtin:champion' };
   const absolute = resolve(policyPath);
   const mod = await import(pathToFileURL(absolute).href) as { decide?: GymPolicy; reset?: () => void; resetModel?: () => void };
   if (typeof mod.decide !== 'function') throw new Error(`policy must export decide(): ${absolute}`);
@@ -217,23 +216,23 @@ async function loadPolicy(policyPath?: string): Promise<LoadedPolicy> {
 }
 
 export async function runGym(options: GymOptions = {}): Promise<GymResult> {
-  const fighter = knownFighter(options.fighter ?? 'OMEGA');
-  const opponents = (options.opponents?.length ? options.opponents : ['FABLE', 'CODEX', 'BYU', 'ZANG']).map(knownFighter);
-  const styleNames = options.styleNames?.length ? options.styleNames : Object.keys(styles);
-  for (const name of styleNames) if (!styles[name]) throw new Error(`unknown style: ${name}`);
+  const fighter = knownGymFighter(options.fighter ?? 'OMEGA');
+  const opponents = (options.opponents?.length ? options.opponents : ['FABLE', 'CODEX', 'BYU', 'ZANG']).map(knownGymFighter);
+  const styleNames = options.styleNames?.length ? options.styleNames : Object.keys(gymStyles);
+  for (const name of styleNames) if (!gymStyles[name]) throw new Error(`unknown style: ${name}`);
   const matches = options.matches ?? 40;
   if (!Number.isInteger(matches) || matches < 1 || matches > 1000) throw new Error('--matches must be an integer from 1 to 1000');
   const seed = options.seed ?? 1;
   if (!Number.isInteger(seed)) throw new Error('--seed must be an integer');
-  const target = await loadPolicy(options.policyPath);
+  const target = await loadGymPolicy(options.policyPath);
 
   const originalRandom = Math.random;
-  Math.random = seededRandom(seed);
+  Math.random = seededGymRandom(seed);
   try {
     let totalWins = 0, totalLosses = 0, totalDraws = 0;
     const rows: GymResult['styles'] = [];
     for (const name of styleNames) {
-      const policy = styles[name]!;
+      const policy = gymStyles[name]!;
       let wins = 0, losses = 0, draws = 0, roundsWon = 0, roundsLost = 0;
       for (let i = 0; i < matches; i++) {
         const result = playMatch(target, policy, fighter, opponents[i % opponents.length]!);
