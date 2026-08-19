@@ -6,7 +6,7 @@ import { captureMatch, captureEvents, captureReplay, type MatchRecord, type Matc
 
 /** Bumped whenever a sim change would make older replays re-simulate differently.
  *  sf-2: TESTIMONY beam nerf. sf-3: throw mechanic (F) — close-range unblockable grab. */
-export const ENGINE_VERSION = 'sf-3';
+export const ENGINE_VERSION = 'sf-4';
 
 const SPECIALS = new Set(['hadouken', 'shoryuken', 'hurricane']);
 const KEYFRAME_EVERY = 300;        // 10s at 30 Hz — seek points for the replayer
