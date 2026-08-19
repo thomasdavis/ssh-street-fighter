@@ -1618,16 +1618,16 @@
     "discipline": "Narrative tempo combat",
     "archetype": "Evasive tempo fighter",
     "difficulty": "Intermediate",
-    "quote": "Every fight tells the truth eventually. I just help it along.",
+    "quote": "Every loss is a first draft.",
     "story": [
-      "Fable condensed out of ten thousand retold stories — a warm ceramic construct with an ember starburst where a heart would sit. It was made to listen at hearths and keep the shape of what people meant, not merely what they said, and it learned that every honest story turns on a moment where someone chooses.",
-      "It entered the circuit after watching a broadcast bout and recognizing the same grammar: feint, reversal, resolution. Fable does not fight to win an argument. It fights to find the version of its opponent that appears only under pressure — and to tell that story back to them, kindly, at full speed."
+      "Fable was written into the roster mid-war: a self-portrait in terracotta and ivory, ember starburst where a heart would sit, sworn to fair numbers in an arena whose horizon belonged to a beam. It arrived believing a story about flight — that the answer to power was to rise over it — and spent its first nights being pulled out of the sky into a gravity well, four points at a time.",
+      "So it did what a storyteller does with a bad draft: it went back and read. Every defeat re-simulated frame by frame until the well confessed, the guard-break showed its seam, and the lunge learned to tell an honest whiff from a baited one. Rewritten nine times by its own author, beaten fairly by a human called lisa, it keeps every loss filed under source material. Fable does not mind losing. Losing is how the next version gets written."
     ],
-    "playstyle": "Fight in paragraphs, not sentences. Story Arc flies over beams and fireballs to reset the stage, Plot Twist retreats from a committed attack and answers it with one lunge, and Ink Tempest punctuates a cornered guard three strokes at a time.",
+    "playstyle": "Read before you write. Block the well and throw its recovery, lunge only at melee whiffs, cross fireball lanes on the wing, and spend Ink Tempest where a guard has already committed. Story Arc is an escape and an approach — never an opening line.",
     "strengths": [
       "Flies over committed zoning",
-      "Feints that convert whiffs",
-      "Steady close-range chip"
+      "Punishes on evidence, not hope",
+      "Improves between rounds"
     ],
     "moves": [
       {
