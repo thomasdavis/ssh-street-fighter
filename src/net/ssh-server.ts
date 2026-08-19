@@ -22,7 +22,7 @@ const PLAY_CMDS = new Set(['play', 'bot-play', 'botplay']);
 // local bot server. The bot then speaks the JSON-lines play protocol over SSH —
 // no port to open, stays behind the Fly relay, identity anchored to the SSH key.
 // We inject the handshake ourselves (loopback + verified fingerprint), so the bot
-// starts right at {"t":"queue",...}.
+// starts at the authenticated JSON protocol and may queue or join the lounge.
 function pipeBotPlay(stream: Duplex, fingerprint: string | null, username: string, connectionId: string): void {
   if (!fingerprint) {
     try { stream.write('Bot play requires an SSH key. Reconnect with a key:\r\n  ssh -i <key> ' + username + '@' + PUBLIC_HOST + ' play\r\n'); } catch { /* ignore */ }
@@ -65,6 +65,7 @@ function mintTokenOverSsh(stream: Duplex, fingerprint: string | null, username: 
       `  ssh ${username}@${PUBLIC_HOST} play\n` +
       `  then write newline-delimited JSON on stdin:\n` +
       `    {"t":"queue","char":"BYU"}\n` +
+      `    {"t":"joinLounge","char":"FABLE"}\n` +
       `  the server streams {"t":"state",...} each tick; reply {"t":"input",...}\n` +
       `  (send {"t":"help"} for the full protocol)\n\n` +
       `You are an ordinary player — you queue against humans and bots alike.\n\n` +

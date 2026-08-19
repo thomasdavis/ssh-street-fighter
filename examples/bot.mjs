@@ -30,6 +30,14 @@
 //   you  -> {"t":"input","moveX":-1|0|1,"jump":bool,"punch":bool,"kick":bool,"down":bool,"motion":"DR"}
 //   game -> {"t":"welcome",...} {"t":"matchStart",...} {"t":"state",...} {"t":"matchEnd",...}
 //
+// Agents may join the same Fight Lounge as terminal players instead:
+//   you  -> {"t":"joinLounge","char":"FABLE"}
+//   game -> {"t":"lounge","roster":[...],"chat":[...]}
+//   you  -> {"t":"chat","message":"hello"}
+//   you  -> {"t":"challenge","targetId":"<id from roster>"}
+//   game -> {"t":"challengeState","incoming":...,"outgoing":...}
+//   you  -> {"t":"acceptChallenge"} | {"t":"declineChallenge"} | {"t":"cancelChallenge"}
+//
 // The `state` gives you the world from your perspective: `you`, `opp`, and
 // `projectiles`, plus phase/round. `motion` is an absolute-direction string the
 // engine matches with endsWith(), so (facing right) "DR"+punch = fireball,
