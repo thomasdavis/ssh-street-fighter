@@ -1,4 +1,6 @@
-import { delaysBySeat, runPolicyLab, score, validateMechanicsSnapshot, ENGINE_COMMIT, EXPECTED_MECHANICS_HASH, LAB_SCHEMA } from './tools/xenon-policy-lab.js';
+import { spawnSync } from 'node:child_process';
+import { resolve } from 'node:path';
+import { compareRobustScore, delaysBySeat, robustScore, runPolicyLab, score, validateMechanicsSnapshot, ENGINE_COMMIT, EXPECTED_MECHANICS_HASH, LAB_SCHEMA, type DelayScenario, type MatchResult } from './tools/xenon-policy-lab.js';
 
 let pass = true;
 const check = (name: string, ok: boolean, detail = ''): void => {
@@ -117,12 +119,37 @@ check('a timeout win has zero primary and round-margin credit plus one penalty',
     && timeoutOnlyScore?.primaryCleanKoWins === 0
     && timeoutOnlyScore.koRoundMargin === 0
     && timeoutOnlyScore.timeoutPenalty === 1);
+const rankingScenarios: DelayScenario[] = [
+  { targetDelay: 0, opponentDelay: 0 },
+  { targetDelay: 5, opponentDelay: 0 },
+];
+const rankingOpponents = ['OMEGA', 'MNEME', 'AJAX', 'FABLE'] as const;
+const syntheticRows = (balanced: boolean): MatchResult[] => rankingScenarios.flatMap((delayScenario, scenarioIndex) =>
+  rankingOpponents.flatMap((opponent, opponentIndex) => [0, 1].map((seatIndex) => {
+    const win = balanced ? seatIndex === 0 : !(scenarioIndex === 0 && opponentIndex === 0);
+    return {
+      delayScenario, opponent, outcome: win ? 'win' : 'loss', winner: win ? 'executor' : 'opponent',
+      terminal: 'ko', cleanKoWin: win, koTerminal: true,
+      rounds: win ? { executor: 2, opponent: 0 } : { executor: 0, opponent: 2 },
+    } as unknown as MatchResult;
+  })));
+const catastrophicScore = robustScore(syntheticRows(false), rankingScenarios);
+const balancedScore = robustScore(syntheticRows(true), rankingScenarios);
+check('cell minimax rejects aggregate strength that catastrophically fails one fighter-delay cell',
+  catastrophicScore.totalCleanKoWins > balancedScore.totalCleanKoWins
+    && catastrophicScore.worstCellCleanKoWins === 0
+    && balancedScore.worstCellCleanKoWins === 1
+    && compareRobustScore(balancedScore, catastrophicScore) < 0);
 check('reported minimax scoring is delay-robust and internally consistent',
-  first.search.scoring.ordering[0] === 'worst-scenario cleanKoWins descending'
+  first.search.scoring.ordering[0] === 'worst (delay scenario, opponent) cleanKoWins descending'
     && first.search.candidates.every((candidate) => candidate.score.byScenario.length === 2
+      && candidate.score.byCell.length === 8
+      && new Set(candidate.score.byCell.map((row) => row.evidence.played)).size === 1
+      && candidate.score.worstCellCleanKoWins === Math.min(...candidate.score.byCell.map((row) => row.evidence.primaryCleanKoWins))
       && candidate.score.worstScenarioCleanKoWins === Math.min(...candidate.score.byScenario.map((row) => row.evidence.primaryCleanKoWins))
       && candidate.score.totalCleanKoWins === candidate.cleanKoWins
       && candidate.score.totalTimeoutPenalty === candidate.timeoutWins + candidate.timeoutLosses
+      && candidate.score.worstCellKoRoundMargin === Math.min(...candidate.score.byCell.map((row) => row.evidence.koRoundMargin))
       && candidate.score.totalKoRoundMargin === candidate.koRoundsWon - candidate.koRoundsLost));
 
 let overlapRejected = false;
@@ -131,6 +158,25 @@ check('overlapping train/held-out seeds fail fast', overlapRejected);
 let duplicateScenariosRejected = false;
 try { await runPolicyLab({ trainSeeds: [1], heldOutSeeds: [2], delayScenarios: [{ targetDelay: 0, opponentDelay: 2 }, { targetDelay: 0, opponentDelay: 2 }], candidateLimit: 1 }); } catch { duplicateScenariosRejected = true; }
 check('duplicate delay scenarios fail fast', duplicateScenariosRejected);
+
+const cli = resolve('node_modules/.bin/tsx');
+const cliSource = resolve('src/tools/xenon-policy-lab.ts');
+const removedFlag = spawnSync(cli, [cliSource, '--input-delays', '9'], { encoding: 'utf8', timeout: 5_000 });
+const unknownFlag = spawnSync(cli, [cliSource, '--bogus', '9'], { encoding: 'utf8', timeout: 5_000 });
+check('removed input-delay CLI cannot silently launch the default run',
+  removedFlag.status !== 0 && removedFlag.stdout === ''
+    && removedFlag.stderr.includes('use --delay-scenarios T:O,...'));
+check('unknown CLI options fail closed before producing output',
+  unknownFlag.status !== 0 && unknownFlag.stdout === '' && unknownFlag.stderr.includes('unknown option: --bogus'));
+const supportedFlags = spawnSync(cli, [cliSource,
+  '--seed', '3', '--train-seeds', '11', '--held-out-seeds', '13',
+  '--delay-scenarios', '0:0', '--candidates', '1', '--include-search-matches', '--pretty',
+], { encoding: 'utf8', timeout: 15_000 });
+let supportedJson = false;
+try { supportedJson = JSON.parse(supportedFlags.stdout).schema === LAB_SCHEMA; } catch { /* asserted below */ }
+const helpFlag = spawnSync(cli, [cliSource, '--help'], { encoding: 'utf8', timeout: 5_000 });
+check('all documented CLI options are accepted deliberately',
+  supportedFlags.status === 0 && supportedJson && helpFlag.status === 0 && helpFlag.stdout.startsWith('Usage:'));
 
 console.log(pass ? '\nXENON POLICY LAB TEST: PASS' : '\nXENON POLICY LAB TEST: FAIL');
 process.exit(pass ? 0 : 1);

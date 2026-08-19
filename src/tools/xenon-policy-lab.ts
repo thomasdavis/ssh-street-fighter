@@ -152,17 +152,21 @@ export interface Aggregate {
 }
 
 export interface CandidateScore {
+  played: number;
   primaryCleanKoWins: number;
   timeoutPenalty: number;
   koRoundMargin: number;
 }
 
 export interface RobustCandidateScore {
+  worstCellCleanKoWins: number;
   worstScenarioCleanKoWins: number;
   totalCleanKoWins: number;
   totalTimeoutPenalty: number;
+  worstCellKoRoundMargin: number;
   worstScenarioKoRoundMargin: number;
   totalKoRoundMargin: number;
+  byCell: Array<{ scenario: DelayScenario; opponent: OpponentName; evidence: CandidateScore }>;
   byScenario: Array<{ scenario: DelayScenario; evidence: CandidateScore }>;
 }
 
@@ -617,6 +621,7 @@ function scenarios(
 export function score(matches: readonly MatchResult[]): CandidateScore {
   const koMatches = matches.filter((match) => match.terminal === 'ko');
   return {
+    played: matches.length,
     // Challenge objective: only executor wins ending in KO are primary evidence.
     primaryCleanKoWins: koMatches.filter((match) => match.outcome === 'win').length,
     // Every timeout is a penalty, including a timeout win. It contributes no
@@ -628,25 +633,36 @@ export function score(matches: readonly MatchResult[]): CandidateScore {
 
 const scenarioKey = (scenario: DelayScenario): string => `${scenario.targetDelay}:${scenario.opponentDelay}`;
 
-function robustScore(matches: readonly MatchResult[], delayScenarios: readonly DelayScenario[]): RobustCandidateScore {
+export function robustScore(matches: readonly MatchResult[], delayScenarios: readonly DelayScenario[]): RobustCandidateScore {
   const byScenario = delayScenarios.map((scenario) => ({
     scenario: { ...scenario },
     evidence: score(matches.filter((match) => scenarioKey(match.delayScenario) === scenarioKey(scenario))),
   }));
+  const byCell = delayScenarios.flatMap((scenario) => DEFAULT_OPPONENTS.map((opponent) => ({
+    scenario: { ...scenario },
+    opponent,
+    evidence: score(matches.filter((match) =>
+      scenarioKey(match.delayScenario) === scenarioKey(scenario) && match.opponent === opponent)),
+  })));
   return {
+    worstCellCleanKoWins: Math.min(...byCell.map((row) => row.evidence.primaryCleanKoWins)),
     worstScenarioCleanKoWins: Math.min(...byScenario.map((row) => row.evidence.primaryCleanKoWins)),
     totalCleanKoWins: byScenario.reduce((sum, row) => sum + row.evidence.primaryCleanKoWins, 0),
     totalTimeoutPenalty: byScenario.reduce((sum, row) => sum + row.evidence.timeoutPenalty, 0),
+    worstCellKoRoundMargin: Math.min(...byCell.map((row) => row.evidence.koRoundMargin)),
     worstScenarioKoRoundMargin: Math.min(...byScenario.map((row) => row.evidence.koRoundMargin)),
     totalKoRoundMargin: byScenario.reduce((sum, row) => sum + row.evidence.koRoundMargin, 0),
+    byCell,
     byScenario,
   };
 }
 
-function compareRobustScore(a: RobustCandidateScore, b: RobustCandidateScore): number {
-  return b.worstScenarioCleanKoWins - a.worstScenarioCleanKoWins
+export function compareRobustScore(a: RobustCandidateScore, b: RobustCandidateScore): number {
+  return b.worstCellCleanKoWins - a.worstCellCleanKoWins
+    || b.worstScenarioCleanKoWins - a.worstScenarioCleanKoWins
     || b.totalCleanKoWins - a.totalCleanKoWins
     || a.totalTimeoutPenalty - b.totalTimeoutPenalty
+    || b.worstCellKoRoundMargin - a.worstCellKoRoundMargin
     || b.worstScenarioKoRoundMargin - a.worstScenarioKoRoundMargin
     || b.totalKoRoundMargin - a.totalKoRoundMargin;
 }
@@ -736,8 +752,8 @@ export async function runPolicyLab(options: PolicyLabOptions = {}): Promise<Poli
     search: {
       selectedPolicyId: selected.policyId, selectedConfig: selected.config, selectedConfigHash: selected.configHash,
       scoring: {
-        ordering: ['worst-scenario cleanKoWins descending', 'total cleanKoWins descending', 'total timeoutPenalty ascending', 'worst-scenario KO-terminal round margin descending', 'total KO-terminal round margin descending', 'configHash ascending'],
-        note: 'One config is frozen across all asymmetric target/opponent delay scenarios. Timeout wins receive zero clean-KO or round-margin credit and one penalty.',
+        ordering: ['worst (delay scenario, opponent) cleanKoWins descending', 'worst-scenario cleanKoWins descending', 'total cleanKoWins descending', 'total timeoutPenalty ascending', 'worst (delay scenario, opponent) KO-terminal round margin descending', 'worst-scenario KO-terminal round margin descending', 'total KO-terminal round margin descending', 'configHash ascending'],
+        note: 'One config is frozen across all asymmetric target/opponent delay scenarios. Every fighter-delay cell has equal search exposure (reported as played) and is protected by the primary minimax floor. Timeout wins receive zero clean-KO or round-margin credit and one penalty.',
       },
       candidates: candidateRows,
       ...(checked.includeSearchMatches ? { matches: searchMatches } : {}),
@@ -768,6 +784,7 @@ function parseDelayScenarios(value: string | undefined): DelayScenario[] | undef
 }
 
 function parseArgs(argv: string[]): PolicyLabOptions & { pretty: boolean; help: boolean } {
+  const valueOptions = new Set(['seed', 'train-seeds', 'held-out-seeds', 'delay-scenarios', 'candidates']);
   const values: Record<string, string> = {};
   let pretty = false, help = false, includeSearchMatches = false;
   for (let i = 0; i < argv.length; i++) {
@@ -776,9 +793,12 @@ function parseArgs(argv: string[]): PolicyLabOptions & { pretty: boolean; help: 
     if (arg === '--include-search-matches') { includeSearchMatches = true; continue; }
     if (arg === '--help' || arg === '-h') { help = true; continue; }
     if (!arg.startsWith('--')) throw new Error(`unexpected argument: ${arg}`);
+    if (arg === '--input-delays') throw new Error('--input-delays was removed; use --delay-scenarios T:O,...');
+    const name = arg.slice(2);
+    if (!valueOptions.has(name)) throw new Error(`unknown option: ${arg}`);
     const value = argv[++i];
     if (!value || value.startsWith('--')) throw new Error(`${arg} requires a value`);
-    values[arg.slice(2)] = value;
+    values[name] = value;
   }
   return {
     seed: values.seed ? Number(values.seed) : undefined,
