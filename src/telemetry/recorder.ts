@@ -4,8 +4,9 @@
 import type { Match, Inputs, Fighter } from '../game/types.js';
 import { captureMatch, captureEvents, captureReplay, type MatchRecord, type MatchEvent, type SideRec } from './store.js';
 
-/** Bumped whenever a sim change would make older replays re-simulate differently. */
-export const ENGINE_VERSION = 'sf-1';
+/** Bumped whenever a sim change would make older replays re-simulate differently.
+ *  sf-2: TESTIMONY beam nerf (lower vert so it's jumpable, more recovery, less dmg). */
+export const ENGINE_VERSION = 'sf-2';
 
 const SPECIALS = new Set(['hadouken', 'shoryuken', 'hurricane']);
 const KEYFRAME_EVERY = 300;        // 10s at 30 Hz — seek points for the replayer

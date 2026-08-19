@@ -5,9 +5,9 @@
 import { readFileSync, readdirSync, existsSync } from 'fs';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
-import { makeFighter, makeMatch, stepMatch, attackExtension, WORLD_W, WORLD_H, GROUND_Y, TESTIMONY, CONTEXT, BRANCHWALK, MERGE_COMET } from '../game/engine.js';
+import { makeFighter, makeMatch, stepMatch, attackActive, attackExtension, WORLD_W, WORLD_H, GROUND_Y, STAGE_LEFT, STAGE_RIGHT, TESTIMONY, CONTEXT, BRANCHWALK, MERGE_COMET } from '../game/engine.js';
 import { ROSTER } from '../game/roster.js';
-import { emptyInputs, type Inputs, type Fighter } from '../game/types.js';
+import { emptyInputs, type Inputs, type Fighter, type Match } from '../game/types.js';
 import { getReplay, getMatch } from './store.js';
 
 const SPRITE_BASE = resolve(dirname(fileURLToPath(import.meta.url)), '../../assets/sprites');
@@ -40,10 +40,24 @@ function charSpriteMeta(char: string): CharSpriteMeta {
 export interface TrackFrame {
   a: [number, number, number, number]; // x, y, facing, hp
   b: [number, number, number, number];
-  asp: string; aa: string;             // a sprite frame name, a attack
-  bsp: string; ba: string;
+  asp: string; aa: string; aAct: boolean;  // a sprite frame, a attack kind, a hitbox active
+  bsp: string; ba: string; bAct: boolean;
   pr: [number, number, number, string][]; // projectiles: x, y, owner(0=a,1=b), style
   ph: string; rd: number; msg: string;
+}
+
+/** Build one render frame from a live/simulated Match. Shared by the replay
+ *  re-simulator and the live spectator endpoint so both render identically. */
+export function buildFrame(m: Match): TrackFrame {
+  const r = (v: number) => Math.round(v * 10) / 10;
+  return {
+    a: [r(m.a.x), r(m.a.y), m.a.facing, Math.round(m.a.hp)],
+    b: [r(m.b.x), r(m.b.y), m.b.facing, Math.round(m.b.hp)],
+    asp: spriteFrame(m.a), aa: m.a.attack, aAct: attackActive(m.a),
+    bsp: spriteFrame(m.b), ba: m.b.attack, bAct: attackActive(m.b),
+    pr: m.projectiles.filter((p) => p.active).map((p) => [r(p.x), r(p.y), p.owner === 'a' ? 0 : 1, p.style] as [number, number, number, string]),
+    ph: m.phase, rd: m.round, msg: m.message,
+  };
 }
 
 // Mirrors the game renderer's engine-state → sprite-frame mapping so the web
@@ -73,9 +87,11 @@ function spriteFrame(f: Fighter): string {
 export interface Track {
   stage: string; aChar: string; bChar: string; aName: string; bName: string;
   fps: number; worldW: number; worldH: number; groundY: number; fighterH: number;
+  stageLeft: number; stageRight: number;
   sprites: { a: CharSpriteMeta; b: CharSpriteMeta };
   frames: TrackFrame[];
 }
+export { charSpriteMeta };
 
 function paletteFor(char: string) {
   return ROSTER.find((c) => c.name === char)?.palette ?? ROSTER[0]!.palette;
@@ -107,14 +123,19 @@ export function simulateReplay(matchId: string): Track | null {
     const inA: Inputs = { ...emptyInputs(), ...decode(buf[off]!), motion: motions[buf[off + 1]!] ?? '' };
     const inB: Inputs = { ...emptyInputs(), ...decode(buf[off + 2]!), motion: motions[buf[off + 3]!] ?? '' };
     stepMatch(m, inA, inB);
-    const r = (v: number) => Math.round(v * 10) / 10;
-    frames.push({
-      a: [r(m.a.x), r(m.a.y), m.a.facing, Math.round(m.a.hp)],
-      b: [r(m.b.x), r(m.b.y), m.b.facing, Math.round(m.b.hp)],
-      asp: spriteFrame(m.a), aa: m.a.attack, bsp: spriteFrame(m.b), ba: m.b.attack,
-      pr: m.projectiles.filter((p) => p.active).map((p) => [r(p.x), r(p.y), p.owner === 'a' ? 0 : 1, p.style] as [number, number, number, string]),
-      ph: m.phase, rd: m.round, msg: m.message,
-    });
+    frames.push(buildFrame(m));
   }
-  return { stage, aChar, bChar, aName, bName, fps: 30, worldW: WORLD_W, worldH: WORLD_H, groundY: GROUND_Y, fighterH: 58, sprites: { a: charSpriteMeta(aChar), b: charSpriteMeta(bChar) }, frames };
+  return { stage, aChar, bChar, aName, bName, fps: 30, worldW: WORLD_W, worldH: WORLD_H, groundY: GROUND_Y, fighterH: 58, stageLeft: STAGE_LEFT, stageRight: STAGE_RIGHT, sprites: { a: charSpriteMeta(aChar), b: charSpriteMeta(bChar) }, frames };
+}
+
+/** Render payload for a LIVE match (single current frame + the same meta the
+ *  replay viewer uses), so spectating reuses the exact renderer. */
+export function liveRender(m: Match, aName: string, bName: string): object {
+  const aChar = m.a.name, bChar = m.b.name;
+  return {
+    stage: m.stage, aChar, bChar, aName, bName,
+    worldW: WORLD_W, worldH: WORLD_H, groundY: GROUND_Y, fighterH: 58, stageLeft: STAGE_LEFT, stageRight: STAGE_RIGHT,
+    sprites: { a: charSpriteMeta(aChar), b: charSpriteMeta(bChar) },
+    frame: buildFrame(m), over: m.phase === 'match-over',
+  };
 }

@@ -39,6 +39,11 @@ function route(coord: MatchCoordinator | null, req: IncomingMessage, res: Server
       ops: store.opsLatest(), live: coord.liveMatchList(),
     } : { players: 0, matches: 0, queued: 0, lounge: 0, ops: store.opsLatest(), live: [] });
 
+  if (seg[0] === 'api' && seg[1] === 'live' && seg[2]) {
+    const r = coord?.renderMatch(decodeURIComponent(seg[2]));
+    return r ? send(res, 200, r) : send(res, 404, { error: 'match not live' });
+  }
+
   if (p === '/api/stats') return send(res, 200, store.summary());
   if (p === '/api/leaderboard') return send(res, 200, db.leaderboard(clamp(q.get('limit'), 25, 200)));
   if (p === '/api/characters') return send(res, 200, store.characterStats());

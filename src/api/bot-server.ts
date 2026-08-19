@@ -7,6 +7,8 @@
 // (default 8091; set 0 to disable).
 import { createServer, type Socket } from 'net';
 import { emptyInputs, type Inputs, type Match, type Fighter } from '../game/types.js';
+import { attackActive, specialMoveStats } from '../game/engine.js';
+import type { SpecialAttack } from '../game/moves.js';
 import { ROSTER } from '../game/roster.js';
 import { getByFingerprint } from '../db/db.js';
 import { apiKeyLookup } from '../telemetry/store.js';
@@ -30,10 +32,21 @@ interface Conn {
   fp: string; name: string; elo: number; role: 'a' | 'b'; mid: string; seq: number;
 }
 
+const SPECIAL_KINDS = new Set(['hadouken', 'shoryuken', 'hurricane', 'rolling', 'verticalroll', 'electric', 'testimony', 'nullstep', 'entropy', 'context', 'branchwalk', 'mergecomet']);
+
 function fighterView(f: Fighter): object {
+  // Attack phase so bots can REACT to the opponent committing a move:
+  //  special  — the current attack is a special (not a normal punch/kick)
+  //  active   — the hitbox is live right now
+  //  casting  — a special is winding up (started but not yet active) → react now
+  const special = SPECIAL_KINDS.has(f.attack);
+  const active = attackActive(f);
+  let casting = false;
+  if (special && !active) { try { casting = f.attackFrame < specialMoveStats(f.attack as SpecialAttack).startup; } catch { /* ignore */ } }
   return { x: Math.round(f.x), y: Math.round(f.y), vx: Math.round(f.vx), vy: Math.round(f.vy),
     facing: f.facing, hp: f.hp, wins: f.wins, attack: f.attack, attackFrame: f.attackFrame,
-    stun: f.stun, pose: f.pose, crouching: f.crouching };
+    stun: f.stun, pose: f.pose, crouching: f.crouching,
+    special, active, casting };
 }
 function stateFor(c: Conn, m: Match, ack: number): object {
   const you = c.role === 'a' ? m.a : m.b;

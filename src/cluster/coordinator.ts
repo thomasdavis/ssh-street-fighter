@@ -14,6 +14,7 @@ import { emptyInputs, type Inputs, type Match } from '../game/types.js';
 import { characterAt } from '../game/roster.js';
 import * as db from '../db/db.js';
 import { MatchRecorder, ENGINE_VERSION } from '../telemetry/recorder.js';
+import { liveRender } from '../telemetry/replay-sim.js';
 import { startOpsSampler } from '../telemetry/ops.js';
 import { clearEdges, type P2W, type W2P } from './messages.js';
 import type { MatchResult } from '../net/session.js';
@@ -276,6 +277,12 @@ export class MatchCoordinator {
       a: { name: am.a.name, char: am.match.a.name, hp: am.match.a.hp, wins: am.match.a.wins, bot: am.a.isBot },
       b: { name: am.b.name, char: am.match.b.name, hp: am.match.b.hp, wins: am.match.b.wins, bot: am.b.isBot },
     }));
+  }
+
+  /** Full per-frame render payload for one live match (web spectator), or null. */
+  renderMatch(mid: string): object | null {
+    const am = this.matches.get(mid);
+    return am ? liveRender(am.match, am.a.name, am.b.name) : null;
   }
 }
 

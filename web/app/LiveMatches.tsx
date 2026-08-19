@@ -1,4 +1,5 @@
 'use client';
+import Link from 'next/link';
 import { useEffect, useState } from 'react';
 
 interface Side { name: string; char: string; hp: number; wins: number }
@@ -33,7 +34,7 @@ export function LiveMatches({ initial, colors }: { initial: LM[]; colors: Record
 function LiveCard({ m, colors }: { m: LM; colors: Record<string, string> }) {
   const phase = m.phase === 'fight' ? `Round ${m.round + 1}` : m.phase.replace('-', ' ');
   return (
-    <div className="rs-match" style={{ cursor: 'default' }}>
+    <Link href={`/watch/${encodeURIComponent(m.mid)}`} className="rs-match">
       <div className="side a">
         <span className="nm">{m.a.name}</span>
         <span className="ch"><span className="rs-chip rs-chip--sm"><i style={{ background: colors[m.a.char] ?? '#9a8fb5' }} />{m.a.char}</span></span>
@@ -45,7 +46,7 @@ function LiveCard({ m, colors }: { m: LM; colors: Record<string, string> }) {
         <span className="ch"><span className="rs-chip rs-chip--sm"><i style={{ background: colors[m.b.char] ?? '#9a8fb5' }} />{m.b.char}</span></span>
         <div className="rs-hp" style={{ width: '100%', marginTop: 4 }}><i style={{ width: `${Math.max(0, m.b.hp)}%` }} /></div>
       </div>
-      <div className="meta"><span className="rs-dot" style={{ display: 'inline-block' }} /><span>{phase}</span><span>·</span><span>{m.stage}</span></div>
-    </div>
+      <div className="meta"><span className="rs-dot" style={{ display: 'inline-block' }} /><span>{phase}</span><span>·</span><span>{m.stage}</span><span>·</span><span style={{ color: 'var(--cyan)' }}>watch ▸</span></div>
+    </Link>
   );
 }
