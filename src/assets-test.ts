@@ -56,4 +56,4 @@ if (errors.length) {
   for (const error of errors) console.error(`FAIL: ${error}`);
   process.exit(1);
 }
-console.log('ASSET TEST: PASS (13 fighters, 39 specials, 6 stages)');
+console.log(`ASSET TEST: PASS (${ROSTER.length} fighters, ${ROSTER.reduce((n, f) => n + specialMovesFor(f.name).length, 0)} specials, 6 stages)`);
