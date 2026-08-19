@@ -1,45 +1,58 @@
 // Character-select and waiting screens — composed as PixelGrids so the player
 // sees real graphics the instant they connect (no opponent required).
-import { createGrid, fillRect, blit, rgb, type PixelGrid } from '../render/pixel.js';
-import { drawText, textWidth } from '../render/font.js';
-import { drawFighter, SPRITE_W, SPRITE_H } from './sprites.js';
+//
+// Rendered at the terminal's FULL pixel resolution (like the fight scene), so
+// each fighter is scaled straight from its high-res source to its on-screen size
+// — one clean resample. (The old path composed at the 240x160 world size and then
+// upscaled the whole grid, double-resampling every fighter into mush.)
+import { createGrid, fillRect, blit, resizeGridH, rgb, type PixelGrid, type RGB } from '../render/pixel.js';
+import { drawFighter } from './sprites.js';
 import { WORLD_W, WORLD_H, GROUND_Y } from './engine.js';
 import { ROSTER, characterAt } from './roster.js';
 import { SPRITES } from './sprite-set.js';
 import type { FighterPalette } from './types.js';
 
-/** Draw a character's idle at (cx baseline) — generated sprite if available. */
-function drawIdleAt(g: PixelGrid, name: string, palette: FighterPalette, cx: number, baseline: number, bob: number, standH = SPRITE_H): void {
-  const spr = SPRITES.getScaled(name, 'idle_1', 1, standH);
-  if (spr) { blit(g, spr.grid, cx - spr.anchorX, (baseline + bob) - spr.anchorY, false); return; }
-  const fallback = drawFighter('idle', palette, 0);
-  blit(g, fallback, cx - Math.round(SPRITE_W / 2), baseline - SPRITE_H + bob, false);
-}
-
-const WHITE = rgb(240, 240, 230);
 const GOLD = rgb(250, 224, 96);
-const DIM = rgb(150, 140, 130);
 const SHADOW = rgb(24, 18, 30);
+const SELECT_FLOOR = 112; // fighters stand here (world units), leaving room for labels below
 
-function backdrop(g: PixelGrid): void {
-  for (let y = 0; y < WORLD_H; y++) {
-    const t = y / WORLD_H;
-    fillRect(g, 0, y, WORLD_W, 1, rgb(
-      Math.round(30 + 20 * t), Math.round(20 + 10 * t), Math.round(44 + 30 * t)));
+interface View { ws: number; ox: number; oy: number; pw: number; ph: number; }
+function makeView(pw: number, ph: number): View {
+  const ws = Math.min(pw / WORLD_W, ph / WORLD_H);
+  return { ws, ox: Math.round((pw - WORLD_W * ws) / 2), oy: Math.round((ph - WORLD_H * ws) / 2), pw, ph };
+}
+const sx = (v: View, x: number): number => Math.round(v.ox + x * v.ws);
+const sy = (v: View, y: number): number => Math.round(v.oy + y * v.ws);
+/** Fill a world-space rectangle, mapped to the framebuffer. */
+function wrect(g: PixelGrid, v: View, x: number, y: number, w: number, h: number, c: RGB): void {
+  fillRect(g, sx(v, x), sy(v, y), Math.max(1, Math.round(w * v.ws)), Math.max(1, Math.round(h * v.ws)), c);
+}
+
+function backdrop(g: PixelGrid, v: View): void {
+  fillRect(g, 0, 0, v.pw, v.ph, rgb(0, 0, 0)); // letterbox
+  for (let ypix = 0; ypix < v.ph; ypix++) {
+    const wy = (ypix - v.oy) / v.ws;
+    if (wy < 0 || wy > WORLD_H) continue;
+    const t = wy / WORLD_H;
+    fillRect(g, sx(v, 0), ypix, Math.round(WORLD_W * v.ws), 1, rgb(Math.round(30 + 20 * t), Math.round(20 + 10 * t), Math.round(44 + 30 * t)));
   }
-  fillRect(g, 0, GROUND_Y + 8, WORLD_W, WORLD_H - GROUND_Y - 8, rgb(50, 38, 54));
+  wrect(g, v, 0, GROUND_Y + 8, WORLD_W, WORLD_H - GROUND_Y - 8, rgb(50, 38, 54));
 }
 
-function centerText(g: PixelGrid, text: string, y: number, color = WHITE, scale = 2): void {
-  const w = textWidth(text, scale);
-  drawText(g, text, Math.round(WORLD_W / 2 - w / 2), y, color, scale);
+/** Draw a character's idle at full framebuffer resolution (one clean resample). */
+function drawIdleAt(g: PixelGrid, v: View, name: string, palette: FighterPalette, wx: number, baseline: number, standH: number, bob: number): void {
+  const targetH = Math.max(8, Math.round(standH * v.ws));
+  const feetX = v.ox + wx * v.ws, feetY = v.oy + (baseline + bob) * v.ws;
+  const spr = SPRITES.getScaled(name, 'idle_1', 1, targetH);
+  if (spr) { blit(g, spr.grid, Math.round(feetX - spr.anchorX), Math.round(feetY - spr.anchorY), false); return; }
+  const { grid } = resizeGridH(drawFighter('idle', palette, 0), targetH);   // procedural fallback, scaled to match
+  const gw = grid[0]?.length ?? 0, gh = grid.length;
+  blit(g, grid, Math.round(feetX - gw / 2), Math.round(feetY - gh), false);
 }
-
-const SELECT_FLOOR = 112; // fighters stand here, leaving room for labels below
 
 export interface SelectSlot { x: number; baseline: number; standH: number; }
 export function fighterSlot(i: number, n: number): SelectSlot {
-  if (n <= 4) return { x: Math.round((WORLD_W / n) * i + WORLD_W / n / 2), baseline: SELECT_FLOOR, standH: SPRITE_H };
+  if (n <= 4) return { x: Math.round((WORLD_W / n) * i + WORLD_W / n / 2), baseline: SELECT_FLOOR, standH: 52 };
   const cols = Math.ceil(n / 2);
   const row = Math.floor(i / cols), col = i % cols;
   const rowCount = Math.min(cols, n - row * cols);
@@ -47,101 +60,45 @@ export function fighterSlot(i: number, n: number): SelectSlot {
   return {
     x: Math.round((WORLD_W / rowCount) * col + WORLD_W / rowCount / 2),
     baseline: row === 0 ? (crowded ? 80 : 72) : (crowded ? 128 : 124),
-    standH: crowded ? 40 : 44,
+    standH: crowded ? 44 : 48,
   };
-}
-
-export function composeSelect(cursor: number, playerName: string, frame: number): PixelGrid {
-  const g = createGrid(WORLD_W, WORLD_H, rgb(0, 0, 0));
-  backdrop(g);
-
-  centerText(g, 'SELECT YOUR FIGHTER', 8, GOLD, 2);
-
-  const n = ROSTER.length;
-  const sel = ((cursor % n) + n) % n;
-  const bob = Math.round(Math.sin(frame / 5) * 2);
-
-  for (let i = 0; i < n; i++) {
-    const c = characterAt(i);
-    const slot = fighterSlot(i, n);
-    const cx = slot.x;
-    const isSel = i === sel;
-    if (isSel) {
-      fillRect(g, cx - 22, slot.baseline - slot.standH - 5, 44, slot.standH + 5, rgb(64, 52, 96));
-      fillRect(g, cx - 20, slot.baseline - 2, 40, 4, GOLD);
-    }
-    const sprite = drawFighter('idle', c.palette, 0);
-    const topY = slot.baseline - SPRITE_H + (isSel ? bob : 0);
-    fillRect(g, cx - SPRITE_W / 2, slot.baseline - 1, SPRITE_W, 2, SHADOW);
-    blit(g, sprite, cx - Math.round(SPRITE_W / 2), topY, false);
-    const nw = textWidth(c.name, 1);
-    drawText(g, c.name, Math.round(cx - nw / 2), slot.baseline + 4, isSel ? GOLD : DIM, 1);
-    if (isSel) {
-      const ay = topY - 8;
-      for (let k = 0; k < 4; k++) fillRect(g, cx - k, ay + k, 1 + k * 2, 1, GOLD);
-    }
-  }
-
-  const chosen = characterAt(sel);
-  centerText(g, chosen.tagline.toUpperCase(), SELECT_FLOOR + 20, WHITE, 1);
-  centerText(g, 'A/D  CHOOSE       J  START       Q  QUIT', SELECT_FLOOR + 34, DIM, 1);
-  drawText(g, `YOU: ${playerName}`, 4, WORLD_H - 8, DIM, 1);
-  return g;
 }
 
 // --- sprite-only stages (no pixel text; crisp text is overlaid by the screen) ---
 export const SELECT_STAGE = { W: WORLD_W, H: WORLD_H, floor: SELECT_FLOOR };
 
-export function composeSelectStage(cursor: number, frame: number): PixelGrid {
-  const g = createGrid(WORLD_W, WORLD_H, rgb(0, 0, 0));
-  backdrop(g);
+export function composeSelectStage(cursor: number, frame: number, pw: number, ph: number): PixelGrid {
+  const v = makeView(pw, ph);
+  const g = createGrid(pw, ph, rgb(0, 0, 0));
+  backdrop(g, v);
   const n = ROSTER.length;
   const sel = ((cursor % n) + n) % n;
   const bob = Math.round(Math.sin(frame / 5) * 2);
   for (let i = 0; i < n; i++) {
     const c = characterAt(i);
     const slot = fighterSlot(i, n);
-    const cx = slot.x;
     const isSel = i === sel;
     if (isSel) {
-      fillRect(g, cx - 24, slot.baseline - slot.standH - 6, 48, slot.standH + 6, rgb(70, 56, 104));
-      fillRect(g, cx - 22, slot.baseline - 2, 44, 4, GOLD);
+      wrect(g, v, slot.x - 24, slot.baseline - slot.standH - 6, 48, slot.standH + 6, rgb(70, 56, 104));
+      wrect(g, v, slot.x - 22, slot.baseline - 2, 44, 4, GOLD);
     }
-    fillRect(g, cx - SPRITE_W / 2, slot.baseline - 1, SPRITE_W, 2, SHADOW);
-    drawIdleAt(g, c.name, c.palette, cx, slot.baseline, isSel ? bob : 0, slot.standH);
-    if (isSel) { const ay = slot.baseline - slot.standH - 7; for (let k = 0; k < 4; k++) fillRect(g, cx - k, ay + k, 1 + k * 2, 1, GOLD); }
+    wrect(g, v, slot.x - 16, slot.baseline - 1, 32, 2, SHADOW);
+    drawIdleAt(g, v, c.name, c.palette, slot.x, slot.baseline, slot.standH, isSel ? bob : 0);
+    if (isSel) { const ay = slot.baseline - slot.standH - 7; for (let k = 0; k < 4; k++) wrect(g, v, slot.x - k, ay + k, 1 + k * 2, 1, GOLD); }
   }
   return g;
 }
 
-export function composeWaitingStage(cursor: number, frame: number): PixelGrid {
-  const g = createGrid(WORLD_W, WORLD_H, rgb(0, 0, 0));
-  backdrop(g);
+export function composeWaitingStage(cursor: number, frame: number, pw: number, ph: number): PixelGrid {
+  const v = makeView(pw, ph);
+  const g = createGrid(pw, ph, rgb(0, 0, 0));
+  backdrop(g, v);
   const c = characterAt(cursor);
   const cx = WORLD_W / 2;
   const bob = Math.round(Math.sin(frame / 5) * 2);
-  const pose = (Math.floor(frame / 18) % 5 === 0) ? 'punch' : 'idle';
-  fillRect(g, cx - 24, 30, 48, SELECT_FLOOR - 30, rgb(70, 56, 104));
-  fillRect(g, cx - 22, SELECT_FLOOR - 2, 44, 4, GOLD);
-  fillRect(g, cx - SPRITE_W / 2, SELECT_FLOOR - 1, SPRITE_W, 2, SHADOW);
-  void pose;
-  drawIdleAt(g, c.name, c.palette, cx, SELECT_FLOOR, bob);
-  return g;
-}
-
-export function composeWaiting(cursor: number, frame: number): PixelGrid {
-  const g = createGrid(WORLD_W, WORLD_H, rgb(0, 0, 0));
-  backdrop(g);
-  const c = characterAt(cursor);
-  centerText(g, 'YOU PICKED ' + c.name, 10, GOLD, 2);
-  const cx = WORLD_W / 2;
-  const bob = Math.round(Math.sin(frame / 5) * 2);
-  const pose = (Math.floor(frame / 20) % 6 === 0) ? 'punch' : 'idle';
-  const sprite = drawFighter(pose, c.palette, 0);
-  fillRect(g, cx - SPRITE_W / 2, SELECT_FLOOR - 1, SPRITE_W, 2, SHADOW);
-  blit(g, sprite, cx - Math.round(SPRITE_W / 2), SELECT_FLOOR - SPRITE_H + bob, false);
-  const dots = '.'.repeat(1 + (Math.floor(frame / 10) % 3));
-  centerText(g, 'WAITING FOR OPPONENT' + dots, SELECT_FLOOR + 18, WHITE, 1);
-  centerText(g, 'HAVE A FRIEND SSH IN TO FIGHT YOU', SELECT_FLOOR + 32, DIM, 1);
+  wrect(g, v, cx - 24, 30, 48, SELECT_FLOOR - 30, rgb(70, 56, 104));
+  wrect(g, v, cx - 22, SELECT_FLOOR - 2, 44, 4, GOLD);
+  wrect(g, v, cx - 16, SELECT_FLOOR - 1, 32, 2, SHADOW);
+  drawIdleAt(g, v, c.name, c.palette, cx, SELECT_FLOOR, 52, bob);
   return g;
 }

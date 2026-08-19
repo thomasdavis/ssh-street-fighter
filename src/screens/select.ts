@@ -1,7 +1,6 @@
 import type { Frame } from '../render/frame.js';
 import type { Key } from '../ui/key.js';
 import type { Session } from '../net/session.js';
-import { fitGrid, rgb } from '../render/pixel.js';
 import { composeSelectStage, SELECT_STAGE, fighterSlot } from '../game/select-scene.js';
 import { makeSurface } from '../ui/surface.js';
 import { hints, centerText } from '../ui/widgets.js';
@@ -9,14 +8,12 @@ import { THEME } from '../ui/theme.js';
 import { ROSTER, characterAt } from '../game/roster.js';
 import * as db from '../db/db.js';
 
-const BLACK = rgb(0, 0, 0);
-
 export const select = {
   render(s: Session, f: Frame): void {
     const pw = f.cols * 2, ph = f.rows * 4;
-    // rendered fighter sprites go in the pixel layer; the pixel-font overlay
-    // draws on top of the same layer (makeSurface reuses f.pixel()).
-    f.usePixel(fitGrid(composeSelectStage(s.cursor, s.frame), pw, ph, BLACK));
+    // rendered fighter sprites go in the pixel layer at full resolution; the
+    // pixel-font overlay draws on top of the same layer (makeSurface reuses it).
+    f.usePixel(composeSelectStage(s.cursor, s.frame, pw, ph));
     const ui = makeSurface(f);
     const scale = Math.min(pw / SELECT_STAGE.W, ph / SELECT_STAGE.H);
     const ox = (pw - SELECT_STAGE.W * scale) / 2, oy = (ph - SELECT_STAGE.H * scale) / 2;
