@@ -9,14 +9,48 @@ import type { Surface, TextOpts } from './surface.js';
 import { THEME } from './theme.js';
 import type { RGB } from '../render/pixel.js';
 
+// Spacing scale (in layout units). Every component spaces its content on this
+// rhythm so pages built from these widgets share the same vertical cadence and
+// look consistent without per-screen tuning. In pixel mode `bold` is a no-op
+// (the font has no weight), so hierarchy comes from COLOR + SPACING, never weight.
+export const SP = {
+  line: 1.25,     // dense paragraph leading
+  row: 1.55,      // scannable list / table row pitch
+  gap: 1.0,       // small gap between elements
+  section: 2.1,   // gap between sections / below a title
+};
+
 /** Centered body text on a row. */
 export function centerText(s: Surface, y: number, str: string, o: TextOpts = {}): void {
   s.text(Math.max(0, Math.floor((s.cols - str.length) / 2)), y, str, o);
 }
 
-/** Thin horizontal rule (a short fill, not box glyphs). */
-export function divider(s: Surface, x: number, y: number, w: number, color: RGB = THEME.panelBorder): void {
-  s.fill(x, y + 0.35, w, 0.18, color);
+/** Thin horizontal rule (a short fill, not box glyphs). Optional left/right inset. */
+export function divider(s: Surface, x: number, y: number, w: number, color: RGB = THEME.panelBorder, inset = 0): void {
+  s.fill(x + inset, y + 0.4, w - inset * 2, 0.14, color);
+}
+
+/** A small section label (accent) with a rule under it. Returns the y where the
+ *  section's content should start, so callers stay on the spacing rhythm. */
+export function section(s: Surface, x: number, y: number, w: number, title: string, color: RGB = THEME.accent2): number {
+  s.text(x, y, title, { color });
+  divider(s, x, y + 1.0, w);
+  return y + SP.row + 0.35;
+}
+
+export interface FieldOpts { labelW?: number; pitch?: number; labelColor?: RGB; valueColor?: RGB; }
+/** A stack of label/value rows on the row rhythm (bindings, stats, specs).
+ *  Returns the y after the last row. Label is accent, value is body text. */
+export function fieldRows(s: Surface, x: number, y: number, entries: [string, string][], o: FieldOpts = {}): number {
+  const pitch = o.pitch ?? SP.row;
+  const labelW = o.labelW ?? Math.max(1, ...entries.map((e) => e[0].length)) + 2;
+  let cy = y;
+  for (const [k, v] of entries) {
+    s.text(x, cy, k, { color: o.labelColor ?? THEME.accent });
+    if (v) s.text(x + labelW, cy, v, { color: o.valueColor ?? THEME.text });
+    cy += pitch;
+  }
+  return cy;
 }
 
 /** A segmented meter: `filled` of `segs` lit. Drawn as fills so it works in pixel mode. */
@@ -46,19 +80,27 @@ export function banner(s: Surface, y: number, text: string, color: RGB = THEME.a
   s.heading(y, text, color, 1);
 }
 
-export interface TableCol { header: string; x: number; }
-/** Header row + rule + data rows, with an optional highlighted row. Columns are
- *  placed at unit offsets from x. */
-export function table(s: Surface, x: number, y: number, w: number, colX: number[], headers: string[], rows: string[][], highlight = -1): void {
-  for (let c = 0; c < headers.length; c++) s.text(x + colX[c]!, y, headers[c]!, { color: THEME.accent2, bold: true });
-  divider(s, x, y + 1, w);
+export interface TableOpts { pitch?: number; colColors?: (RGB | undefined)[]; }
+/** Header row + rule + data rows on the row rhythm, with an optional highlighted
+ *  (padded) row. `colColors[c]` sets per-column colour for hierarchy (e.g. a dim
+ *  rank column, an accent ELO column). Columns are placed at unit offsets from x.
+ *  Returns the y after the last row. */
+export function table(s: Surface, x: number, y: number, w: number, colX: number[], headers: string[], rows: string[][], highlight = -1, o: TableOpts = {}): number {
+  const pitch = o.pitch ?? SP.row;
+  for (let c = 0; c < headers.length; c++) s.text(x + colX[c]!, y, headers[c]!, { color: THEME.accent2 });
+  divider(s, x, y + 1.05, w);
+  const y0 = y + SP.row + 0.55;   // header → first row gap
   for (let r = 0; r < rows.length; r++) {
-    const ry = y + 2 + r;
+    const ry = y0 + r * pitch;
     const hl = r === highlight;
-    if (hl) s.fill(x - 0.5, ry, w + 1, 1, THEME.select);
+    if (hl) s.fill(x - 0.7, ry - 0.3, w + 1.4, 1.2, THEME.select);
     const row = rows[r]!;
-    for (let c = 0; c < row.length; c++) s.text(x + colX[c]!, ry, row[c]!, { color: hl ? THEME.selectText : THEME.text, bold: hl });
+    for (let c = 0; c < row.length; c++) {
+      const base = o.colColors?.[c] ?? (c === 0 ? THEME.textDim : THEME.text);
+      s.text(x + colX[c]!, ry, row[c]!, { color: hl ? THEME.selectText : base });
+    }
   }
+  return y0 + rows.length * pitch;
 }
 
 export interface InputOpts { label?: string; focus?: boolean; frame?: number; placeholder?: string; }
@@ -71,18 +113,19 @@ export function inputField(s: Surface, x: number, y: number, w: number, value: s
   if (o.focus && Math.floor((o.frame ?? 0) / 8) % 2 === 0) s.fill(inner.x + value.length + 0.1, inner.y, 0.35, 1, THEME.accent);
 }
 
-export interface MenuOpts { disabled?: number[]; gap?: number; }
-/** Vertical menu list; the selected row gets a highlight bar + ▶ marker. */
+export interface MenuOpts { disabled?: number[]; gap?: number; pitch?: number; }
+/** Vertical menu list; the selected row gets a padded highlight bar + ▶ marker.
+ *  Row pitch defaults to the row rhythm (or 1+gap for legacy callers). */
 export function menuList(s: Surface, x: number, y: number, w: number, items: string[], selected: number, o: MenuOpts = {}): void {
-  const gap = o.gap ?? 1;
+  const pitch = o.pitch ?? (o.gap != null ? 1 + o.gap : SP.row);
   for (let i = 0; i < items.length; i++) {
-    const ry = y + i * (1 + gap);
+    const ry = y + i * pitch;
     const sel = i === selected;
     const disabled = o.disabled?.includes(i);
-    if (sel) s.fill(x, ry, w, 1, THEME.select);
+    if (sel) s.fill(x - 0.3, ry - 0.3, w + 0.6, 1.2, THEME.select);
     const color = disabled ? THEME.textDim : sel ? THEME.selectText : THEME.text;
-    s.text(x + 1, ry, sel ? '▶' : ' ', { color: THEME.accent });
-    s.text(x + 3, ry, items[i]!, { color, bold: sel });
+    s.text(x + 1, ry, sel ? '▶' : ' ', { color: sel ? THEME.selectText : THEME.accent });
+    s.text(x + 3, ry, items[i]!, { color });
   }
 }
 

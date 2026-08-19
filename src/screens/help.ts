@@ -1,7 +1,7 @@
 import type { Frame } from '../render/frame.js';
 import type { Session } from '../net/session.js';
 import { makeSurface } from '../ui/surface.js';
-import { centerText } from '../ui/widgets.js';
+import { centerText, fieldRows, section, SP } from '../ui/widgets.js';
 import { THEME } from '../ui/theme.js';
 import { specialMoveInput, specialMovesFor } from '../game/moves.js';
 import { attackButtonLabels, bindingLabel } from '../input/bindings.js';
@@ -18,31 +18,30 @@ export const helpOverlay = {
     if (s.screen === 'fight' && s.match) { renderFightMoves(s, f); return; }
     f.dim(0.3); f.dimPixel(0.3);  // darken whatever is behind so the modal stands out
     const ui = makeSurface(f);
-    const pw = Math.min(54, ui.cols - 4);
-    const ph = Math.min(19, ui.rows - 2);
-    const px = Math.floor((ui.cols - pw) / 2), py = Math.max(1, Math.floor((ui.rows - ph) / 2));
-    const inner = ui.panel(px, py, pw, ph, { title: 'HOW TO FIGHT' });
-    const iw = Math.floor(inner.w);
-    const valX = Math.min(9, Math.floor(inner.w * 0.4));
-    let y = inner.y;
-    const lines: [string, string][] = [
-      ['MOVE', `${bindingLabel(s.keyBindings.left)} / ${bindingLabel(s.keyBindings.right)}`],
-      ['JUMP', `${bindingLabel(s.keyBindings.jump)} / ${bindingLabel(s.keyBindings.jumpAlt)}`],
-      ['CROUCH', bindingLabel(s.keyBindings.crouch)],
-      ['PUNCH', `${bindingLabel(s.keyBindings.punch)}  FAST, SHORT`],
-      ['KICK', `${bindingLabel(s.keyBindings.kick)}  SLOW, LONGER`],
+    const b = s.keyBindings;
+    const controls: [string, string][] = [
+      ['MOVE', `${bindingLabel(b.left)} / ${bindingLabel(b.right)}`],
+      ['JUMP', `${bindingLabel(b.jump)} / ${bindingLabel(b.jumpAlt)}`],
+      ['CROUCH', bindingLabel(b.crouch)],
+      ['PUNCH', `${bindingLabel(b.punch)}    FAST, SHORT REACH`],
+      ['KICK', `${bindingLabel(b.kick)}    SLOWER, LONGER`],
       ['BLOCK', 'HOLD AWAY FROM RIVAL'],
-      ['GFX', 'V TOGGLES OCTANT / HALF'],
+      ['GFX', 'V   OCTANT / HALF'],
       ['QUIT', 'Q'],
     ];
-    for (const [k, v] of lines) {
-      ui.text(inner.x, y, k, { color: THEME.accent, bold: true });
-      ui.text(inner.x + valX, y, v.slice(0, Math.max(0, iw - valX)), { color: THEME.text });
-      y++;
-    }
-    y++;
-    for (const n of NOTES) { if (y < inner.y + inner.h) { ui.text(inner.x, y, n.slice(0, iw), { color: THEME.textDim }); y++; } }
-    centerText(ui, py + ph - 2, 'PRESS ANY KEY TO CLOSE', { color: THEME.accent2, bold: true });
+    const contentH = 0.6 + controls.length * SP.row + SP.gap + SP.row + NOTES.length * SP.line + 1.4;
+    const ph = Math.min(ui.rows - 2, Math.ceil(contentH + 2));
+    const pw = Math.min(58, ui.cols - 4);
+    const px = Math.floor((ui.cols - pw) / 2), py = Math.max(1, Math.floor((ui.rows - ph) / 2));
+    const inner = ui.panel(px, py, pw, ph, { title: 'HOW TO FIGHT' });
+    const cx = inner.x + 0.5, cw = inner.w - 1, iw = Math.floor(cw);
+
+    let y = inner.y + 0.4;
+    y = fieldRows(ui, cx, y, controls, { labelW: 8 });
+    y += SP.gap;
+    y = section(ui, cx, y, cw, 'TIPS');
+    for (const n of NOTES) { if (y < inner.y + inner.h - 1) { ui.text(cx, y, n.slice(0, iw), { color: THEME.textDim }); y += SP.line; } }
+    centerText(ui, py + ph - 1.4, 'PRESS ANY KEY TO CLOSE', { color: THEME.accent2 });
   },
 };
 
@@ -52,41 +51,29 @@ function renderFightMoves(s: Session, f: Frame): void {
   const fighter = s.match![s.role];
   const specials = specialMovesFor(fighter.name);
   const buttons = attackButtonLabels(s.keyBindings);
-  const narrow = ui.cols < 54;
-  const pw = Math.min(narrow ? 34 : 60, ui.cols - 4);
-  const ph = Math.min(narrow ? 11 : 13, ui.rows - 2);
-  const px = Math.floor((ui.cols - pw) / 2);
-  const py = Math.max(1, Math.floor((ui.rows - ph) / 2));
+  const facing = fighter.facing === 1 ? '→' : '←';
 
+  const specialRows: [string, string][] = specials.length
+    ? specials.map((m) => [m.name.slice(0, 16), specialMoveInput(m, fighter.facing, false, buttons)] as [string, string])
+    : [['NO SPECIAL MOVES YET', '']];
+  const comboRows: [string, string][] = [
+    ['LOW PUNCH', `↓ + ${buttons.punch}`],
+    ['LOW KICK', `↓ + ${buttons.kick}`],
+  ];
+
+  const contentH = 0.6 + SP.row + specialRows.length * SP.row + SP.gap + SP.row + comboRows.length * SP.row + 1.4;
+  const pw = Math.min(60, ui.cols - 4);
+  const ph = Math.min(ui.rows - 2, Math.ceil(contentH + 2));
+  const px = Math.floor((ui.cols - pw) / 2), py = Math.max(1, Math.floor((ui.rows - ph) / 2));
   const inner = ui.panel(px, py, pw, ph, { title: `${fighter.name} MOVES` });
-  const iw = Math.floor(inner.w);
-  const contentBottom = inner.y + inner.h - 1.5;
-  let y = inner.y;
-  const put = (text: string, color = THEME.text, bold = false): void => { ui.text(inner.x, y, text.slice(0, iw), { color, bold }); };
+  const cx = inner.x + 0.5, cw = inner.w - 1;
+  const labelW = Math.min(18, Math.floor(cw * 0.5));
 
-  if (narrow) {
-    if (specials.length) {
-      for (const move of specials) {
-        if (y > contentBottom) break;
-        put(`${move.shortName.padEnd(10)} ${specialMoveInput(move, fighter.facing, true, buttons)}`, THEME.text, true); y++;
-      }
-    } else { put('NO UNIQUE SPECIAL MOVES', THEME.textDim); y++; }
-    if (y <= contentBottom) { y++; put(`LOW PUNCH  ↓ + ${buttons.punch}`); y++; }
-    if (y <= contentBottom) put(`LOW KICK   ↓ + ${buttons.kick}`);
-  } else {
-    put(`SPECIAL MOVES  ·  FACING ${fighter.facing === 1 ? '→' : '←'}`, THEME.accent2, true); y++;
-    if (specials.length) {
-      for (const move of specials) {
-        if (y > contentBottom) break;
-        ui.text(inner.x, y, move.name.slice(0, 17), { color: THEME.accent, bold: true });
-        ui.text(inner.x + Math.min(18, iw - 8), y, specialMoveInput(move, fighter.facing, false, buttons), { color: THEME.text });
-        y++;
-      }
-    } else { put('NO UNIQUE SPECIAL MOVES YET.', THEME.textDim); y++; }
-    if (y <= contentBottom) y++;
-    if (y <= contentBottom) { put('COMBINATIONS', THEME.accent2, true); y++; }
-    if (y <= contentBottom) { ui.text(inner.x, y, 'LOW PUNCH', { color: THEME.accent, bold: true }); ui.text(inner.x + Math.min(18, iw - 8), y, `↓ + ${buttons.punch}`, { color: THEME.text }); y++; }
-    if (y <= contentBottom) { ui.text(inner.x, y, 'LOW KICK', { color: THEME.accent, bold: true }); ui.text(inner.x + Math.min(18, iw - 8), y, `↓ + ${buttons.kick}`, { color: THEME.text }); }
-  }
-  centerText(ui, py + ph - 2, 'PRESS ANY KEY TO CLOSE', { color: THEME.accent2, bold: true });
+  let y = inner.y + 0.4;
+  y = section(ui, cx, y, cw, `SPECIAL MOVES  ·  FACING ${facing}`);
+  y = fieldRows(ui, cx, y, specialRows, { labelW });
+  y += SP.gap;
+  y = section(ui, cx, y, cw, 'COMBINATIONS');
+  fieldRows(ui, cx, y, comboRows, { labelW });
+  centerText(ui, py + ph - 1.4, 'PRESS ANY KEY TO CLOSE', { color: THEME.accent2 });
 }
