@@ -38,7 +38,7 @@ parentPort!.on('message', (m: Msg) => {
   if (full || st.w !== cols || st.h !== rows) { st.prev = null; st.a = null; st.b = null; st.w = cols; st.h = rows; }
 
   const f = new Frame(cols, rows, mode);
-  f.usePixel(composeScene(match, false, cols * 2, rows * 4, practice));
+  f.usePixel(composeScene(match, cols * 2, rows * 4, practice));
   drawFightHud(f, match, practice, bindings);
 
   const reuse = st.prev === st.a ? st.b : st.prev === st.b ? st.a : null;

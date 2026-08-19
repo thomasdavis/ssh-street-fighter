@@ -24,6 +24,28 @@ export function meter(s: Surface, x: number, y: number, segs: number, filled: nu
   for (let i = 0; i < segs; i++) s.fill(x + i * 1.1, y + 0.1, 0.8, 0.8, i < filled ? onColor : offColor);
 }
 
+/** A fighter health bar: full track + colored fill (red→gold→yellow by pct), with
+ *  ten chunk ticks. `mirror` fills from the right (player 2). All fills — no glyphs. */
+export function healthBar(s: Surface, x: number, y: number, w: number, pct: number, mirror = false): void {
+  const p = Math.max(0, Math.min(1, pct));
+  const h = 0.85;
+  s.fill(x, y, w, h, THEME.shadow);                                   // empty track
+  const fw = w * p;
+  const col = p <= 0.3 ? THEME.hpLow : p <= 0.55 ? THEME.accent : THEME.hpFull;
+  if (fw > 0) s.fill(mirror ? x + w - fw : x, y, fw, h, col);
+  for (let i = 1; i < 10; i++) s.fill(x + (i * w) / 10, y, 0.07, h, THEME.shadow);   // segment ticks
+}
+
+/** A big centered announcement over a fitted shadow band (ROUND/FIGHT/KO…).
+ *  Heading text is ~2 units per char, so the band is sized and centered to match. */
+export function banner(s: Surface, y: number, text: string, color: RGB = THEME.accent): void {
+  if (!text) return;
+  const w = Math.min(s.cols, text.length * 2 + 2);
+  const x = Math.floor((s.cols - w) / 2);
+  s.fill(x, y - 0.25, w, s.headingHeight(1) + 0.35, THEME.shadow);
+  s.heading(y, text, color, 1);
+}
+
 export interface TableCol { header: string; x: number; }
 /** Header row + rule + data rows, with an optional highlighted row. Columns are
  *  placed at unit offsets from x. */

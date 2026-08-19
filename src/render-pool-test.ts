@@ -28,7 +28,7 @@ function drive(m: Match, i: number) {
 interface St { prev: Cell[] | null; a: Cell[] | null; b: Cell[] | null; }
 function inlineRender(m: Match, st: St): string {
   const f = new Frame(C, R, MODE);
-  f.usePixel(composeScene(m, false, C * 2, R * 4, false));
+  f.usePixel(composeScene(m, C * 2, R * 4, false));
   drawFightHud(f, m, false, DEFAULT_KEY_BINDINGS);
   const reuse = st.prev === st.a ? st.b : st.prev === st.b ? st.a : null;
   const next = f.toCells(1, reuse ?? undefined);

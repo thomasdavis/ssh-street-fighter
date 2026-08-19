@@ -59,7 +59,7 @@ for (let t = 0; t < 40; t++) {
   const inA = emptyInputs(); inA.moveX = t % 30 < 15 ? 1 : -1; if (t % 10 === 0) inA.punch = true;
   stepMatch(m, inA, emptyInputs());
   const f = new Frame(cols, rows, 'half');
-  f.usePixel(composeScene(m, false, cols * 2, rows * 4));
+  f.usePixel(composeScene(m, cols * 2, rows * 4));
   drawFightHud(f, m, false);
   const cells = f.toCells();
   applyAnsi(term, diffCells(prev, cells, cols, rows, INDEXED));

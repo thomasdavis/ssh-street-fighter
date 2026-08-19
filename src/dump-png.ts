@@ -61,7 +61,7 @@ if (which === 'fight' || which === 'fight-help') {
   if (previewAttack === 'rolling') { a.y = 16; a.vx = 5.2; }
   if (previewAttack === 'verticalroll') { a.y = 36; a.vy = 7; }
   b.x = a.x + 40; b.facing = -1; b.blocking = true; b.pose = 'block';
-  f.usePixel(scn.composeScene(m, false, cols * 2, rows * 4, false));
+  f.usePixel(scn.composeScene(m, cols * 2, rows * 4, false));
   drawFightHud(f, m, false);
   if (which === 'fight-help') SCREENS.help.render({ ...s, screen: 'fight', match: m, role: 'a' } as any, f);
 } else if (which === 'help') { SCREENS.menu.render(s, f); SCREENS.help.render(s, f); }

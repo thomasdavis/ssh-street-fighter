@@ -18,7 +18,7 @@ for (let t = 0; t < 120; t++) {
   const inB = emptyInputs(); if (t % 30 === 0) inB.kick = true; inB.moveX = (t % 50 < 25) ? -1 : 1;
   stepMatch(m, inA, inB);
   const f = new Frame(cols, rows, 'half');
-  f.usePixel(composeScene(m, false, cols * 2, rows * 4));
+  f.usePixel(composeScene(m, cols * 2, rows * 4));
   drawFightHud(f, m, false);
   const cells = f.toCells();
   const out = diffCells(prev, cells, cols, rows);

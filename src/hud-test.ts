@@ -15,7 +15,7 @@ a.hp = 72; b.hp = 38; a.wins = 1;
 let failed = false;
 for (const [cols, rows] of [[24, 12], [34, 14], [44, 16], [68, 20], [96, 28], [160, 48]] as const) {
   const frame = new Frame(cols, rows, 'octant');
-  frame.usePixel(composeScene(match, false, cols * 2, rows * 4));
+  frame.usePixel(composeScene(match, cols * 2, rows * 4));
   drawFightHud(frame, match, false);
   const cells = frame.toCells();
   const lines = Array.from({ length: rows }, (_, y) => cells.slice(y * cols, (y + 1) * cols).map((cell) => cell.ch).join(''));

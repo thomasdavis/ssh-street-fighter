@@ -4,7 +4,6 @@
 // maps the fixed 240x160 logical world onto whatever resolution is asked for,
 // and sprites are downscaled from their high-res source to the on-screen size.
 import { createGrid, fillRect, blit, resizeGridH, rgb, type PixelGrid, type RGB } from '../render/pixel.js';
-import { drawText, textWidth } from '../render/font.js';
 import { drawFighter } from './sprites.js';
 import { WORLD_W, WORLD_H, GROUND_Y, STAGE_LEFT, STAGE_RIGHT, ENTROPY, TESTIMONY, attackActive, attackExtension } from './engine.js';
 import { SPRITES } from './sprite-set.js';
@@ -42,18 +41,7 @@ const FLOOR = rgb(74, 54, 40);
 const FLOOR_LINE = rgb(120, 92, 62);
 const BUILDING = rgb(70, 48, 74);
 const SUN = rgb(240, 214, 150);
-const HP_BACK = rgb(40, 20, 20);
-const HP_FRONT = rgb(224, 196, 40);
-const HP_MID = rgb(246, 142, 36);
-const HP_LOW = rgb(210, 48, 40);
-const HP_BORDER = rgb(230, 230, 210);
-const WHITE = rgb(240, 240, 230);
 const SHADOW = rgb(30, 22, 34);
-const HUD_INK = rgb(12, 10, 22);
-const HUD_PANEL = rgb(34, 27, 52);
-const HUD_GOLD = rgb(250, 214, 72);
-const HUD_CYAN = rgb(82, 220, 238);
-const HUD_MAGENTA = rgb(238, 88, 170);
 const lerp = (a: number, b: number, t: number) => Math.round(a + (b - a) * t);
 
 interface View { ws: number; ox: number; oy: number; pw: number; ph: number; }
@@ -198,58 +186,6 @@ function drawOmegaTech(g: PixelGrid, v: View, f: Fighter): void {
 }
 
 // ---- renderer-native fight HUD ----
-// The HUD is part of the same PixelGrid as the stage and fighters. It therefore
-// gets the same octant/half-block renderer, scaling and cell-diff treatment.
-function diamond(g: PixelGrid, v: View, cx: number, cy: number, r: number, c: RGB): void {
-  for (let y = -r; y <= r; y++) wrect(g, v, cx - (r - Math.abs(y)), cy + y, (r - Math.abs(y)) * 2 + 1, 1, c);
-}
-
-function drawHealthBar(g: PixelGrid, v: View, f: Fighter, side: 'left' | 'right'): void {
-  const barW = 92, barH = 8, x = side === 'left' ? 6 : WORLD_W - 6 - barW, y = 8;
-  wrect(g, v, x - 3, y - 3, barW + 6, barH + 14, HUD_INK);
-  wrect(g, v, x - 2, y - 2, barW + 4, barH + 4, HUD_GOLD);
-  wrect(g, v, x - 1, y - 1, barW + 2, barH + 2, HP_BORDER);
-  wrect(g, v, x, y, barW, barH, HP_BACK);
-  const fillW = Math.round((Math.max(0, Math.min(100, f.hp)) / 100) * barW);
-  const base = f.hp <= 30 ? HP_LOW : (f.hp <= 55 ? HP_MID : HP_FRONT);
-  const hi = f.hp <= 30 ? rgb(255, 104, 72) : (f.hp <= 55 ? rgb(255, 194, 64) : rgb(255, 240, 104));
-  if (fillW > 0) {
-    const fx = side === 'left' ? x : x + barW - fillW;
-    wrect(g, v, fx, y, fillW, 2, hi);
-    wrect(g, v, fx, y + 2, fillW, barH - 2, base);
-    wrect(g, v, side === 'left' ? fx + fillW - 1 : fx, y, 1, barH, WHITE);
-  }
-  // Ten subtle chunks make damage immediately legible without extra text.
-  for (let i = 1; i < 10; i++) wrect(g, v, x + i * barW / 10, y + 5, 1, 3, HUD_INK);
-  const accent = side === 'left' ? HUD_CYAN : HUD_MAGENTA;
-  wrect(g, v, side === 'left' ? x - 1 : x + barW - 2, y + barH + 2, 3, 6, accent);
-  const s = Math.max(1, Math.round(v.ws));
-  const nameX = side === 'left' ? px(v, x + 4) : px(v, x + barW - 4) - textWidth(f.name, s);
-  drawText(g, f.name, nameX + s, py(v, y + barH + 4) + s, HUD_INK, s);
-  drawText(g, f.name, nameX, py(v, y + barH + 4), WHITE, s);
-  for (let i = 0; i < f.wins; i++) diamond(g, v, side === 'left' ? x + barW - 4 - i * 6 : x + 4 + i * 6, y + barH + 5, 2, HUD_GOLD);
-}
-
-function drawTimer(g: PixelGrid, v: View, m: Match, practice: boolean): void {
-  // Chamfered badge, built from world pixels so it stays sharp at every zoom.
-  const x = WORLD_W / 2 - 13, y = 3, w = 26, h = 29;
-  wrect(g, v, x + 3, y, w - 6, h, HUD_INK); wrect(g, v, x, y + 3, w, h - 6, HUD_INK);
-  wrect(g, v, x + 3, y + 1, w - 6, h - 2, HUD_GOLD); wrect(g, v, x + 1, y + 3, w - 2, h - 6, HUD_GOLD);
-  wrect(g, v, x + 3, y + 3, w - 6, h - 6, HUD_PANEL);
-  const label = practice ? 'TRAIN' : `R${m.round}`;
-  const ls = Math.max(1, Math.round(v.ws));
-  drawText(g, label, Math.round(px(v, WORLD_W / 2) - textWidth(label, ls) / 2), py(v, 6), practice ? HUD_CYAN : HUD_GOLD, ls);
-  const t = practice ? '--' : String(Math.max(0, Math.ceil(m.roundTime))).padStart(2, '0');
-  const s = Math.max(2, Math.round(2 * v.ws));
-  drawText(g, t, Math.round(px(v, WORLD_W / 2) - textWidth(t, s) / 2) + s, py(v, 15) + s, HUD_INK, s);
-  drawText(g, t, Math.round(px(v, WORLD_W / 2) - textWidth(t, s) / 2), py(v, 15), WHITE, s);
-}
-function drawCenterMessage(g: PixelGrid, v: View, msg: string): void {
-  if (!msg) return;
-  const s = Math.max(3, Math.round(3 * v.ws)), x = Math.round(px(v, WORLD_W / 2) - textWidth(msg, s) / 2), y = py(v, 54);
-  drawText(g, msg, x + s, y + s, HUD_INK, s);
-  drawText(g, msg, x, y, HUD_GOLD, s);
-}
 
 // Motifs update at 7.5 Hz and touch only a few compact regions. That preserves
 // animation and depth while keeping the SSH cell diff far below a full redraw.
@@ -412,7 +348,11 @@ function drawProjectiles(g: PixelGrid, v: View, m: Match): void {
 }
 
 /** Render the stage at `pw`x`ph` pixels (defaults to the logical world size). */
-export function composeScene(m: Match, hud = true, pw = WORLD_W, ph = WORLD_H, practice = false): PixelGrid {
+// The in-fight HUD (health bars, timer, names, announcements) is drawn as
+// constant-size pixel UI by screens/fight-hud.ts, composited over this scene —
+// so composeScene renders only the world (stage, fighters, projectiles, sparks).
+export function composeScene(m: Match, pw = WORLD_W, ph = WORLD_H, practice = false): PixelGrid {
+  void practice;
   const v = makeView(pw, ph);
   const g = createGrid(pw, ph, rgb(0, 0, 0));
   const stage = STAGES.get(m.stage, Math.round(WORLD_H * v.ws));
@@ -423,12 +363,6 @@ export function composeScene(m: Match, hud = true, pw = WORLD_W, ph = WORLD_H, p
   for (const f of order) { drawFighterOnStage(g, v, f); drawSpecialAura(g, v, f); drawOmegaTech(g, v, f); }
   drawProjectiles(g, v, m);
   drawSparks(g, v, m);
-  if (hud) {
-    drawHealthBar(g, v, m.a, 'left');
-    drawHealthBar(g, v, m.b, 'right');
-    drawTimer(g, v, m, practice);
-    drawCenterMessage(g, v, m.message);
-  }
   return g;
 }
 
@@ -441,7 +375,7 @@ const SCENE_CACHE = new WeakMap<Match, { frame: number; pw: number; ph: number; 
 export function composeSceneCached(m: Match, pw: number, ph: number, practice = false): PixelGrid {
   const c = SCENE_CACHE.get(m);
   if (c && c.frame === m.frame && c.pw === pw && c.ph === ph) return c.grid;
-  const grid = composeScene(m, false, pw, ph, practice);
+  const grid = composeScene(m, pw, ph, practice);
   SCENE_CACHE.set(m, { frame: m.frame, pw, ph, grid });
   return grid;
 }

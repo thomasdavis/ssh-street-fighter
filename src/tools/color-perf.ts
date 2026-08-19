@@ -22,7 +22,7 @@ function frames(): Cell[][] {
     if (renderAccum < TICK_HZ) continue;
     renderAccum -= TICK_HZ;
     const f = new Frame(cols, rows, 'half');
-    f.usePixel(composeScene(m, false, cols * 2, rows * 4));
+    f.usePixel(composeScene(m, cols * 2, rows * 4));
     drawFightHud(f, m, false);
     out.push(f.toCells());
   }
