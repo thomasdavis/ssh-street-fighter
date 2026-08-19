@@ -105,7 +105,20 @@ const MOVE_SETS: Readonly<Record<string, readonly SpecialMoveDefinition[]>> = {
     { attack: 'reflect', name: 'REFLECT', shortName: 'REFLECT', description: 'Snap into a phase-parry: for a moment attacks pass right through you, and any projectile that hits you is TURNED AROUND and fired straight back at whoever threw it — faster.', motion: ['D', 'U'], button: 'punch', earlyAirStart: true },
     { attack: 'blink', name: 'BLINK STRIKE', shortName: 'BLINK', description: 'Teleport instantly to point-blank right in front of your opponent and land a fast strike. No invincibility, so it is a committal way to close distance and open them up.', motion: ['D', 'B'], button: 'punch' },
   ],
+  // UNCLOSE — the open gate. Sequential one-lane stream, voice-ring repel, channelled self-heal.
+  UNCLOSE: [
+    { attack: 'stream', name: 'TOKEN STREAM', shortName: 'STREAM', description: 'Loose three energy tokens down ONE lane in quick succession — they arrive spaced apart, so a single jump or a single block rarely answers all of them. Layer it to own the ground.', motion: ['D', 'F'], button: 'punch' },
+    { attack: 'electric', name: 'WAVEFORM', shortName: 'WAVEFORM', description: 'A close-range burst of synthesized voice: concentric sound rings that strike repeatedly and shove a crowding rival back off the gate. Your get-off-me answer to point-blank pressure.', motion: ['D', 'B'], button: 'punch', effect: 'wind' },
+    { attack: 'freetier', name: 'FREE TIER', shortName: 'FREE TIER', description: 'Open the gate and breathe: a LONG, fully punishable channel that restores some health only if it completes. Free for you — expensive for them if they stand back and let you finish.', motion: ['D', 'B'], button: 'kick' },
+  ],
 };
+
+/** Every special AttackKind any roster fighter can perform — the single source of
+ *  truth for "is this attack a special?" (bot wire view, sparring gym). Derived
+ *  from MOVE_SETS so a new fighter's moves are never silently missing. */
+export const SPECIAL_ATTACK_KINDS: ReadonlySet<string> = new Set(
+  Object.values(MOVE_SETS).flatMap((moves) => moves.map((move) => move.attack)),
+);
 
 export const BUTTON_KEY: Readonly<Record<AttackButton, string>> = { punch: 'W', kick: 'E' };
 
@@ -139,6 +152,8 @@ export function specialMoveFrames(attack: SpecialAttack): readonly string[] {
   if (attack === 'lasso') return ['lasso'];
   if (attack === 'reflect') return ['reflect'];
   if (attack === 'blink') return ['blink'];
+  if (attack === 'stream') return ['stream'];
+  if (attack === 'freetier') return ['freetier'];
   return ['mergecomet_1', 'mergecomet_2', 'mergecomet_3'];
 }
 

@@ -1,7 +1,8 @@
 // Behavioural checks for the new-wave mechanics: XENON phase i-frames + cross-up,
-// AJAX super-armor and returning boomerang, MNEME construct turret + motes, the
-// universal flying kick. Drives the real engine with crafted inputs.
-import { makeFighter, makeMatch, stepMatch, BOOMERANG, CONSTRUCT, REFLECT } from './game/engine.js';
+// AJAX super-armor and returning boomerang, MNEME construct turret + motes,
+// UNCLOSE token stream + free-tier channel, the universal flying kick.
+// Drives the real engine with crafted inputs.
+import { makeFighter, makeMatch, stepMatch, BOOMERANG, CONSTRUCT, REFLECT, STREAM, FREETIER } from './game/engine.js';
 import { emptyInputs, type Inputs, type Match } from './game/types.js';
 
 let pass = true;
@@ -112,6 +113,43 @@ const mv = (motion: string, btn: 'punch' | 'kick'): Inputs => ({ ...emptyInputs(
   for (let i = 0; i < 34; i++) { stepMatch(m, NEUT(), NEUT()); if (m.projectiles.some((p) => p.style === 'rope')) sawRope = true; }
   check('lasso rope is thrown', sawRope);
   check('lasso yanks the rival back toward Ajax', m.b.x < bx0 - 3, `bx ${bx0.toFixed(0)} -> ${m.b.x.toFixed(0)}`);
+}
+
+// --- UNCLOSE TOKEN STREAM (sequential one-lane motes) -------------------------
+{
+  const m = setup('UNCLOSE', 'MEN');
+  m.a.x = 60; m.b.x = 200;                                     // far apart so nothing connects early
+  const facing = m.a.facing;
+  stepMatch(m, mv(facing === 1 ? 'DR' : 'DL', 'punch'), NEUT());
+  check('token stream starts', m.a.attack === 'stream');
+  let maxMotes = 0, firstSpawnFrame = -1, lastSpawnFrame = -1;
+  for (let i = 1; i <= STREAM.spawn + STREAM.count * STREAM.spawnEvery + 2; i++) {
+    stepMatch(m, NEUT(), NEUT());
+    const n = m.projectiles.filter((p) => p.style === 'mote').length;
+    if (n > maxMotes) { maxMotes = n; if (firstSpawnFrame < 0) firstSpawnFrame = i; lastSpawnFrame = i; }
+  }
+  check('stream looses all three tokens', maxMotes === STREAM.count, `motes=${maxMotes}`);
+  check('tokens are spawned sequentially, not at once', lastSpawnFrame > firstSpawnFrame, `first=${firstSpawnFrame} last=${lastSpawnFrame}`);
+}
+
+// --- UNCLOSE FREE TIER (channelled heal; interrupt forfeits it) ----------------
+{
+  const m = setup('UNCLOSE', 'MEN');
+  m.a.hp = 60; m.a.x = 60; m.b.x = 200;
+  const facing = m.a.facing;
+  stepMatch(m, mv(facing === 1 ? 'DL' : 'DR', 'kick'), NEUT());
+  check('free tier starts', m.a.attack === 'freetier');
+  for (let i = 0; i < FREETIER.total + 2; i++) stepMatch(m, NEUT(), NEUT());
+  check('completed channel restores health', m.a.hp === 60 + FREETIER.heal, `hp=${m.a.hp}`);
+}
+{
+  const m = setup('UNCLOSE', 'MEN');
+  m.a.hp = 60; m.a.x = 100; m.b.x = 118;                       // point-blank: the channel will be punished
+  const facing = m.a.facing;
+  stepMatch(m, mv(facing === 1 ? 'DL' : 'DR', 'kick'), NEUT());
+  check('free tier starts under pressure', m.a.attack === 'freetier');
+  for (let i = 0; i < FREETIER.total + 6; i++) stepMatch(m, NEUT(), { ...emptyInputs(), punch: true });
+  check('an interrupted channel never heals', m.a.hp < 60, `hp=${m.a.hp}`);
 }
 
 // --- Universal FLYING KICK ---------------------------------------------------

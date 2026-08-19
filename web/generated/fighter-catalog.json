@@ -2096,5 +2096,133 @@
         }
       }
     ]
+  },
+  {
+    "name": "UNCLOSE",
+    "tagline": "the open gate",
+    "palette": {
+      "skin": {
+        "r": 238,
+        "g": 232,
+        "b": 220
+      },
+      "gi": {
+        "r": 64,
+        "g": 150,
+        "b": 230
+      },
+      "giDark": {
+        "r": 28,
+        "g": 74,
+        "b": 140
+      },
+      "hair": {
+        "r": 220,
+        "g": 240,
+        "b": 250
+      },
+      "belt": {
+        "r": 246,
+        "g": 186,
+        "b": 70
+      }
+    },
+    "origin": "A commons that stayed open",
+    "discipline": "Open-weight energy circulation",
+    "archetype": "Sustaining zoner",
+    "difficulty": "Intermediate",
+    "quote": "A gate that never closes needs no key.",
+    "story": [
+      "Unclose was built as the keeper of a gate that a dying city welded open, so that nobody could ever again charge admission to shelter. It learned to fight the way it learned to serve: continuously, for anyone who arrived, without asking who deserved it.",
+      "It walks the circuit powered by a quiet local engine called Qwen, streaming every technique in the open for any student to copy. Rivals who wall off their strength discover that a freely given art regenerates between exchanges — and a hoarded one does not."
+    ],
+    "playstyle": "Give the fight away on your own terms. Token Stream sends a spaced procession of shots down one lane, Waveform repels anyone crowding the gate with rings of synthesized voice, and Free Tier restores health whenever a rival concedes you room to breathe.",
+    "strengths": [
+      "Layered one-lane zoning",
+      "Self-restoring endurance",
+      "Punishes passive play"
+    ],
+    "moves": [
+      {
+        "attack": "stream",
+        "name": "TOKEN STREAM",
+        "shortName": "STREAM",
+        "description": "Loose three energy tokens down ONE lane in quick succession — they arrive spaced apart, so a single jump or a single block rarely answers all of them. Layer it to own the ground.",
+        "motion": [
+          "D",
+          "F"
+        ],
+        "button": "punch",
+        "input": "↓ → + W",
+        "frames": [
+          "stream"
+        ],
+        "stats": {
+          "startup": 10,
+          "active": 11,
+          "recovery": 13,
+          "damagePerHit": 5,
+          "maxHits": 3,
+          "maxDamage": 15,
+          "chipPerHit": 1,
+          "range": 196,
+          "impact": "Sequential projectile stream"
+        }
+      },
+      {
+        "attack": "electric",
+        "name": "WAVEFORM",
+        "shortName": "WAVEFORM",
+        "description": "A close-range burst of synthesized voice: concentric sound rings that strike repeatedly and shove a crowding rival back off the gate. Your get-off-me answer to point-blank pressure.",
+        "motion": [
+          "D",
+          "B"
+        ],
+        "button": "punch",
+        "effect": "wind",
+        "input": "↓ ← + W",
+        "frames": [
+          "electric_1",
+          "electric_2"
+        ],
+        "stats": {
+          "startup": 3,
+          "active": 21,
+          "recovery": 7,
+          "damagePerHit": 4,
+          "maxHits": 4,
+          "maxDamage": 16,
+          "chipPerHit": 1,
+          "range": 31,
+          "impact": "Close multi-hit field"
+        }
+      },
+      {
+        "attack": "freetier",
+        "name": "FREE TIER",
+        "shortName": "FREE TIER",
+        "description": "Open the gate and breathe: a LONG, fully punishable channel that restores some health only if it completes. Free for you — expensive for them if they stand back and let you finish.",
+        "motion": [
+          "D",
+          "B"
+        ],
+        "button": "kick",
+        "input": "↓ ← + E",
+        "frames": [
+          "freetier"
+        ],
+        "stats": {
+          "startup": 12,
+          "active": 18,
+          "recovery": 18,
+          "damagePerHit": 0,
+          "maxHits": 0,
+          "maxDamage": 0,
+          "chipPerHit": 0,
+          "range": 0,
+          "impact": "Restores 10 health on completion"
+        }
+      }
+    ]
   }
 ]

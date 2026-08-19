@@ -5,7 +5,7 @@
 // and sprites are downscaled from their high-res source to the on-screen size.
 import { createGrid, fillRect, blit, resizeGridH, rgb, type PixelGrid, type RGB } from '../render/pixel.js';
 import { drawFighter } from './sprites.js';
-import { WORLD_W, WORLD_H, GROUND_Y, STAGE_LEFT, STAGE_RIGHT, ENTROPY, TESTIMONY, THROW, CONTEXT, BRANCHWALK, MERGE_COMET, STORY_ARC, PLOT_TWIST, INK_TEMPEST, attackActive, attackExtension } from './engine.js';
+import { WORLD_W, WORLD_H, GROUND_Y, STAGE_LEFT, STAGE_RIGHT, ENTROPY, TESTIMONY, THROW, CONTEXT, BRANCHWALK, MERGE_COMET, STORY_ARC, PLOT_TWIST, INK_TEMPEST, FREETIER, attackActive, attackExtension } from './engine.js';
 import { SPRITES } from './sprite-set.js';
 import { STAGES } from './stage-set.js';
 import { specialMoveForAttack } from './moves.js';
@@ -262,6 +262,27 @@ function drawFableEmbers(g: PixelGrid, v: View, f: Fighter): void {
     const x = f.x + f.facing * (10 + ((i * 7 + f.attackFrame * 3) % 22));
     const y = cy - 14 + ((i * 11 + f.attackFrame * 5) % 34);
     wrect(g, v, x, y, i % 2 ? 2 : 1, i % 3 ? 1 : 2, i % 3 === 0 ? ivory : (i % 2 ? ember : gold));
+  }
+}
+
+/** Unclose's Free Tier channel must read from across the stage: rising golden
+ *  motes while the gate is open, blooming brightest on the payout frame. */
+function drawUncloseGate(g: PixelGrid, v: View, f: Fighter): void {
+  if (f.attack !== 'freetier') return;
+  const gold = rgb(246, 202, 96), azure = rgb(122, 190, 244), white = rgb(250, 248, 236);
+  const cy = GROUND_Y - f.y - 28;
+  const channel = f.attackFrame >= FREETIER.startup && f.attackFrame < FREETIER.startup + FREETIER.active;
+  const count = channel ? 9 : 4;
+  for (let i = 0; i < count; i++) {
+    const side = i % 2 ? 1 : -1;
+    const x = f.x + side * (6 + ((i * 5) % 14));
+    const y = cy + 24 - ((i * 9 + f.attackFrame * 2) % 52);
+    wrect(g, v, x, y, 1 + (i % 2), 2, i % 3 === 0 ? white : (i % 2 ? gold : azure));
+  }
+  if (f.attackFrame >= FREETIER.startup + FREETIER.active && f.attackFrame < FREETIER.startup + FREETIER.active + 6) {
+    const r = 3 + (f.attackFrame - FREETIER.startup - FREETIER.active);
+    ringPixels(g, v, f.x, cy, r, gold);
+    ringPixels(g, v, f.x, cy, r + 2, white);
   }
 }
 
@@ -624,7 +645,7 @@ export function composeScene(m: Match, pw = WORLD_W, ph = WORLD_H, practice = fa
   else drawBackground(g, v);
   if (MOTIFS_ON) drawMotifs(g, v, m.frame, m.stage);
   const order = m.a.x <= m.b.x ? [m.a, m.b] : [m.b, m.a];
-  for (const f of order) { drawFighterOnStage(g, v, f); drawSpecialAura(g, v, f); drawOmegaTech(g, v, f); drawCodexTrails(g, v, f); drawFableEmbers(g, v, f); }
+  for (const f of order) { drawFighterOnStage(g, v, f); drawSpecialAura(g, v, f); drawOmegaTech(g, v, f); drawCodexTrails(g, v, f); drawFableEmbers(g, v, f); drawUncloseGate(g, v, f); }
   drawProjectiles(g, v, m);
   drawSparks(g, v, m);
   if (MOTIFS_ON) drawMotifsFg(g, v, m.frame, m.stage);   // parallax foreground weather

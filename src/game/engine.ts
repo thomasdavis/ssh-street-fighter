@@ -54,6 +54,8 @@ function attackTotal(k: AttackKind): number {
   if (k === 'reflect') return REFLECT.total;
   if (k === 'blink') return BLINK.total;
   if (k === 'jumpkick') return JUMPKICK.total;
+  if (k === 'stream') return STREAM.total;
+  if (k === 'freetier') return FREETIER.total;
   if (k === 'punch' || k === 'kick') { const a = ATTACKS[k]; return a.startup + a.active + a.recovery; }
   return 0;
 }
@@ -125,6 +127,12 @@ export const REFLECT = { startup: 4, active: 15, recovery: 10, total: 29 };
 // XENON — BLINK: an instant teleport to point-blank, then a fast strike. No i-frames
 // (unlike PHASE), so it is a committal gap-closer that can be whiff-punished.
 export const BLINK = { startup: 3, active: 5, recovery: 16, total: 24, dmg: 13, range: 34, kb: 4.2, chip: 3, vert: 42, shift: 3 };
+// UNCLOSE — TOKEN STREAM: motes loosed one after another down a single mid lane,
+// so they arrive spaced apart (per-mote damage comes from the shared MOTE spec).
+export const STREAM = { startup: 7, spawn: 10, spawnEvery: 5, count: 3, recovery: 14, total: 34, speed: 3.8 };
+// UNCLOSE — FREE TIER: a long, fully punishable channel that restores health ONLY
+// if it completes; any clean hit cancels the attack and forfeits the heal.
+export const FREETIER = { startup: 12, active: 18, recovery: 18, total: 48, heal: 10 };
 const FIRE_SPEED = 3.4, FIRE_R = 11, FIGHTER_WORLD_H = 56, FIRE_DMG = 12, FIRE_CHIP = 3;
 const EARLY_UP_GRACE_Y = 26;
 
@@ -156,6 +164,8 @@ export function specialMoveStats(attack: SpecialAttack): SpecialMoveStats {
   if (attack === 'storyarc') return { startup: STORY_ARC.startup, active: STORY_ARC.active, recovery: STORY_ARC.recovery, damagePerHit: STORY_ARC.dmg, maxHits: 1, maxDamage: STORY_ARC.dmg, chipPerHit: STORY_ARC.chip, range: STORY_ARC.range, impact: 'Soaring evasive arc' };
   if (attack === 'plottwist') return { startup: PLOT_TWIST.startup, active: PLOT_TWIST.active, recovery: PLOT_TWIST.recovery, damagePerHit: PLOT_TWIST.dmg, maxHits: 1, maxDamage: PLOT_TWIST.dmg, chipPerHit: PLOT_TWIST.chip, range: PLOT_TWIST.range, impact: 'Backstep feint lunge' };
   if (attack === 'inktempest') { const hits = Math.ceil(INK_TEMPEST.active / INK_TEMPEST.hitEvery); return { startup: INK_TEMPEST.startup, active: INK_TEMPEST.active, recovery: INK_TEMPEST.recovery, damagePerHit: INK_TEMPEST.dmg, maxHits: hits, maxDamage: INK_TEMPEST.dmg * hits, chipPerHit: INK_TEMPEST.chip, range: INK_TEMPEST.range, impact: 'Close multi-hit flurry' }; }
+  if (attack === 'stream') { const active = (STREAM.count - 1) * STREAM.spawnEvery + 1; return { startup: STREAM.spawn, active, recovery: STREAM.total - STREAM.spawn - active, damagePerHit: MOTE.dmg, maxHits: STREAM.count, maxDamage: MOTE.dmg * STREAM.count, chipPerHit: MOTE.chip, range: STAGE_RIGHT - STAGE_LEFT, impact: 'Sequential projectile stream' }; }
+  if (attack === 'freetier') return { startup: FREETIER.startup, active: FREETIER.active, recovery: FREETIER.recovery, damagePerHit: 0, maxHits: 0, maxDamage: 0, chipPerHit: 0, range: 0, impact: `Restores ${FREETIER.heal} health on completion` };
   const hits = Math.ceil(ENTROPY.active / ENTROPY.hitEvery);
   return { startup: ENTROPY.startup, active: ENTROPY.active, recovery: ENTROPY.recovery, damagePerHit: ENTROPY.dmg, maxHits: hits, maxDamage: ENTROPY.dmg * hits, chipPerHit: ENTROPY.chip, range: ENTROPY.range, impact: 'Pulling gravity field' };
 }
@@ -233,6 +243,8 @@ export function attackExtension(f: Fighter): number {
   if (f.attack === 'phase') return Math.min(1, f.attackFrame / PHASE.startup);
   if (f.attack === 'reflect') return (Math.sin(f.attackFrame * 0.8) + 1) / 2;
   if (f.attack === 'blink') return Math.min(1, f.attackFrame / (BLINK.shift + 1));
+  if (f.attack === 'stream') return Math.min(1, f.attackFrame / STREAM.spawn);
+  if (f.attack === 'freetier') return (Math.sin(f.attackFrame * 0.5) + 1) / 2;
   if (f.attack === 'jumpkick') return Math.min(1, f.attackFrame / JUMPKICK.startup);
   if (f.attack !== 'punch' && f.attack !== 'kick') return 1;
   const a = ATTACKS[f.attack];
@@ -315,6 +327,8 @@ function derivePose(f: Fighter): void {
   if (f.attack === 'phase') { f.pose = 'phase'; return; }
   if (f.attack === 'reflect') { f.pose = 'reflect'; return; }
   if (f.attack === 'blink') { f.pose = 'blink'; return; }
+  if (f.attack === 'stream') { f.pose = 'stream'; return; }
+  if (f.attack === 'freetier') { f.pose = 'freetier'; return; }
   if (f.attack === 'jumpkick') { f.pose = 'jumpkick'; return; }
   if (f.attack === 'punch') { f.pose = f.attackCrouch ? 'crouchpunch' : 'punch'; return; }
   if (f.attack === 'kick') { f.pose = f.attackCrouch ? 'crouchkick' : 'kick'; return; }
@@ -411,6 +425,9 @@ function stepFighter(f: Fighter, other: Fighter, inp: Inputs, live: boolean): vo
   }
   // Ink Tempest sustains a close flurry that strikes in three discrete pulses.
   if (f.attack === 'inktempest' && f.attackFrame > INK_TEMPEST.startup && (f.attackFrame - INK_TEMPEST.startup) % INK_TEMPEST.hitEvery === 0) f.attackHit = false;
+  // Free Tier pays out only if the whole channel completes uninterrupted — a clean
+  // hit cancels the attack (resolveHit), which forfeits the heal.
+  if (f.attack === 'freetier' && f.attackFrame === FREETIER.startup + FREETIER.active) f.hp = Math.min(100, f.hp + FREETIER.heal);
   // Plot Twist retreats through its readable feint, then converts it into one lunge.
   if (f.attack === 'plottwist') {
     if (f.attackFrame < PLOT_TWIST.startup) f.vx = -f.facing * PLOT_TWIST.backVx;
@@ -484,8 +501,10 @@ function startAttack(f: Fighter, kind: AttackKind, contextDescent = false): void
   }
   if (kind === 'storyarc') { f.vy = STORY_ARC.jumpV; f.y = Math.max(f.y, 0.001); f.vx = f.facing * STORY_ARC.vx; f.crouching = false; }
   if (kind === 'plottwist' || kind === 'inktempest') { f.y = 0; f.vy = 0; f.vx = 0; f.crouching = false; }
-  // NEW-WAVE grounded casts (construct / volley / boomerang / lasso loose projectiles later; keep planted)
-  if (kind === 'construct' || kind === 'volley' || kind === 'boomerang' || kind === 'lasso') { f.y = 0; f.vy = 0; f.vx = 0; f.crouching = false; }
+  // NEW-WAVE grounded casts (construct / volley / boomerang / lasso / stream loose projectiles later; keep planted)
+  if (kind === 'construct' || kind === 'volley' || kind === 'boomerang' || kind === 'lasso' || kind === 'stream') { f.y = 0; f.vy = 0; f.vx = 0; f.crouching = false; }
+  // FREE TIER — plant and channel, completely undefended
+  if (kind === 'freetier') { f.y = 0; f.vy = 0; f.vx = 0; f.crouching = false; }
   // MEGAWATT NOVA — plant and become briefly intangible (reversal)
   if (kind === 'nova') { f.y = 0; f.vy = 0; f.vx = 0; f.crouching = false; f.phaseT = NOVA.iframe; }
   // ARMORED STRIKE — brace with super-armor through the wind-up
@@ -602,6 +621,10 @@ function spawnConstruct(m: Match, f: Fighter, owner: 'a' | 'b'): void {
   if (mine >= CONSTRUCT.maxActive) return;
   const x = Math.max(STAGE_LEFT + 8, Math.min(STAGE_RIGHT - 8, f.x + f.facing * 22));
   m.projectiles.push({ owner, x, y: 26, vx: 0, active: true, hit: false, frame: 0, facing: f.facing, style: 'construct', life: CONSTRUCT.life, fireT: CONSTRUCT.fireEvery });
+}
+// UNCLOSE — one TOKEN STREAM mote, loosed mid-lane; successive spawns stay spaced.
+function spawnStreamMote(m: Match, f: Fighter, owner: 'a' | 'b'): void {
+  m.projectiles.push({ owner, x: f.x + f.facing * 16, y: 30, vx: f.facing * STREAM.speed, active: true, hit: false, frame: 0, facing: f.facing, style: 'mote', life: 120 });
 }
 // shared — a VOLLEY: three motes loosed in a low/mid/high spread.
 function spawnVolley(m: Match, f: Fighter, owner: 'a' | 'b'): void {
@@ -728,6 +751,8 @@ export function stepMatch(m: Match, inA: Inputs, inB: Inputs): void {
     if (f.attack === 'construct' && f.attackFrame === CONSTRUCT.spawn) spawnConstruct(m, f, side);
     if (f.attack === 'volley' && f.attackFrame === VOLLEY.spawn) spawnVolley(m, f, side);
     if (f.attack === 'lasso' && f.attackFrame === LASSO.spawn) spawnLasso(m, f, side);
+    if (f.attack === 'stream' && f.attackFrame >= STREAM.spawn && f.attackFrame < STREAM.spawn + STREAM.count * STREAM.spawnEvery
+      && (f.attackFrame - STREAM.spawn) % STREAM.spawnEvery === 0) spawnStreamMote(m, f, side);
   }
   stepProjectiles(m);
 
