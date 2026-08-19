@@ -27,3 +27,35 @@ primary_region = "yyz"     # Toronto — one short hop to OVH Canada
   [[services.tcp_checks]]
     interval = "15s"
     timeout = "2s"
+
+# Web: forward the domain's HTTP/HTTPS to the origin's Caddy (raw TCP passthrough,
+# TLS stays end-to-end). This is what makes https://sshfighter.com reach the site.
+[[services]]
+  internal_port = 8080
+  protocol = "tcp"
+  auto_stop_machines = false
+  auto_start_machines = true
+  min_machines_running = 1
+
+  [[services.ports]]
+    port = 80
+    handlers = []
+
+  [[services.tcp_checks]]
+    interval = "15s"
+    timeout = "2s"
+
+[[services]]
+  internal_port = 8443
+  protocol = "tcp"
+  auto_stop_machines = false
+  auto_start_machines = true
+  min_machines_running = 1
+
+  [[services.ports]]
+    port = 443
+    handlers = []
+
+  [[services.tcp_checks]]
+    interval = "15s"
+    timeout = "2s"

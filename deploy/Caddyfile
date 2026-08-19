@@ -6,7 +6,7 @@
 # cert, the record can be proxied or DNS-only; if you also want `ssh sshfighter.com`
 # to hit the game, keep the A record DNS-only (grey) so SSH is not proxied.
 
-sshfighter.com, www.sshfighter.com {
+sshfighter.com {
 	encode zstd gzip
 
 	# Ringside REST API — match history, replays, Dotabuff-style meta, live + ops.

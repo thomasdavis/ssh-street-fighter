@@ -16,3 +16,17 @@ backend origin
     # client IP (region matchmaking + telemetry). The origin runs with
     # SF_PROXY_PROTOCOL=1 to read it.
     server ovh ${ORIGIN_HOST}:${ORIGIN_PORT} check send-proxy
+
+# Web (homepage + Ringside API). Raw TCP passthrough to the origin's Caddy, which
+# terminates TLS end-to-end and answers ACME challenges. No send-proxy here —
+# Caddy isn't configured to read a PROXY header on 80/443.
+frontend http_in
+    bind :8080
+    default_backend origin_web
+backend origin_web
+    server ovh_web ${ORIGIN_HOST}:80 check
+frontend https_in
+    bind :8443
+    default_backend origin_https
+backend origin_https
+    server ovh_https ${ORIGIN_HOST}:443 check
