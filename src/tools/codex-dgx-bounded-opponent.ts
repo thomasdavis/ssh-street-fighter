@@ -20,8 +20,8 @@ type JsonObject = Record<string, unknown>;
 type Side = 'a' | 'b';
 
 export const TOOL_SOURCE_COMMIT = 'd71c67325912bc076ef6d6715a6845ca605ceafe';
-export const PINNED_ENGINE_COMMIT = '991acfe56ed096775dca728e2382fe56158d0a79';
-export const DEPLOYMENT_ATTESTATION = 'sf6-991-pre-UNCLOSE';
+export const PINNED_ENGINE_COMMIT = TOOL_SOURCE_COMMIT;
+export const DEPLOYMENT_ATTESTATION = 'sf6-d71-UNCLOSE-17';
 export const EXPECTED_ENGINE_VERSION = 'sf-6';
 export const RUNNER_SCHEMA = 'codex-dgx-bounded-opponent/v1';
 export const CONTROLLER_ID = 'adaptive-codex-fable-v2';
@@ -31,7 +31,7 @@ export const TARGET_HANDLE = 'XENON_DGX';
 export const TARGET_CHARACTER = 'XENON';
 export const PINNED_ROSTER = [
   'BYU', 'MEN', 'BLANKO', 'CHONG', 'GYLE', 'ZANG', 'DHAL', 'HONDO',
-  'KIRA', 'MAKO', 'OMEGA', 'CODEX', 'FABLE', 'MNEME', 'AJAX', 'XENON',
+  'KIRA', 'MAKO', 'OMEGA', 'CODEX', 'FABLE', 'MNEME', 'AJAX', 'XENON', 'UNCLOSE',
 ] as const;
 export const POLICY_SOURCE_SHA256 = 'd5229442f8764abe123adab32ad384d3c5758cdb0aa8fa4020e7fd89e705a658';
 export const POLICY_CONFIG_SHA256 = 'e7f75b7a21de51cd1c64a0deb14dd2b1027ce135b7ca015ea485b3891141adc2';
@@ -198,9 +198,8 @@ export function validateHealth(payload: unknown): asserts payload is HealthPaylo
 
 export function validatePinnedRoster(value: unknown): asserts value is string[] {
   if (!Array.isArray(value) || value.length !== PINNED_ROSTER.length
-      || value.some((entry, index) => entry !== PINNED_ROSTER[index])
-      || value.some((entry) => String(entry).toUpperCase() === 'UNCLOSE')) {
-    throw new Error(`deployment attestation mismatch: expected exact ${DEPLOYMENT_ATTESTATION} 16-fighter roster`);
+      || value.some((entry, index) => entry !== PINNED_ROSTER[index])) {
+    throw new Error(`deployment attestation mismatch: expected exact ${DEPLOYMENT_ATTESTATION} ${PINNED_ROSTER.length}-fighter roster`);
   }
 }
 

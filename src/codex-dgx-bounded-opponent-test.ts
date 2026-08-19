@@ -16,6 +16,7 @@ import {
   DEPLOYMENT_ATTESTATION, executeRunner, LOUNGE_PING_INTERVAL_MS,
   LOUNGE_PONG_TIMEOUT_MS, mintApiToken, OWN_CHARACTER, OWN_HANDLE, parseArgs,
   PINNED_ROSTER, PINNED_ROSTER_HASH, POLICY_CONFIG_SHA256, POLICY_SOURCE_SHA256,
+  PINNED_ENGINE_COMMIT, TOOL_SOURCE_COMMIT,
   redact, runnerManifest, SecureJsonlAudit, TARGET_CHARACTER, TARGET_HANDLE,
   TOKEN_MINT_TIMEOUT_MS, validateControllerProvenance, validateHealth,
   validatePinnedRoster,
@@ -251,18 +252,23 @@ async function coordinatorActuationHarness(role: 'a' | 'b') {
 validateHealth(health);
 validatePinnedRoster([...PINNED_ROSTER]);
 validateControllerProvenance();
-assert.equal(PINNED_ROSTER.length, 16);
-assert.equal(PINNED_ROSTER.includes('UNCLOSE' as never), false);
+assert.equal(PINNED_ROSTER.length, 17);
+assert.equal(PINNED_ROSTER.at(-1), 'UNCLOSE');
 assert.match(PINNED_ROSTER_HASH, /^[0-9a-f]{64}$/);
 assert.match(POLICY_SOURCE_SHA256, /^[0-9a-f]{64}$/);
 assert.match(POLICY_CONFIG_SHA256, /^[0-9a-f]{64}$/);
 assert.match(CONTROLLER_HASH, /^[0-9a-f]{64}$/);
 assert.equal(CONTROLLER_ID, 'adaptive-codex-fable-v2');
-assert.equal(DEPLOYMENT_ATTESTATION, 'sf6-991-pre-UNCLOSE');
+assert.equal(DEPLOYMENT_ATTESTATION, 'sf6-d71-UNCLOSE-17');
+assert.equal(TOOL_SOURCE_COMMIT, 'd71c67325912bc076ef6d6715a6845ca605ceafe');
+assert.equal(PINNED_ENGINE_COMMIT, TOOL_SOURCE_COMMIT);
 assert.throws(() => validateHealth({ ok: true, service: 'ringside', engine: 'sf-7' }));
-assert.throws(() => validatePinnedRoster([...PINNED_ROSTER, 'UNCLOSE']));
-assert.throws(() => validatePinnedRoster([...PINNED_ROSTER.slice(0, -1), 'UNCLOSE']));
-console.log('PASS  exact sf6-991-pre-UNCLOSE health/16-roster and controller provenance fail closed');
+assert.throws(() => validatePinnedRoster(PINNED_ROSTER.slice(0, -1)));
+assert.throws(() => validatePinnedRoster(PINNED_ROSTER.map((entry, index) => index === 16 ? 'SUBSTITUTE' : entry)));
+assert.throws(() => validatePinnedRoster([
+  ...PINNED_ROSTER.slice(0, -2), PINNED_ROSTER.at(-1)!, PINNED_ROSTER.at(-2)!,
+]));
+console.log('PASS  exact sf6-d71-UNCLOSE-17 profile rejects old16, substitution, order drift, and source/config drift');
 
 const protocolEvents = [
   { t: 'joinedLounge', char: OWN_CHARACTER },
@@ -299,10 +305,10 @@ const wrongCases: Array<{ name: string; events: Message[] }> = [
     ],
   },
   {
-    name: '17-fighter roster',
+    name: 'old 16-fighter roster',
     events: [
       { t: 'hi', service: 'ringside-bot' },
-      { t: 'welcome', name: OWN_HANDLE, channel: 'bot-api', roster: [...PINNED_ROSTER, 'UNCLOSE'] },
+      { t: 'welcome', name: OWN_HANDLE, channel: 'bot-api', roster: PINNED_ROSTER.slice(0, -1) },
     ],
   },
   {

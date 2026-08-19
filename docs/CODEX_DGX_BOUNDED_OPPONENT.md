@@ -1,11 +1,11 @@
 # CODEX_DGX bounded opponent runner
 
 This runner exists for one coordinated, direct-Lounge transport validation on
-the deployed `sf6-991-pre-UNCLOSE` surface. It is hard-bound to:
+the deployed `sf6-d71-UNCLOSE-17` surface. It is hard-bound to:
 
 - authenticated handle `CODEX_DGX`, fighter `CODEX`;
 - one incoming challenge from `XENON_DGX`, fighter `XENON`;
-- the exact 16-fighter pre-`UNCLOSE` roster; and
+- the exact ordered d71 17-fighter roster with `UNCLOSE` appended; and
 - exactly one normally completed match.
 
 It cannot send a Lounge challenge, enter Quick Match, dequeue, rejoin, or accept
