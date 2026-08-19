@@ -1,22 +1,30 @@
-# sshfighter.com — reverse proxy + automatic HTTPS for the web homepage.
-# The SSH game itself does NOT go through Caddy; it binds port 22 directly.
-#
-# Install: copy to /etc/caddy/Caddyfile (or import it), then `systemctl reload caddy`.
-# DNS: sshfighter.com A -> <box ip>. For the web to get a public Let's Encrypt
-# cert, the record can be proxied or DNS-only; if you also want `ssh sshfighter.com`
-# to hit the game, keep the A record DNS-only (grey) so SSH is not proxied.
-
+# sshfighter.com — reverse proxy + automatic HTTPS. Reached through the Fly relay
+# (raw TCP passthrough on 80/443); Caddy terminates TLS and answers ACME here.
 sshfighter.com {
 	encode zstd gzip
 
-	# Ringside REST API — match history, replays, Dotabuff-style meta, live + ops.
-	# Served from the game primary on loopback (SF_API_PORT, default 8080);
-	# `handle` (not handle_path) keeps the /api prefix the routes expect.
+	# Web app (Next.js on :3130) owns these /api paths: sprite/stage images and
+	# the sprite-gallery admin. These come BEFORE the catch-all so they win.
+	handle /api/sprite/* {
+		reverse_proxy localhost:3130
+	}
+	handle /api/stage/* {
+		reverse_proxy localhost:3130
+	}
+	handle /api/status {
+		reverse_proxy localhost:3130
+	}
+	handle /api/regenerate {
+		reverse_proxy localhost:3130
+	}
+
+	# Everything else under /api/* is the Ringside game API (primary on :8080):
+	# live, matches, players, leaderboard, characters, matchups, stats, ops, replay.
 	handle /api/* {
 		reverse_proxy localhost:8080
 	}
 
-	# Everything else = the web homepage app.
+	# The web homepage app.
 	handle {
 		reverse_proxy localhost:3130
 	}

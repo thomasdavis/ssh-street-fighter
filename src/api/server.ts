@@ -6,7 +6,11 @@ import { createServer, type IncomingMessage, type ServerResponse } from 'http';
 import * as store from '../telemetry/store.js';
 import * as db from '../db/db.js';
 import { ENGINE_VERSION } from '../telemetry/recorder.js';
+import { simulateReplay, type Track } from '../telemetry/replay-sim.js';
 import type { MatchCoordinator } from '../cluster/coordinator.js';
+
+// Re-simulating a replay costs a little CPU; cache the produced tracks (bounded).
+const trackCache = new Map<string, Track>();
 
 const clamp = (v: string | null, def: number, max: number): number => Math.min(max, Math.max(1, parseInt(v ?? '', 10) || def));
 
@@ -65,6 +69,17 @@ function route(coord: MatchCoordinator | null, req: IncomingMessage, res: Server
         match_id: id, header: JSON.parse(r.header_json), keyframes: JSON.parse(r.keyframes_json),
         frame_count: r.frame_count, frames_b64: r.frames.toString('base64'),
       });
+    }
+    if (seg[3] === 'track') {
+      // Re-simulated per-frame position track for the web replay viewer.
+      let t = trackCache.get(id);
+      if (!t) {
+        const sim = simulateReplay(id);
+        if (!sim) return send(res, 404, { error: 'replay not found' });
+        if (trackCache.size > 48) trackCache.delete(trackCache.keys().next().value as string);
+        trackCache.set(id, sim); t = sim;
+      }
+      return send(res, 200, t);
     }
     const match = store.getMatch(id);
     if (!match) return send(res, 404, { error: 'match not found' });

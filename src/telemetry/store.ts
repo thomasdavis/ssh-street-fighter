@@ -117,8 +117,11 @@ export function matchupGrid(): unknown[] {
     CASE WHEN games>0 THEN ROUND(100.0*a_wins/games,1) ELSE 0 END a_win_pct FROM matchup_agg WHERE games > 0`).all();
 }
 export function opsLatest(): unknown[] {
-  return getDb().prepare(`SELECT metric, SUM(value) value FROM ops_series
-    WHERE ts > ? GROUP BY metric`).all(Date.now() - 5000);
+  // Sum the LATEST sample per worker per metric (workers report every ~5s, so a
+  // plain window-sum would double-count).
+  return getDb().prepare(`SELECT metric, SUM(value) value FROM ops_series o
+    WHERE ts > ? AND ts = (SELECT MAX(ts) FROM ops_series WHERE worker=o.worker AND metric=o.metric)
+    GROUP BY metric`).all(Date.now() - 30000);
 }
 export function opsSeries(metric: string, sinceMs: number): unknown[] {
   return getDb().prepare('SELECT ts, worker, value FROM ops_series WHERE metric = ? AND ts > ? ORDER BY ts').all(metric, Date.now() - sinceMs);

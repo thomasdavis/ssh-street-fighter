@@ -13,3 +13,4 @@ assets/stages/raw/
 .sprite-backups/
 web/.next/
 web/node_modules/
+web/tsconfig.tsbuildinfo

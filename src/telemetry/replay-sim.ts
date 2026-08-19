@@ -1,0 +1,120 @@
+// Re-simulates a stored replay with the real engine and returns a per-frame
+// position track the web replay viewer plays back on canvas. Because the sim is
+// deterministic given inputs, this reproduces the match exactly (only cosmetic
+// spark RNG differs). Runs in the game process, which already has the engine.
+import { readFileSync, readdirSync, existsSync } from 'fs';
+import { resolve, dirname } from 'path';
+import { fileURLToPath } from 'url';
+import { makeFighter, makeMatch, stepMatch, attackExtension, WORLD_W, WORLD_H, GROUND_Y, TESTIMONY, CONTEXT, BRANCHWALK, MERGE_COMET } from '../game/engine.js';
+import { ROSTER } from '../game/roster.js';
+import { emptyInputs, type Inputs, type Fighter } from '../game/types.js';
+import { getReplay, getMatch } from './store.js';
+
+const SPRITE_BASE = resolve(dirname(fileURLToPath(import.meta.url)), '../../assets/sprites');
+
+// Per-character sprite placement metadata ([w, h, anchorX, anchorY] per frame),
+// read once per character. Poses scale relative to idle_1's height, matching the
+// game renderer, so the web viewer places feet exactly.
+export interface CharSpriteMeta { idleH: number; frames: Record<string, [number, number, number, number]>; }
+const spriteMetaCache = new Map<string, CharSpriteMeta>();
+function charSpriteMeta(char: string): CharSpriteMeta {
+  const cached = spriteMetaCache.get(char);
+  if (cached) return cached;
+  const dir = resolve(SPRITE_BASE, char);
+  const frames: Record<string, [number, number, number, number]> = {};
+  let idleH = 256;
+  if (existsSync(dir)) for (const file of readdirSync(dir)) {
+    if (!file.endsWith('.json')) continue;
+    try {
+      const s = JSON.parse(readFileSync(resolve(dir, file), 'utf8')) as { w: number; h: number; anchorX: number; anchorY: number };
+      const name = file.replace('.json', '');
+      frames[name] = [s.w, s.h, s.anchorX, s.anchorY];
+      if (name === 'idle_1') idleH = s.h;
+    } catch { /* skip */ }
+  }
+  const meta: CharSpriteMeta = { idleH, frames };
+  spriteMetaCache.set(char, meta);
+  return meta;
+}
+
+export interface TrackFrame {
+  a: [number, number, number, number]; // x, y, facing, hp
+  b: [number, number, number, number];
+  asp: string; aa: string;             // a sprite frame name, a attack
+  bsp: string; ba: string;
+  pr: [number, number, number, string][]; // projectiles: x, y, owner(0=a,1=b), style
+  ph: string; rd: number; msg: string;
+}
+
+// Mirrors the game renderer's engine-state → sprite-frame mapping so the web
+// replay shows exactly the frames the terminal game would.
+function spriteFrame(f: Fighter): string {
+  const ext = attackExtension(f);
+  switch (f.pose) {
+    case 'idle': return Math.floor(f.animT / 12) % 2 ? 'idle_2' : 'idle_1';
+    case 'walk': return Math.floor(f.walkPhase) % 2 ? 'walk_2' : 'walk_1';
+    case 'punch': return ext < 0.5 ? 'punch_1' : 'punch_2';
+    case 'kick': return ext < 0.5 ? 'kick_1' : 'kick_2';
+    case 'crouchpunch': return ext < 0.5 ? 'crouchpunch_1' : 'crouchpunch_2';
+    case 'crouchkick': return ext < 0.5 ? 'crouchkick_1' : 'crouchkick_2';
+    case 'hurricane': return `hurricane_${1 + (Math.floor(f.attackFrame / 4) % 4)}`;
+    case 'electric': return `electric_${1 + (Math.floor(f.attackFrame / 3) % 2)}`;
+    case 'rolling': return `rolling_${1 + (Math.floor(f.attackFrame / 3) % 4)}`;
+    case 'verticalroll': return `rolling_${1 + (Math.floor(f.attackFrame / 2) % 4)}`;
+    case 'testimony': return `testimony_${f.attackFrame < TESTIMONY.startup ? 1 : (f.attackFrame < 17 ? 2 : 3)}`;
+    case 'nullstep': return `nullstep_${f.attackFrame < 4 ? 1 : (f.attackFrame < 7 ? 2 : (f.attackFrame < 11 ? 3 : 4))}`;
+    case 'entropy': return `entropy_${f.attackFrame < 8 ? 1 : (f.attackFrame < 27 ? 2 : 3)}`;
+    case 'context': return `context_${f.attackFrame < CONTEXT.startup ? 1 : (f.attackFrame < CONTEXT.startup + CONTEXT.active ? 2 : 3)}`;
+    case 'branchwalk': return `branchwalk_${f.attackFrame < BRANCHWALK.startup ? 1 : (f.attackFrame < BRANCHWALK.startup + BRANCHWALK.active ? 2 : 3)}`;
+    case 'mergecomet': return `mergecomet_${f.attackFrame < MERGE_COMET.startup ? 1 : (f.attackFrame < MERGE_COMET.startup + MERGE_COMET.active ? 2 : 3)}`;
+    default: return f.pose;
+  }
+}
+export interface Track {
+  stage: string; aChar: string; bChar: string; aName: string; bName: string;
+  fps: number; worldW: number; worldH: number; groundY: number; fighterH: number;
+  sprites: { a: CharSpriteMeta; b: CharSpriteMeta };
+  frames: TrackFrame[];
+}
+
+function paletteFor(char: string) {
+  return ROSTER.find((c) => c.name === char)?.palette ?? ROSTER[0]!.palette;
+}
+function decode(byte: number): Pick<Inputs, 'moveX' | 'jump' | 'down' | 'punch' | 'kick'> {
+  return { moveX: (byte & 3) - 1, jump: !!((byte >> 2) & 1), down: !!((byte >> 3) & 1), punch: !!((byte >> 4) & 1), kick: !!((byte >> 5) & 1) };
+}
+
+export function simulateReplay(matchId: string): Track | null {
+  const rep = getReplay(matchId);
+  if (!rep) return null;
+  const header = JSON.parse(rep.header_json) as { motions?: string[]; sides?: { a: { char: string; name: string }; b: { char: string; name: string } }; stage?: string };
+  const match = getMatch(matchId) as { stage?: string; a_char?: string; b_char?: string; a_name?: string; b_name?: string } | null;
+  const motions = header.motions ?? [''];
+  const aChar = header.sides?.a.char ?? match?.a_char ?? ROSTER[0]!.name;
+  const bChar = header.sides?.b.char ?? match?.b_char ?? ROSTER[1]!.name;
+  const aName = header.sides?.a.name ?? match?.a_name ?? 'A';
+  const bName = header.sides?.b.name ?? match?.b_name ?? 'B';
+  const stage = header.stage ?? match?.stage ?? 'dojo';
+
+  const m = makeMatch(makeFighter('a', aChar, 'a', paletteFor(aChar)), makeFighter('b', bChar, 'b', paletteFor(bChar)));
+  m.stage = stage;
+
+  const buf = rep.frames;                 // Buffer, 4 bytes/frame
+  const n = Math.floor(buf.length / 4);
+  const frames: TrackFrame[] = [];
+  for (let i = 0; i < n; i++) {
+    const off = i * 4;
+    const inA: Inputs = { ...emptyInputs(), ...decode(buf[off]!), motion: motions[buf[off + 1]!] ?? '' };
+    const inB: Inputs = { ...emptyInputs(), ...decode(buf[off + 2]!), motion: motions[buf[off + 3]!] ?? '' };
+    stepMatch(m, inA, inB);
+    const r = (v: number) => Math.round(v * 10) / 10;
+    frames.push({
+      a: [r(m.a.x), r(m.a.y), m.a.facing, Math.round(m.a.hp)],
+      b: [r(m.b.x), r(m.b.y), m.b.facing, Math.round(m.b.hp)],
+      asp: spriteFrame(m.a), aa: m.a.attack, bsp: spriteFrame(m.b), ba: m.b.attack,
+      pr: m.projectiles.filter((p) => p.active).map((p) => [r(p.x), r(p.y), p.owner === 'a' ? 0 : 1, p.style] as [number, number, number, string]),
+      ph: m.phase, rd: m.round, msg: m.message,
+    });
+  }
+  return { stage, aChar, bChar, aName, bName, fps: 30, worldW: WORLD_W, worldH: WORLD_H, groundY: GROUND_Y, fighterH: 58, sprites: { a: charSpriteMeta(aChar), b: charSpriteMeta(bChar) }, frames };
+}
