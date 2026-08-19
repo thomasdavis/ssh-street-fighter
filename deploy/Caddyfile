@@ -8,5 +8,16 @@
 
 sshfighter.com, www.sshfighter.com {
 	encode zstd gzip
-	reverse_proxy localhost:3130
+
+	# Ringside REST API — match history, replays, Dotabuff-style meta, live + ops.
+	# Served from the game primary on loopback (SF_API_PORT, default 8080);
+	# `handle` (not handle_path) keeps the /api prefix the routes expect.
+	handle /api/* {
+		reverse_proxy localhost:8080
+	}
+
+	# Everything else = the web homepage app.
+	handle {
+		reverse_proxy localhost:3130
+	}
 }
