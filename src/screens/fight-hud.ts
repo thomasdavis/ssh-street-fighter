@@ -4,7 +4,7 @@
 // balloons over the fighters.
 import type { Frame } from '../render/frame.js';
 import type { Match } from '../game/types.js';
-import { makeSurface } from '../ui/surface.js';
+import { makeSurface, type Surface } from '../ui/surface.js';
 import { healthBar, banner, hints, centerText } from '../ui/widgets.js';
 import { THEME } from '../ui/theme.js';
 import { rgb } from '../render/pixel.js';
@@ -26,8 +26,9 @@ function controls(cols: number, practice: boolean, bindings: KeyBindings): [stri
   return [[punch, 'HIT'], [kick, 'KICK'], ['?', 'MOVES'], ['Q', quit]];
 }
 
-export function drawFightHud(f: Frame, m: Match, practice: boolean, bindings: KeyBindings = DEFAULT_KEY_BINDINGS, showControls = true): void {
-  const ui = makeSurface(f);
+/** Draw the HUD through an existing surface. Exported separately so tests can
+ * observe the semantic layout while delegating to the real pixel renderer. */
+export function drawFightHudSurface(ui: Surface, m: Match, practice: boolean, bindings: KeyBindings = DEFAULT_KEY_BINDINGS, showControls = true): void {
   const cols = ui.cols;
   const margin = 2;
   const gap = cols >= 40 ? 6 : 2;
@@ -65,4 +66,8 @@ export function drawFightHud(f: Frame, m: Match, practice: boolean, bindings: Ke
 
   // --- controls (suppressed when the host screen draws its own footer, e.g. calibrate) ---
   if (showControls) hints(ui, ui.rows - 1, controls(cols, practice, bindings));
+}
+
+export function drawFightHud(f: Frame, m: Match, practice: boolean, bindings: KeyBindings = DEFAULT_KEY_BINDINGS, showControls = true): void {
+  drawFightHudSurface(makeSurface(f), m, practice, bindings, showControls);
 }
