@@ -1,7 +1,7 @@
 // Behavioural checks for the new-wave mechanics: XENON phase i-frames + cross-up,
 // AJAX super-armor and returning boomerang, MNEME construct turret + motes, the
 // universal flying kick. Drives the real engine with crafted inputs.
-import { makeFighter, makeMatch, stepMatch, BOOMERANG, CONSTRUCT } from './game/engine.js';
+import { makeFighter, makeMatch, stepMatch, BOOMERANG, CONSTRUCT, REFLECT } from './game/engine.js';
 import { emptyInputs, type Inputs, type Match } from './game/types.js';
 
 let pass = true;
@@ -75,6 +75,38 @@ const mv = (motion: string, btn: 'punch' | 'kick'): Inputs => ({ ...emptyInputs(
   check('sentinel fires motes on its own', sawMote);
 }
 
+// --- XENON REFLECT (turn a projectile back) ----------------------------------
+{
+  const m = setup('XENON', 'BYU');
+  m.a.x = 100; m.a.facing = 1;
+  m.a.attack = 'reflect'; m.a.attackFrame = REFLECT.startup + 2; m.a.phaseT = 10;   // mid-parry
+  m.projectiles.push({ owner: 'b', x: 108, y: 30, vx: -4, active: true, hit: false, frame: 0, facing: -1, style: 'blue' });
+  stepMatch(m, mv('DU', 'punch'), NEUT());
+  const p = m.projectiles.find((q) => q.style === 'blue');
+  check('reflect turns a projectile back at its sender', !!p && p.owner === 'a' && p.vx > 0, p ? `owner=${p.owner} vx=${p.vx.toFixed(1)}` : 'gone');
+}
+
+// --- XENON BLINK (teleport to point-blank) -----------------------------------
+{
+  const m = setup('XENON', 'MEN');
+  m.a.x = 40; m.a.facing = 1; m.b.x = 200; m.b.facing = -1;   // far apart
+  stepMatch(m, mv('DL', 'punch'), NEUT());                    // blink = D,B + punch
+  for (let i = 0; i < 6; i++) stepMatch(m, NEUT(), NEUT());
+  check('blink teleports XENON to point-blank', Math.abs(m.a.x - m.b.x) < 30, `gap ${Math.abs(m.a.x - m.b.x).toFixed(0)}`);
+}
+
+// --- AJAX LASSO (yank the rival in) ------------------------------------------
+{
+  const m = setup('AJAX', 'MEN');
+  m.a.x = 100; m.a.facing = 1; m.b.x = 150; m.b.facing = -1;   // b to Ajax's right, within short rope range
+  const bx0 = m.b.x;
+  stepMatch(m, mv('DL', 'kick'), NEUT());                       // lasso = D,B + kick, facing right
+  let sawRope = false;
+  for (let i = 0; i < 34; i++) { stepMatch(m, NEUT(), NEUT()); if (m.projectiles.some((p) => p.style === 'rope')) sawRope = true; }
+  check('lasso rope is thrown', sawRope);
+  check('lasso yanks the rival back toward Ajax', m.b.x < bx0 - 3, `bx ${bx0.toFixed(0)} -> ${m.b.x.toFixed(0)}`);
+}
+
 // --- Universal FLYING KICK ---------------------------------------------------
 {
   const m = setup('BYU', 'MEN');
@@ -82,6 +114,15 @@ const mv = (motion: string, btn: 'punch' | 'kick'): Inputs => ({ ...emptyInputs(
   check('fighter leaves the ground', m.a.y > 0);
   stepMatch(m, { ...emptyInputs(), kick: true }, NEUT());
   check('an airborne kick becomes a flying kick', m.a.attack === 'jumpkick');
+}
+
+// --- VICTORY pose at round end ----------------------------------------------
+{
+  const m = setup('MNEME', 'AJAX');
+  m.b.hp = 0;                               // AJAX is KO'd → MNEME wins the round
+  stepMatch(m, NEUT(), NEUT());             // round-end fires, winner.victoryT is set
+  stepMatch(m, NEUT(), NEUT());             // round-over frame → winner's pose derives to victory
+  check('winner enters victory pose, loser is KO', m.a.pose === 'victory' && m.a.victoryT > 0 && m.b.pose === 'ko', `a=${m.a.pose} b=${m.b.pose}`);
 }
 
 console.log(pass ? '\nNEW-WAVE TEST: PASS' : '\nNEW-WAVE TEST: FAIL');

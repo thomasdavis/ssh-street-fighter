@@ -176,15 +176,22 @@ const POSES: PoseDef[] = [
   { name: 'inktempest_2', characters: ['FABLE'], desc: 'INK TEMPEST FRAME 2 of 3: planted stance mid-flurry with both arms blurring in fast alternating strikes ahead, ember flecks sweeping forward' },
   // Universal FLYING KICK — every fighter gets one.
   { name: 'jumpkick', desc: 'a committed FLYING KICK, airborne: leaping forward off the ground with the body leaning into the strike, ONE leg fully extended forward and slightly downward as the striking leg, the other knee tucked, both arms out for balance, clearly airborne mid-jump — a classic jump-in kick (this pose overrides the guard)' },
+  // Universal VICTORY celebration (shown at the end of a won round) — 3 frames.
+  { name: 'victory_1', desc: 'VICTORY pose 1 of 3: standing tall and triumphant after winning the round, ONE fist thrust high straight overhead in celebration, chest out, chin lifted, weight rooted and proud — a confident winner (this pose overrides the fighting guard)' },
+  { name: 'victory_2', desc: 'VICTORY pose 2 of 3: a triumphant mid-celebration, BOTH fists raised and flexed at shoulder height with elbows bent, head tilted slightly back mid-cheer, feet planted, radiating winning energy (this pose overrides the fighting guard)' },
+  { name: 'victory_3', desc: 'VICTORY pose 3 of 3: a relaxed, self-assured victory stance, one hand resting on the hip and the other arm raised with an open palm, calm and cocky after the win, weight on one leg (this pose overrides the fighting guard)' },
   // MNEME specials
   { name: 'construct', characters: ['MNEME'], desc: 'summoning a construct special: standing side-on, one hand raised and pressed forward and slightly down as if setting a glowing geometric monument into the air beside her, fingers splayed, bright megawatt-gold and violet energy gathering at the open palm; body leaning into the summon (this pose overrides the guard)' },
   { name: 'nova', characters: ['MNEME', 'XENON'], desc: 'unleashing a radial energy NOVA special: braced low in a grounded stance, chest thrown open and BOTH arms flung outward and down, head tilted back, as a brilliant ring of energy erupts outward in every direction around the whole body (this pose overrides the guard)' },
   { name: 'volley', characters: ['MNEME', 'AJAX'], desc: 'loosing a spread VOLLEY special: a side-on lunge with the lead hand sweeping forward and open, flinging a fan of small energy projectiles forward at once, weight driving onto the front foot (this pose overrides the guard)' },
   // AJAX specials
   { name: 'boomerang', characters: ['AJAX'], desc: 'hurling a BOOMERANG special: a strong side-on throwing motion, the throwing arm whipping forward and across the body just after releasing a spinning blade, torso rotated hard into the throw, rear foot pivoting (this pose overrides the guard)' },
+  { name: 'lasso', characters: ['AJAX'], desc: 'throwing a LASSO special: one arm whipping a coiled rope forward and out to the right in a lasso throw, a loop of rope trailing from the hand, the other arm braced back, torso leaning into the throw, feet planted wide (this pose overrides the guard)' },
   { name: 'armor', characters: ['AJAX', 'XENON'], desc: 'an ARMORED bracing strike special: planted wide and low, shoulders hunched forward and both forearms crossed as an immovable guard while stepping into a single heavy committed shoulder-and-palm strike, unshakeable and grounded (this pose overrides the guard)' },
-  // XENON special
+  // XENON specials
   { name: 'phase', characters: ['XENON'], desc: 'a PHASE-STEP dash special: mid-dash and leaning hard forward through a long step, the body caught mid-motion with one arm trailing behind as a faint afterimage, feet barely skimming the ground, an intangible phase-shift blur (this pose overrides the guard)' },
+  { name: 'reflect', characters: ['XENON'], desc: 'a REFLECT phase-parry special: standing side-on and calm, one open palm thrust forward at chest height projecting a shimmering translucent cyan barrier/mirror plane in front of the body, the other hand drawn back, a faint reflected glow on the palm (this pose overrides the guard)' },
+  { name: 'blink', characters: ['XENON'], desc: 'a BLINK teleport-strike special: appearing point-blank mid-strike, the body sharp and committed with the lead fist fully extended forward in a fast straight strike, a trailing cyan teleport afterimage streak behind the body as if just materialised (this pose overrides the guard)' },
   { name: 'inktempest_3', characters: ['FABLE'], desc: 'INK TEMPEST FRAME 3 of 3: final closing stroke with one arm fully extended and the other returning to guard, flecks dispersing' },
 ];
 

@@ -1943,10 +1943,10 @@
         }
       },
       {
-        "attack": "volley",
-        "name": "SWARM",
-        "shortName": "SWARM",
-        "description": "Loose three homing shots at once — low, middle and high — flooding the lane so the opponent cannot simply walk in.",
+        "attack": "lasso",
+        "name": "LASSO",
+        "shortName": "LASSO",
+        "description": "Whip out a rope hook: if it catches your opponent it YANKS them back toward you — perfect for dragging a runaway zoner into throw and punch range.",
         "motion": [
           "D",
           "B"
@@ -1954,7 +1954,7 @@
         "button": "kick",
         "input": "↓ ← + E",
         "frames": [
-          "volley"
+          "lasso"
         ],
         "stats": {
           "startup": 8,
@@ -2009,11 +2009,11 @@
       "Xenon studies many-actor worlds where survival is a matter of synchronization and phase — of arriving a quarter-beat out of step with disaster. A sage of resilient infrastructure, he can slip his whole body out of phase, passing cleanly through anything aimed at where he used to be.",
       "He fights to show that the most sovereign defense is not a wall but a rhythm: brace the stack against one blow, resonate, and answer from a place the attack cannot reach."
     ],
-    "playstyle": "Refuse to be where the hit lands. Phase Dash passes intangibly through attacks and the rival for a cross-up, Pulse blooms as an invincible reversal, and Hard Reset braces through a blow before a heavy counter.",
+    "playstyle": "Refuse to be where the hit lands. Phase Dash passes intangibly through attacks and the rival for a cross-up, Reflect turns projectiles straight back at their sender, and Blink Strike teleports point-blank to open a defender up.",
     "strengths": [
       "True invincibility windows",
-      "Cross-up mobility",
-      "Armored punishes"
+      "Projectile reflection",
+      "Instant gap-close"
     ],
     "moves": [
       {
@@ -2043,10 +2043,10 @@
         }
       },
       {
-        "attack": "nova",
-        "name": "PULSE",
-        "shortName": "PULSE",
-        "description": "A pulse of energy blooms all around you; you are INVINCIBLE during it, so it blows an attacker off you — a reversal you can wake up with.",
+        "attack": "reflect",
+        "name": "REFLECT",
+        "shortName": "REFLECT",
+        "description": "Snap into a phase-parry: for a moment attacks pass right through you, and any projectile that hits you is TURNED AROUND and fired straight back at whoever threw it — faster.",
         "motion": [
           "D",
           "U"
@@ -2055,7 +2055,7 @@
         "earlyAirStart": true,
         "input": "↓ ↑ + W",
         "frames": [
-          "nova"
+          "reflect"
         ],
         "stats": {
           "startup": 8,
@@ -2070,10 +2070,10 @@
         }
       },
       {
-        "attack": "armor",
-        "name": "HARD RESET",
-        "shortName": "RESET",
-        "description": "Brace through ONE incoming hit without flinching, then commit a heavy counter-strike. Your unshakeable answer to pressure.",
+        "attack": "blink",
+        "name": "BLINK STRIKE",
+        "shortName": "BLINK",
+        "description": "Teleport instantly to point-blank right in front of your opponent and land a fast strike. No invincibility, so it is a committal way to close distance and open them up.",
         "motion": [
           "D",
           "B"
@@ -2081,7 +2081,7 @@
         "button": "punch",
         "input": "↓ ← + W",
         "frames": [
-          "armor"
+          "blink"
         ],
         "stats": {
           "startup": 8,

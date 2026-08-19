@@ -11,7 +11,7 @@ const COMMON = [
   'idle_1', 'idle_2', 'walk_1', 'walk_2', 'crouch', 'jump', 'fall',
   'block', 'crouchblock', 'hit', 'ko', 'punch_1', 'punch_2', 'kick_1',
   'kick_2', 'crouchpunch_1', 'crouchpunch_2', 'crouchkick_1', 'crouchkick_2',
-  'jumpkick',
+  'jumpkick', 'victory_1', 'victory_2', 'victory_3',
 ] as const;
 
 const errors: string[] = [];

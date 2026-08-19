@@ -1,19 +1,19 @@
 import type { RGB } from '../render/pixel.js';
 
 export type Pose = 'idle' | 'walk' | 'crouch' | 'jump' | 'fall' | 'punch' | 'kick'
-  | 'crouchpunch' | 'crouchkick' | 'hit' | 'ko' | 'block' | 'crouchblock' | 'throw' | 'thrown'
+  | 'crouchpunch' | 'crouchkick' | 'hit' | 'ko' | 'victory' | 'block' | 'crouchblock' | 'throw' | 'thrown'
   | 'hadouken' | 'shoryuken' | 'hurricane'
   | 'electric' | 'rolling' | 'verticalroll'
   | 'testimony' | 'nullstep' | 'entropy'
   | 'context' | 'branchwalk' | 'mergecomet'
   | 'storyarc' | 'plottwist' | 'inktempest'
-  | 'construct' | 'nova' | 'volley' | 'boomerang' | 'armor' | 'phase' | 'jumpkick';
+  | 'construct' | 'nova' | 'volley' | 'boomerang' | 'armor' | 'phase' | 'lasso' | 'reflect' | 'blink' | 'jumpkick';
 export type AttackKind = 'none' | 'punch' | 'kick' | 'throw' | 'hadouken' | 'shoryuken' | 'hurricane'
   | 'electric' | 'rolling' | 'verticalroll'
   | 'testimony' | 'nullstep' | 'entropy'
   | 'context' | 'branchwalk' | 'mergecomet'
   | 'storyarc' | 'plottwist' | 'inktempest'
-  | 'construct' | 'nova' | 'volley' | 'boomerang' | 'armor' | 'phase' | 'jumpkick';
+  | 'construct' | 'nova' | 'volley' | 'boomerang' | 'armor' | 'phase' | 'lasso' | 'reflect' | 'blink' | 'jumpkick';
 
 export interface FighterPalette {
   skin: RGB; gi: RGB; giDark: RGB; hair: RGB; belt: RGB;
@@ -42,6 +42,7 @@ export interface Fighter {
   thrownT: number;       // frames remaining being thrown (tumbling to the other side)
   phaseT: number;        // intangibility frames (phase dash / nova reversal) — attacks pass through
   armorT: number;        // super-armor frames (armored strike) — hits land but never flinch
+  victoryT: number;      // frames remaining celebrating a round/match win (victory pose)
   crouching: boolean;    // derived: holding down
   blocking: boolean;     // derived: holding back (away from opponent)
 
@@ -73,7 +74,7 @@ export interface Projectile {
   hit: boolean;           // already connected
   frame: number;          // animation timer
   facing: 1 | -1;
-  style: 'blue' | 'fire' | 'sonic' | 'boomerang' | 'construct' | 'mote';
+  style: 'blue' | 'fire' | 'sonic' | 'boomerang' | 'construct' | 'mote' | 'rope';
   life?: number;          // frames remaining (construct turret; motes)
   fireT?: number;         // construct: frames until it spits the next mote
   returning?: boolean;    // boomerang: currently arcing back to its owner

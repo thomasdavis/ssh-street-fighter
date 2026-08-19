@@ -100,7 +100,7 @@ export const ROSTER: Character[] = [
   {
     name: 'XENON', tagline: 'the phase-sage', palette: NOBLE_PALETTE, origin: 'A sovereign, resilient stack', discipline: 'Phase geometry and resonance', archetype: 'Intangible counter fighter', difficulty: 'Advanced', quote: 'It only counts once it survives the smoke test.',
     story: ['Xenon studies many-actor worlds where survival is a matter of synchronization and phase — of arriving a quarter-beat out of step with disaster. A sage of resilient infrastructure, he can slip his whole body out of phase, passing cleanly through anything aimed at where he used to be.', 'He fights to show that the most sovereign defense is not a wall but a rhythm: brace the stack against one blow, resonate, and answer from a place the attack cannot reach.'],
-    playstyle: 'Refuse to be where the hit lands. Phase Dash passes intangibly through attacks and the rival for a cross-up, Pulse blooms as an invincible reversal, and Hard Reset braces through a blow before a heavy counter.', strengths: ['True invincibility windows', 'Cross-up mobility', 'Armored punishes'],
+    playstyle: 'Refuse to be where the hit lands. Phase Dash passes intangibly through attacks and the rival for a cross-up, Reflect turns projectiles straight back at their sender, and Blink Strike teleports point-blank to open a defender up.', strengths: ['True invincibility windows', 'Projectile reflection', 'Instant gap-close'],
   },
 ];
 

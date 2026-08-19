@@ -91,6 +91,7 @@ function spriteFrame(f: Fighter): string {
     case 'inktempest': return `inktempest_${f.attackFrame < INK_TEMPEST.startup ? 1 : (f.attackFrame < INK_TEMPEST.startup + INK_TEMPEST.active ? 2 : 3)}`;
     case 'throw': return `throw_${f.attackFrame < THROW.startup ? 1 : (f.attackFrame < THROW.startup + THROW.active ? 2 : 3)}`;
     case 'thrown': return f.vy > 0 ? 'thrown_1' : 'thrown_2';
+    case 'victory': return `victory_${1 + Math.floor(f.animT / 9) % 3}`;
     default: return f.pose;
   }
 }

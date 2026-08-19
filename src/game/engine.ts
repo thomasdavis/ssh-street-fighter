@@ -50,6 +50,9 @@ function attackTotal(k: AttackKind): number {
   if (k === 'boomerang') return BOOMERANG.total;
   if (k === 'armor') return ARMOR.total;
   if (k === 'phase') return PHASE.total;
+  if (k === 'lasso') return LASSO.total;
+  if (k === 'reflect') return REFLECT.total;
+  if (k === 'blink') return BLINK.total;
   if (k === 'jumpkick') return JUMPKICK.total;
   if (k === 'punch' || k === 'kick') { const a = ATTACKS[k]; return a.startup + a.active + a.recovery; }
   return 0;
@@ -74,6 +77,7 @@ export function attackActive(f: Fighter): boolean {
   if (f.attack === 'nova') return f.attackFrame >= NOVA.startup && f.attackFrame < NOVA.startup + NOVA.active;
   if (f.attack === 'armor') return f.attackFrame >= ARMOR.startup && f.attackFrame < ARMOR.startup + ARMOR.active;
   if (f.attack === 'phase') return f.attackFrame >= PHASE.startup && f.attackFrame < PHASE.startup + PHASE.active;
+  if (f.attack === 'blink') return f.attackFrame >= BLINK.startup && f.attackFrame < BLINK.startup + BLINK.active;
   if (f.attack === 'jumpkick') return f.attackFrame >= JUMPKICK.startup && f.attackFrame < JUMPKICK.startup + JUMPKICK.active;
   return false; // construct / volley / boomerang have no melee hitbox — they spawn projectiles
 }
@@ -113,6 +117,14 @@ export const BOOMERANG = { startup: 7, spawn: 9, recovery: 16, total: 33, speed:
 export const ARMOR = { startup: 11, active: 6, recovery: 15, total: 32, dmg: 15, range: 40, kb: 5.6, chip: 4, vert: 42, armor: 17 };
 // XENON — PHASE STEP: an intangible dash that passes through attacks AND the rival.
 export const PHASE = { startup: 5, active: 8, recovery: 14, total: 27, dmg: 12, range: 34, kb: 4.0, chip: 3, vert: 46, vx: 6.4, iframe: 15, shift: 8 };
+// AJAX — LASSO: a rope hook thrown flat that YANKS a caught rival back toward Ajax.
+export const LASSO = { startup: 9, spawn: 12, recovery: 20, total: 40, speed: 5.2, life: 22, dmg: 6, chip: 2, pull: 5.6, r: 8 };
+// XENON — REFLECT: a phase-parry. Through its active window Xenon is intangible to
+// melee AND turns any incoming projectile back at its sender, faster.
+export const REFLECT = { startup: 4, active: 15, recovery: 10, total: 29 };
+// XENON — BLINK: an instant teleport to point-blank, then a fast strike. No i-frames
+// (unlike PHASE), so it is a committal gap-closer that can be whiff-punished.
+export const BLINK = { startup: 3, active: 5, recovery: 16, total: 24, dmg: 13, range: 34, kb: 4.2, chip: 3, vert: 42, shift: 3 };
 const FIRE_SPEED = 3.4, FIRE_R = 11, FIGHTER_WORLD_H = 56, FIRE_DMG = 12, FIRE_CHIP = 3;
 const EARLY_UP_GRACE_Y = 26;
 
@@ -185,6 +197,7 @@ function meleeSpec(f: Fighter): MeleeSpec | null {
   if (k === 'nova') return { dmg: NOVA.dmg, range: NOVA.range, kb: NOVA.kb, chip: NOVA.chip, vert: NOVA.vert, omni: true }; // radial burst hits both sides
   if (k === 'armor') return { dmg: ARMOR.dmg, range: ARMOR.range, kb: ARMOR.kb, chip: ARMOR.chip, vert: ARMOR.vert };
   if (k === 'phase') return { dmg: PHASE.dmg, range: PHASE.range, kb: PHASE.kb, chip: PHASE.chip, vert: PHASE.vert, omni: true }; // dash strikes through either side
+  if (k === 'blink') return { dmg: BLINK.dmg, range: BLINK.range, kb: BLINK.kb, chip: BLINK.chip, vert: BLINK.vert };
   if (k === 'jumpkick') return { dmg: JUMPKICK.dmg, range: JUMPKICK.range, kb: JUMPKICK.kb, chip: JUMPKICK.chip, vert: JUMPKICK.vert };
   return null;
 }
@@ -214,9 +227,12 @@ export function attackExtension(f: Fighter): number {
   if (f.attack === 'construct') return Math.min(1, f.attackFrame / CONSTRUCT.spawn);
   if (f.attack === 'volley') return Math.min(1, f.attackFrame / VOLLEY.spawn);
   if (f.attack === 'boomerang') return Math.min(1, f.attackFrame / BOOMERANG.spawn);
+  if (f.attack === 'lasso') return Math.min(1, f.attackFrame / LASSO.spawn);
   if (f.attack === 'nova') return (Math.sin(f.attackFrame * 0.9) + 1) / 2;
   if (f.attack === 'armor') return Math.min(1, f.attackFrame / ARMOR.startup);
   if (f.attack === 'phase') return Math.min(1, f.attackFrame / PHASE.startup);
+  if (f.attack === 'reflect') return (Math.sin(f.attackFrame * 0.8) + 1) / 2;
+  if (f.attack === 'blink') return Math.min(1, f.attackFrame / (BLINK.shift + 1));
   if (f.attack === 'jumpkick') return Math.min(1, f.attackFrame / JUMPKICK.startup);
   if (f.attack !== 'punch' && f.attack !== 'kick') return 1;
   const a = ATTACKS[f.attack];
@@ -242,7 +258,7 @@ export function makeFighter(id: string, name: string, side: 'a' | 'b', palette?:
     facing: isA ? 1 : -1,
     hp: 100, wins: 0,
     attack: 'none', attackFrame: 0, attackHit: false, attackCrouch: false,
-    stun: 0, thrownT: 0, phaseT: 0, armorT: 0, crouching: false, blocking: false,
+    stun: 0, thrownT: 0, phaseT: 0, armorT: 0, victoryT: 0, crouching: false, blocking: false,
     animT: 0, walkPhase: 0, pose: 'idle',
   };
 }
@@ -254,7 +270,7 @@ export function makeMatch(a: Fighter, b: Fighter): Match {
 function resetRound(m: Match): void {
   for (const [f, side] of [[m.a, 'a'], [m.b, 'b']] as const) {
     f.hp = 100; f.y = 0; f.vx = 0; f.vy = 0; f.attack = 'none'; f.attackFrame = 0; f.attackCrouch = false;
-    f.stun = 0; f.thrownT = 0; f.phaseT = 0; f.armorT = 0; f.crouching = false; f.blocking = false; f.pose = 'idle';
+    f.stun = 0; f.thrownT = 0; f.phaseT = 0; f.armorT = 0; f.victoryT = 0; f.crouching = false; f.blocking = false; f.pose = 'idle';
     f.x = side === 'a' ? WORLD_W * 0.34 : WORLD_W * 0.66;
     f.facing = side === 'a' ? 1 : -1;
   }
@@ -271,6 +287,7 @@ const approach = (v: number, target: number, rate: number): number => {
 
 function derivePose(f: Fighter): void {
   if (f.hp <= 0) { f.pose = 'ko'; return; }
+  if (f.victoryT > 0) { f.pose = 'victory'; return; }   // round/match winner celebrates
   if (f.thrownT > 0) { f.pose = 'thrown'; return; }
   if (f.stun > 0) { f.pose = 'hit'; return; }
   if (f.attack === 'hadouken') { f.pose = 'hadouken'; return; }
@@ -293,8 +310,11 @@ function derivePose(f: Fighter): void {
   if (f.attack === 'nova') { f.pose = 'nova'; return; }
   if (f.attack === 'volley') { f.pose = 'volley'; return; }
   if (f.attack === 'boomerang') { f.pose = 'boomerang'; return; }
+  if (f.attack === 'lasso') { f.pose = 'lasso'; return; }
   if (f.attack === 'armor') { f.pose = 'armor'; return; }
   if (f.attack === 'phase') { f.pose = 'phase'; return; }
+  if (f.attack === 'reflect') { f.pose = 'reflect'; return; }
+  if (f.attack === 'blink') { f.pose = 'blink'; return; }
   if (f.attack === 'jumpkick') { f.pose = 'jumpkick'; return; }
   if (f.attack === 'punch') { f.pose = f.attackCrouch ? 'crouchpunch' : 'punch'; return; }
   if (f.attack === 'kick') { f.pose = f.attackCrouch ? 'crouchkick' : 'kick'; return; }
@@ -315,6 +335,7 @@ function stepFighter(f: Fighter, other: Fighter, inp: Inputs, live: boolean): vo
   if (f.thrownT > 0) f.thrownT--;
   if (f.phaseT > 0) f.phaseT--;
   if (f.armorT > 0) f.armorT--;
+  if (f.victoryT > 0) f.victoryT--;
   if (f.attack !== 'none') {
     f.attackFrame++;
     if (f.attackFrame >= attackTotal(f.attack)) { f.attack = 'none'; f.attackFrame = 0; }
@@ -406,6 +427,13 @@ function stepFighter(f: Fighter, other: Fighter, inp: Inputs, live: boolean): vo
       f.vx = 0; f.attackHit = false;                 // may strike again from behind
     }
   }
+  // Blink: teleport to point-blank IN FRONT of the rival, then a fast strike.
+  if (f.attack === 'blink' && f.attackFrame === BLINK.shift) {
+    const dir = (other.x >= f.x ? 1 : -1) as 1 | -1;
+    f.facing = dir;
+    f.x = Math.max(STAGE_LEFT, Math.min(STAGE_RIGHT, other.x - dir * 20));
+    f.vx = 0; f.attackHit = false;
+  }
 
   // horizontal movement — allowed while blocking (walk-back) but not crouching
   const canGroundMove = grounded && !busy2 && !f.crouching;
@@ -456,14 +484,18 @@ function startAttack(f: Fighter, kind: AttackKind, contextDescent = false): void
   }
   if (kind === 'storyarc') { f.vy = STORY_ARC.jumpV; f.y = Math.max(f.y, 0.001); f.vx = f.facing * STORY_ARC.vx; f.crouching = false; }
   if (kind === 'plottwist' || kind === 'inktempest') { f.y = 0; f.vy = 0; f.vx = 0; f.crouching = false; }
-  // NEW-WAVE grounded casts (construct / volley loose projectiles later; keep planted)
-  if (kind === 'construct' || kind === 'volley' || kind === 'boomerang') { f.y = 0; f.vy = 0; f.vx = 0; f.crouching = false; }
+  // NEW-WAVE grounded casts (construct / volley / boomerang / lasso loose projectiles later; keep planted)
+  if (kind === 'construct' || kind === 'volley' || kind === 'boomerang' || kind === 'lasso') { f.y = 0; f.vy = 0; f.vx = 0; f.crouching = false; }
   // MEGAWATT NOVA — plant and become briefly intangible (reversal)
   if (kind === 'nova') { f.y = 0; f.vy = 0; f.vx = 0; f.crouching = false; f.phaseT = NOVA.iframe; }
   // ARMORED STRIKE — brace with super-armor through the wind-up
   if (kind === 'armor') { f.y = 0; f.vy = 0; f.vx = 0; f.crouching = false; f.armorT = ARMOR.armor; }
   // PHASE STEP — intangible dash that passes through attacks and the rival
   if (kind === 'phase') { f.y = 0; f.vy = 0; f.vx = f.facing * PHASE.vx; f.crouching = false; f.phaseT = PHASE.iframe; }
+  // REFLECT — stand and phase-parry: intangible to melee through the active window
+  if (kind === 'reflect') { f.y = 0; f.vy = 0; f.vx = 0; f.crouching = false; f.phaseT = REFLECT.startup + REFLECT.active; }
+  // BLINK — a committal teleport-strike (grounded; the warp fires at BLINK.shift)
+  if (kind === 'blink') { f.y = 0; f.vy = 0; f.vx = 0; f.crouching = false; }
   // jumpkick keeps the jump arc — no velocity change
 }
 
@@ -559,6 +591,10 @@ function spawnFireball(m: Match, f: Fighter, owner: 'a' | 'b'): void {
 function spawnBoomerang(m: Match, f: Fighter, owner: 'a' | 'b'): void {
   m.projectiles.push({ owner, x: f.x + f.facing * 16, y: 34, vx: f.facing * BOOMERANG.speed, active: true, hit: false, frame: 0, facing: f.facing, style: 'boomerang', returning: false });
 }
+// AJAX — a LASSO: a short-range rope hook that yanks a caught rival back in.
+function spawnLasso(m: Match, f: Fighter, owner: 'a' | 'b'): void {
+  m.projectiles.push({ owner, x: f.x + f.facing * 16, y: 32, vx: f.facing * LASSO.speed, active: true, hit: false, frame: 0, facing: f.facing, style: 'rope', life: LASSO.life });
+}
 // MNEME — a SENTINEL construct: stationary, capped, spits homing motes on a timer.
 function spawnConstruct(m: Match, f: Fighter, owner: 'a' | 'b'): void {
   const mine = m.projectiles.filter((p) => p.active && p.owner === owner && p.style === 'construct').length;
@@ -605,27 +641,41 @@ function stepProjectiles(m: Match): void {
       p.x += p.vx;
     } else {
       p.x += p.vx;
-      if (p.style === 'mote' && p.life !== undefined) { p.life--; if (p.life <= 0) { p.active = false; continue; } }
+      if ((p.style === 'mote' || p.style === 'rope') && p.life !== undefined) { p.life--; if (p.life <= 0) { p.active = false; continue; } }
       if (p.x < STAGE_LEFT - 24 || p.x > STAGE_RIGHT + 24) { p.active = false; continue; }
     }
 
-    if (p.hit || def.hp <= 0 || def.phaseT > 0) continue;
-    const r = p.style === 'mote' ? MOTE.r : p.style === 'boomerang' ? BOOMERANG.r : FIRE_R;
-    const dmg = p.style === 'mote' ? MOTE.dmg : p.style === 'boomerang' ? BOOMERANG.dmg : FIRE_DMG;
-    const chip = p.style === 'mote' ? MOTE.chip : p.style === 'boomerang' ? BOOMERANG.chip : FIRE_CHIP;
+    if (p.hit || def.hp <= 0) continue;
+    const r = p.style === 'mote' ? MOTE.r : p.style === 'boomerang' ? BOOMERANG.r : p.style === 'rope' ? LASSO.r : FIRE_R;
+    const dmg = p.style === 'mote' ? MOTE.dmg : p.style === 'boomerang' ? BOOMERANG.dmg : p.style === 'rope' ? LASSO.dmg : FIRE_DMG;
+    const chip = p.style === 'mote' ? MOTE.chip : p.style === 'boomerang' ? BOOMERANG.chip : p.style === 'rope' ? LASSO.chip : FIRE_CHIP;
     const withinX = Math.abs(def.x - p.x) < r + BODY_HALF;
     const withinY = p.y >= def.y - 6 && p.y <= def.y + FIGHTER_WORLD_H; // can be jumped
     if (withinX && withinY) {
+      // XENON REFLECT — turn a projectile back at its sender (before any pass-through)
+      const reflecting = def.attack === 'reflect' && def.attackFrame >= REFLECT.startup && def.attackFrame < REFLECT.startup + REFLECT.active;
+      if (reflecting && p.style !== 'rope') {
+        p.owner = p.owner === 'a' ? 'b' : 'a';
+        p.facing = (p.facing === 1 ? -1 : 1) as 1 | -1;
+        p.vx = -p.vx * 1.5; p.hit = false; p.returning = false;
+        continue;
+      }
+      if (def.phaseT > 0) continue;                    // intangible → the shot passes through
       p.hit = true;
       if (p.style !== 'boomerang') p.active = false;                                    // boomerang flies on
       const guarding = def.blocking && def.stun <= 0 && def.facing === -p.facing && def.y <= JUMP_CLEAR;
       if (guarding) { def.hp = Math.max(0, def.hp - chip); def.stun = Math.max(def.stun, BLOCK_STUN); def.vx += p.facing * 1.2; }
       else if (def.armorT > 0) { def.hp = Math.max(0, def.hp - Math.round(dmg * 0.5)); }  // armor eats projectiles too
+      else if (p.style === 'rope') {                                                     // LASSO — yank the rival toward Ajax
+        const owner = p.owner === 'a' ? m.a : m.b;
+        def.hp = Math.max(0, def.hp - dmg); def.stun = HIT_STUN; def.attack = 'none'; def.attackFrame = 0;
+        def.vx = (owner.x >= def.x ? 1 : -1) * LASSO.pull;
+      }
       else { def.hp = Math.max(0, def.hp - dmg); def.stun = HIT_STUN; def.attack = 'none'; def.attackFrame = 0; def.vx = p.facing * 3.0; }
     }
   }
   // opposing straight projectiles meeting cancel out (constructs / boomerangs excluded)
-  const act = m.projectiles.filter((p) => p.active && p.style !== 'construct' && p.style !== 'boomerang');
+  const act = m.projectiles.filter((p) => p.active && p.style !== 'construct' && p.style !== 'boomerang' && p.style !== 'rope');
   for (let i = 0; i < act.length; i++) for (let j = i + 1; j < act.length; j++) {
     if (act[i]!.owner !== act[j]!.owner && Math.abs(act[i]!.x - act[j]!.x) < FIRE_R * 2) { act[i]!.active = false; act[j]!.active = false; }
   }
@@ -675,6 +725,7 @@ export function stepMatch(m: Match, inA: Inputs, inB: Inputs): void {
     if (f.attack === 'boomerang' && f.attackFrame === BOOMERANG.spawn) spawnBoomerang(m, f, side);
     if (f.attack === 'construct' && f.attackFrame === CONSTRUCT.spawn) spawnConstruct(m, f, side);
     if (f.attack === 'volley' && f.attackFrame === VOLLEY.spawn) spawnVolley(m, f, side);
+    if (f.attack === 'lasso' && f.attackFrame === LASSO.spawn) spawnLasso(m, f, side);
   }
   stepProjectiles(m);
 
@@ -694,6 +745,7 @@ export function stepMatch(m: Match, inA: Inputs, inB: Inputs): void {
     } else {
       m.phase = 'round-over'; m.phaseTimer = TICK_HZ * 3; m.message = winner ? `${winner.name} WINS ROUND` : 'DRAW';
     }
+    if (winner) winner.victoryT = m.phaseTimer;   // the winner strikes a victory pose for the pause
   }
 }
 

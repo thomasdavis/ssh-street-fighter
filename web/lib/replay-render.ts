@@ -22,7 +22,7 @@ export const CW = 960, CH = 640;
 export const spriteUrl = (char: string, name: string, ver?: number) =>
   `/api/sprite/${encodeURIComponent(char)}/${name}${ver ? `?v=${ver}` : ''}`;
 export const stageUrl = (stage: string) => `/api/stage/${encodeURIComponent(stage)}`;
-const projColor = (s: string) => (s === 'fire' ? '#ff7a3c' : s === 'sonic' ? '#8fe0ff' : s === 'mote' ? '#c49bff' : s === 'boomerang' ? '#e0a84a' : '#6fa8ff');
+const projColor = (s: string) => (s === 'fire' ? '#ff7a3c' : s === 'sonic' ? '#8fe0ff' : s === 'mote' ? '#c49bff' : s === 'boomerang' ? '#e0a84a' : s === 'rope' ? '#c48a4a' : '#6fa8ff');
 const imgOk = (i?: HTMLImageElement | null) => !!i && i.complete && i.naturalWidth > 0;
 
 /** Ensure an Image is loading for every sprite frame both characters can use. */

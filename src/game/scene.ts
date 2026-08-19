@@ -36,6 +36,7 @@ function frameName(f: Fighter): string {
     case 'mergecomet': return `mergecomet_${f.attackFrame < MERGE_COMET.startup ? 1 : (f.attackFrame < MERGE_COMET.startup + MERGE_COMET.active ? 2 : 3)}`;
     case 'throw': return `throw_${f.attackFrame < THROW.startup ? 1 : (f.attackFrame < THROW.startup + THROW.active ? 2 : 3)}`;
     case 'thrown': return f.vy > 0 ? 'thrown_1' : 'thrown_2';
+    case 'victory': return `victory_${1 + Math.floor(f.animT / 9) % 3}`;
     case 'storyarc': return `storyarc_${f.attackFrame < STORY_ARC.startup ? 1 : (f.attackFrame < STORY_ARC.startup + STORY_ARC.active ? 2 : 3)}`;
     case 'plottwist': return `plottwist_${f.attackFrame < PLOT_TWIST.startup ? 1 : (f.attackFrame < PLOT_TWIST.startup + PLOT_TWIST.active ? 2 : 3)}`;
     case 'inktempest': return `inktempest_${f.attackFrame < INK_TEMPEST.startup ? 1 : (f.attackFrame < INK_TEMPEST.startup + INK_TEMPEST.active ? 2 : 3)}`;
@@ -587,6 +588,11 @@ function drawProjectiles(g: PixelGrid, v: View, m: Match): void {
       // bright core column
       wrect(g, v, cx - 2, cy - 4 - h * 0.6, 4, h * 1.2, rgb(226, 208, 255));
       fillCircle(g, v, cx, cy - 4, 3 * fade + 1, rgb(255, 250, 220));
+    } else if (p.style === 'rope') {
+      // a lasso hook — a small braided loop with a trailing rope
+      for (let t = 5; t >= 1; t--) fillCircle(g, v, cx - p.facing * t * 4, cy, 1.5, rgb(150, 96, 52));
+      fillCircle(g, v, cx, cy, 5, rgb(196, 138, 74));
+      fillCircle(g, v, cx, cy, 2.5, rgb(90, 58, 34));
     } else if (p.style === 'boomerang') {
       // a spinning blade — rotate a cross by the animation frame
       const a = p.frame * 0.5;

@@ -97,13 +97,13 @@ const MOVE_SETS: Readonly<Record<string, readonly SpecialMoveDefinition[]>> = {
   AJAX: [
     { attack: 'boomerang', name: 'BOOMERANG', shortName: 'BOOM', description: 'Throw a boomerang: it flies out, curves around and comes back to your hand — so it can hit on the way OUT and again on the way BACK. Good for trapping and zoning.', motion: ['D', 'F'], button: 'kick' },
     { attack: 'armor', name: 'IRON BRACE', shortName: 'BRACE', description: 'Brace and take ONE incoming hit without flinching, then answer with a heavy punch. Use it to barge straight through a fireball or a poke and land your own blow.', motion: ['B', 'F'], button: 'punch' },
-    { attack: 'volley', name: 'SWARM', shortName: 'SWARM', description: 'Loose three homing shots at once — low, middle and high — flooding the lane so the opponent cannot simply walk in.', motion: ['D', 'B'], button: 'kick' },
+    { attack: 'lasso', name: 'LASSO', shortName: 'LASSO', description: 'Whip out a rope hook: if it catches your opponent it YANKS them back toward you — perfect for dragging a runaway zoner into throw and punch range.', motion: ['D', 'B'], button: 'kick' },
   ],
-  // XENON — the Phase-Sage. Invincible dash, radial reversal, armored counter.
+  // XENON — the Phase-Sage. Invincible dash, projectile-reflecting parry, teleport strike.
   XENON: [
     { attack: 'phase', name: 'PHASE DASH', shortName: 'PHASE', description: 'Dash forward while INTANGIBLE — you pass straight through your opponent AND their attacks, ending up behind them for a cross-up strike. A dodge and a mix-up in one.', motion: ['B', 'F'], button: 'kick' },
-    { attack: 'nova', name: 'PULSE', shortName: 'PULSE', description: 'A pulse of energy blooms all around you; you are INVINCIBLE during it, so it blows an attacker off you — a reversal you can wake up with.', motion: ['D', 'U'], button: 'punch', earlyAirStart: true },
-    { attack: 'armor', name: 'HARD RESET', shortName: 'RESET', description: 'Brace through ONE incoming hit without flinching, then commit a heavy counter-strike. Your unshakeable answer to pressure.', motion: ['D', 'B'], button: 'punch' },
+    { attack: 'reflect', name: 'REFLECT', shortName: 'REFLECT', description: 'Snap into a phase-parry: for a moment attacks pass right through you, and any projectile that hits you is TURNED AROUND and fired straight back at whoever threw it — faster.', motion: ['D', 'U'], button: 'punch', earlyAirStart: true },
+    { attack: 'blink', name: 'BLINK STRIKE', shortName: 'BLINK', description: 'Teleport instantly to point-blank right in front of your opponent and land a fast strike. No invincibility, so it is a committal way to close distance and open them up.', motion: ['D', 'B'], button: 'punch' },
   ],
 };
 
@@ -136,6 +136,9 @@ export function specialMoveFrames(attack: SpecialAttack): readonly string[] {
   if (attack === 'boomerang') return ['boomerang'];
   if (attack === 'armor') return ['armor'];
   if (attack === 'phase') return ['phase'];
+  if (attack === 'lasso') return ['lasso'];
+  if (attack === 'reflect') return ['reflect'];
+  if (attack === 'blink') return ['blink'];
   return ['mergecomet_1', 'mergecomet_2', 'mergecomet_3'];
 }
 
