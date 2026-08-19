@@ -1151,11 +1151,27 @@ export async function executeRunner(options: RunnerOptions, overrides: Partial<R
       transport!.onExit((code) => {
         if (settled) return;
         controller!.transportClosed();
-        audit.append('transport-exit', { code, stopped: controller!.status().stopped });
+        const status = controller!.status();
+        const authoritativeCompletion = status.stopped && status.matchEnded && status.completed === 1;
+        // OpenSSH's local proxy commonly reports 255 when the server closes the
+        // play channel after our bounded post-result shutdown. It is successful
+        // only beyond the authoritative one-match boundary; the same code at
+        // any earlier lifecycle point remains a hard failure.
+        const acceptedPostCompletionExit = authoritativeCompletion
+          && (code === 0 || code === null || code === 255);
+        audit.append('transport-exit', {
+          code,
+          stopped: status.stopped,
+          completed: status.completed,
+          matchEnded: status.matchEnded,
+          acceptedPostCompletionExit,
+        });
         const exitError = controllerFailure
-          ?? (controller!.status().stopped
-            ? (code ? new Error(`ssh exited ${code}`) : undefined)
-            : new Error(`ssh exited before bounded completion (${String(code)})`));
+          ?? (acceptedPostCompletionExit
+            ? undefined
+            : new Error(authoritativeCompletion
+              ? `ssh exited unexpectedly after bounded completion (${String(code)})`
+              : `ssh exited before bounded completion (${String(code)})`));
         if (exitError) recordFailure(exitError, 'transport-exit');
         finish(exitError);
       });

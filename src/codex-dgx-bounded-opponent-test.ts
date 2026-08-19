@@ -600,6 +600,102 @@ assert.equal(JSON.stringify(dryRows).includes(dryOutput), false);
 assert.equal((dryRows[0]!.payload as Message).ownHandle, OWN_HANDLE);
 console.log('PASS  dry run writes only provenance and performs zero token/HTTP/socket work');
 
+class InjectedTransport implements RunnerTransport {
+  sent: Message[] = [];
+  closeCalls = 0;
+  private messageHandler: ((message: Message) => void | Promise<void>) | null = null;
+  private exitHandler: ((code: number | null) => void) | null = null;
+  private errorHandler: ((error: Error) => void) | null = null;
+  private started = false;
+  private exited = false;
+
+  constructor(
+    private readonly script: (transport: InjectedTransport) => Promise<void>,
+    private readonly exitOnClose: number | null | undefined,
+  ) {}
+
+  send(message: Message): void { this.sent.push(message); }
+  close(): void {
+    this.closeCalls++;
+    if (this.exitOnClose !== undefined) queueMicrotask(() => this.exit(this.exitOnClose!));
+  }
+  onMessage(handler: (message: Message) => void | Promise<void>): void {
+    this.messageHandler = handler;
+    this.maybeStart();
+  }
+  onExit(handler: (code: number | null) => void): void {
+    this.exitHandler = handler;
+    this.maybeStart();
+  }
+  onError(handler: (error: Error) => void): void {
+    this.errorHandler = handler;
+    this.maybeStart();
+  }
+  async deliver(message: Message): Promise<void> {
+    assert.ok(this.messageHandler, 'transport message handler not installed');
+    await this.messageHandler(message);
+  }
+  exit(code: number | null): void {
+    if (this.exited) return;
+    this.exited = true;
+    assert.ok(this.exitHandler, 'transport exit handler not installed');
+    this.exitHandler(code);
+  }
+  private maybeStart(): void {
+    if (this.started || !this.messageHandler || !this.exitHandler || !this.errorHandler) return;
+    this.started = true;
+    queueMicrotask(() => {
+      void this.script(this).catch((error) => this.errorHandler!(error as Error));
+    });
+  }
+}
+
+const runAudit = async (
+  transport: InjectedTransport,
+  audit: MemoryAudit,
+): Promise<void> => executeRunner(options({ identity: keyPath, output: join(scratch, 'injected-unused.jsonl') }), {
+  createAudit: () => audit,
+  mintToken: async () => `rk_${'A'.repeat(32)}`,
+  openTransport: () => transport,
+  fetchJson: async (url) => url.endsWith('/api/health') ? health : official('a'),
+});
+
+const completed255Audit = new MemoryAudit();
+const completed255 = new InjectedTransport(async (transport) => {
+  await transport.deliver({ t: 'hi', service: 'ringside-bot' });
+  await transport.deliver({
+    t: 'welcome', name: OWN_HANDLE, elo: 1200, fp: 'SHA256:PRIVATEWELCOME',
+    channel: 'bot-api', roster: [...PINNED_ROSTER],
+  });
+  await transport.deliver({ t: 'joinedLounge', char: OWN_CHARACTER });
+  await transport.deliver(lounge());
+  await transport.deliver(incoming());
+  await transport.deliver({
+    t: 'matchStart', mid: 'match-1', role: 'a', yourCursor: cursor(OWN_CHARACTER),
+    oppName: TARGET_HANDLE, oppCursor: cursor(TARGET_CHARACTER), stage: 'dojo',
+  });
+  await transport.deliver(matchEnd('a'));
+}, 255);
+await runAudit(completed255, completed255Audit);
+assert.equal(completed255Audit.rows.some((row) => row.event === 'failed'), false);
+assert.equal(completed255Audit.rows.some((row) => row.event === 'fatal'), false);
+assert.ok(completed255Audit.rows.some((row) => row.event === 'transport-exit'
+  && (row.payload as Message).code === 255
+  && (row.payload as Message).acceptedPostCompletionExit === true));
+assert.equal(completed255Audit.closed, true);
+
+const premature255Audit = new MemoryAudit();
+const premature255 = new InjectedTransport(async (transport) => {
+  await transport.deliver({ t: 'hi', service: 'ringside-bot' });
+  transport.exit(255);
+}, undefined);
+await assert.rejects(runAudit(premature255, premature255Audit), /before bounded completion \(255\)/);
+assert.ok(premature255Audit.rows.some((row) => row.event === 'failed'
+  && JSON.stringify(row.payload).includes('255')));
+assert.ok(premature255Audit.rows.some((row) => row.event === 'transport-exit'
+  && (row.payload as Message).acceptedPostCompletionExit === false));
+console.log('PASS  injected post-result proxy exit255 succeeds, while the same pre-completion exit remains fail-closed');
+
 class FakeTokenChild extends EventEmitter implements TokenChild {
   stdout = new PassThrough();
   stderr = new PassThrough();
