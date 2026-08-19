@@ -51,13 +51,19 @@ export default async function Home() {
               </div>
             </div>
           </div>
-          <div className="rs-hero__art" aria-hidden>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img className="rs-hero__scene" src={`/api/stage/${lastReplay?.stage ?? 'neon'}`} alt="" />
-            <SpriteLoop char={heroL} poses={['idle_1', 'idle_2']} className="l" />
-            <span className="vs">VS</span>
-            <SpriteLoop char={heroR} poses={['idle_1', 'idle_2']} className="r" />
-          </div>
+          {(lastReplay || live.activeMatches > 0) ? (
+            <div className="rs-hero__theater">
+              <HomeTheater replayId={lastReplay?.id ?? null} replayTitle={replayTitle} />
+            </div>
+          ) : (
+            <div className="rs-hero__art" aria-hidden>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img className="rs-hero__scene" src="/api/stage/neon" alt="" />
+              <SpriteLoop char={heroL} poses={['idle_1', 'idle_2']} className="l" />
+              <span className="vs">VS</span>
+              <SpriteLoop char={heroR} poses={['idle_1', 'idle_2']} className="r" />
+            </div>
+          )}
         </section>
 
         {/* stat strip */}
@@ -70,13 +76,6 @@ export default async function Home() {
           <div className="rs-stat"><b>{num(s.replays)}</b><span>Replays saved</span></div>
         </section>
 
-        {/* theater: live fight if one's on, else the latest replay looping */}
-        {(lastReplay || live.activeMatches > 0) && (
-          <section className="rs-section">
-            <div className="rs-section__head"><h2>◉ In the ring</h2><Link href="/matches">All matches →</Link></div>
-            <HomeTheater replayId={lastReplay?.id ?? null} replayTitle={replayTitle} />
-          </section>
-        )}
 
         {/* roster showcase */}
         <section className="rs-section">

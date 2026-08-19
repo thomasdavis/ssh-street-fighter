@@ -227,8 +227,10 @@ button.regen:disabled { opacity: 0.4; cursor: not-allowed; }
 @keyframes rs-pulse { 50% { opacity: .35; } }
 
 /* hero */
-.rs-hero { display: grid; grid-template-columns: minmax(0,1.25fr) minmax(280px,.75fr); gap: 34px;
-  align-items: center; padding: 58px 0 40px; }
+.rs-hero { display: grid; grid-template-columns: minmax(0,1fr) minmax(340px,1fr); gap: 34px;
+  align-items: center; padding: 54px 0 38px; }
+.rs-hero__theater { width: 100%; min-width: 0; }
+.rs-hero__theater .rs-theater { max-width: none; margin: 0; }
 .rs-hero__eyebrow { color: var(--cyan); font-size: 12px; letter-spacing: .28em; text-transform: uppercase; margin: 0 0 14px; }
 .rs-hero h1 { margin: 0; color: var(--gold); font-size: clamp(2.6rem, 6vw, 4.6rem); line-height: .9;
   letter-spacing: -.02em; text-transform: uppercase; text-shadow: 3px 3px 0 #7a1f1a, 6px 6px 0 rgba(0,0,0,.35); }
