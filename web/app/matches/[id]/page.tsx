@@ -10,7 +10,15 @@ export const dynamic = 'force-dynamic';
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const m = getMatch(id);
-  return { title: m ? `${m.a_name} vs ${m.b_name} — Replay` : 'Match — SSH Fighter' };
+  if (!m) return { title: 'Match' };
+  const title = `${m.a_name} vs ${m.b_name} — Replay`;
+  const description = `${m.a_name} (${m.a_char}) vs ${m.b_name} (${m.b_char}) on ${m.stage} — watch the replay on SSH Fighter.`;
+  const images = hasReplay(id) ? [{ url: `/api/matches/${id}/shot`, width: 1200, height: 800, alt: title }] : undefined;
+  return {
+    title, description,
+    openGraph: { title, description, type: 'video.other', url: `/matches/${id}`, images },
+    twitter: { card: 'summary_large_image', title, description, images: images?.map((i) => i.url) },
+  };
 }
 
 const STAT_ROWS: [string, keyof import('@/lib/ringside').MatchPlayerRow][] = [

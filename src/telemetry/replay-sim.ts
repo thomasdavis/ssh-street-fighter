@@ -138,6 +138,32 @@ export function simulateReplay(matchId: string): Track | null {
   return { stage, aChar, bChar, aName, bName, fps: 30, worldW: WORLD_W, worldH: WORLD_H, groundY: GROUND_Y, fighterH: 58, stageLeft: STAGE_LEFT, stageRight: STAGE_RIGHT, sprites: { a: charSpriteMeta(aChar), b: charSpriteMeta(bChar) }, frames };
 }
 
+/** Re-simulate a stored replay up to `targetFrame` and return the live Match at
+ *  that moment (for server-side share-image rendering). A negative frame picks a
+ *  lively mid-action frame. Returns null if the replay is missing. */
+export function replayMatchAtFrame(matchId: string, targetFrame: number): Match | null {
+  const rep = getReplay(matchId);
+  if (!rep) return null;
+  const match = getMatch(matchId) as { a_char?: string; b_char?: string; a_name?: string; b_name?: string; stage?: string } | null;
+  const header = JSON.parse(rep.header_json) as { motions?: string[]; sides?: { a: { char: string }; b: { char: string } }; stage?: string };
+  const motions = header.motions ?? [''];
+  const aChar = header.sides?.a.char ?? match?.a_char ?? ROSTER[0]!.name;
+  const bChar = header.sides?.b.char ?? match?.b_char ?? ROSTER[1]!.name;
+  const stage = header.stage ?? match?.stage ?? 'dojo';
+  const m = makeMatch(makeFighter('a', aChar, 'a', paletteFor(aChar)), makeFighter('b', bChar, 'b', paletteFor(bChar)));
+  m.stage = stage;
+  const buf = rep.frames;
+  const n = Math.floor(buf.length / 4);
+  const stop = targetFrame < 0 ? Math.max(1, Math.floor(n * 0.45)) : Math.max(1, Math.min(n, targetFrame));
+  for (let i = 0; i < stop; i++) {
+    const off = i * 4;
+    const inA: Inputs = { ...emptyInputs(), ...decode(buf[off]!), motion: motions[buf[off + 1]!] ?? '' };
+    const inB: Inputs = { ...emptyInputs(), ...decode(buf[off + 2]!), motion: motions[buf[off + 3]!] ?? '' };
+    stepMatch(m, inA, inB);
+  }
+  return m;
+}
+
 /** Render payload for a LIVE match (single current frame + the same meta the
  *  replay viewer uses), so spectating reuses the exact renderer. */
 export function liveRender(m: Match, aName: string, bName: string): object {

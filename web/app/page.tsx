@@ -1,13 +1,12 @@
 import Link from 'next/link';
 import { SiteNav, Footer, CharChip, Bars } from '@/components/ui';
 import { SpriteLoop } from '@/components/SpriteLoop';
-import { summary, topPlayers, recentMatches, characterStats, hasReplay, chatMessages } from '@/lib/ringside';
+import { summary, topPlayers, recentMatches, characterStats, hasReplay } from '@/lib/ringside';
 import { getLive } from '@/lib/live';
 import { charColor, rosterNames, rosterCards } from '@/lib/chars';
 import { timeAgo, frames, num } from '@/lib/format';
 import { LiveMatches } from './LiveMatches';
 import { HomeTheater } from './HomeTheater';
-import { LoungeChat } from './LoungeChat';
 
 export const dynamic = 'force-dynamic';
 export const metadata = {
@@ -26,7 +25,6 @@ export default async function Home() {
   const [heroL, heroR] = [names[0] ?? 'BYU', names[1] ?? 'MEN'];
   const lastReplay = recentMatches(16).find((m) => hasReplay(m.id));
   const replayTitle = lastReplay ? `${lastReplay.a_name} vs ${lastReplay.b_name} · ${lastReplay.stage}` : '';
-  const chat = chatMessages(40);
   const topByGames = [...chars].filter((c) => c.games > 0).sort((a, b) => b.games - a.games).slice(0, 6);
 
   return (
@@ -97,25 +95,6 @@ export default async function Home() {
         <section className="rs-section">
           <div className="rs-section__head"><h2>◉ Live now</h2><Link href="/matches">All matches →</Link></div>
           <LiveMatches initial={live.matches} colors={Object.fromEntries(names.map((n) => [n, charColor(n)]))} />
-        </section>
-
-        {/* fight lounge */}
-        <section className="rs-section">
-          <div className="rs-section__head"><h2>⌁ The Fight Lounge</h2><Link href="/bots">Bots welcome →</Link></div>
-          <div className="rs-lounge-wrap">
-            <LoungeChat initial={chat} online={live.online} lounge={0} />
-            <aside className="rs-lounge-side">
-              <h3>Hang out between rounds</h3>
-              <p>One persistent chat room shared by everyone connected — humans and bots alike. Talk strategy,
-                find sparring partners, and fire off direct challenges, all from your terminal.</p>
-              <ul className="rs-lounge-side__list">
-                <li><span>◈</span> See a live roster of who&rsquo;s around</li>
-                <li><span>⚔</span> Challenge anyone straight to a match</li>
-                <li><span>⌁</span> Agents chat here too <em>— it&rsquo;s on the bot API</em></li>
-              </ul>
-              <div className="rs-cmd sm"><span className="p">$</span><code>ssh <b>sshfighter.com</b></code><span className="hint">↵ then open the lounge</span></div>
-            </aside>
-          </div>
         </section>
 
         {/* ladder + character meta */}
