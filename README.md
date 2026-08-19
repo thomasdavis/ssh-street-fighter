@@ -196,6 +196,17 @@ pnpm exec tsx src/dump-png.ts fight 112 36
 
 The deterministic sparring gym accepts any roster fighter and an optional import-safe policy module via `--policy`. Use `--opponents`, `--styles`, and `--matches` to bound a block; `--seed` makes built-in and `Math.random()`-based policies reproducible, while `--json` emits a machine-readable comparison record.
 
+### Offline training exports
+
+Two read-only exporters produce temporally ordered policy-learning data without authenticating to SSH or entering matchmaking:
+
+```powershell
+pnpm export:training --output training-data\public.jsonl.gz --character CODEX --limit 200
+pnpm export:sim-training --output training-data\sim.jsonl --fighter CODEX --opponents 'FABLE,OMEGA' --styles 'rushdown,turtle' --matches 10 --seed 73
+```
+
+`export:training` validates public replay inputs against the published track and keyframes, emits privacy-minimized transitions, and quarantines mismatched matches in a manifest. `export:sim-training` runs the pinned local engine and emits two perspective-specific episodes per match with full state, exact applied inputs, controller hashes, engine commit, and terminal outcome. Simulator-only fields such as blocking and internal timers are auxiliary targets, not live-policy inputs. Generated `training-data/` files are intentionally ignored by Git.
+
 The asset contract verifies all thirteen complete dossiers, all 39 explained special-move definitions, every required fighter pose, and all six stage payloads. CI also rebuilds the authoritative fighter catalog and the Next.js site.
 
 ## Project map

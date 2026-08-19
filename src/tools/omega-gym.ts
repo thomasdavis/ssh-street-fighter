@@ -32,7 +32,7 @@ export function gymInputs(cmd: any): Inputs {
 
 export type GymPolicy = (self: any, opp: any, phase: string, projectiles?: any[], role?: 'a' | 'b') => any;
 type Policy = GymPolicy;
-interface LoadedPolicy { decide: GymPolicy; reset?: () => void; label: string; }
+export interface LoadedPolicy { decide: GymPolicy; reset?: () => void; label: string; }
 const RNG = () => Math.random();
 const specCode = (self: any, kind: 'beam' | 'well' | 'warp' | 'up' | 'back') => {
   const f = self.facing;
@@ -44,7 +44,7 @@ const specCode = (self: any, kind: 'beam' | 'well' | 'warp' | 'up' | 'back') => 
 };
 
 // ---- Opponent archetypes (character-agnostic normals + jumps + throws) --------
-const styles: Record<string, Policy> = {
+export const gymStyles: Record<string, Policy> = {
   // Relentless pressure: march in, strike in range, throw at point blank, block on defence.
   rushdown(self, opp, phase) {
     if (phase !== 'fight') return {};
@@ -190,7 +190,7 @@ export interface GymResult {
   total: { wins: number; losses: number; draws: number; played: number; winRate: number };
 }
 
-function seededRandom(seed: number): () => number {
+export function seededGymRandom(seed: number): () => number {
   let state = seed >>> 0;
   return () => {
     state += 0x6D2B79F5;
@@ -201,14 +201,14 @@ function seededRandom(seed: number): () => number {
   };
 }
 
-function knownFighter(name: string): string {
+export function knownGymFighter(name: string): string {
   const upper = name.toUpperCase();
   if (!ROSTER.some((fighter) => fighter.name === upper)) throw new Error(`unknown fighter: ${name}`);
   return upper;
 }
 
-async function loadPolicy(policyPath?: string): Promise<LoadedPolicy> {
-  if (!policyPath) return { decide: styles.champion!, label: 'builtin:champion' };
+export async function loadGymPolicy(policyPath?: string): Promise<LoadedPolicy> {
+  if (!policyPath) return { decide: gymStyles.champion!, label: 'builtin:champion' };
   const absolute = resolve(policyPath);
   const mod = await import(pathToFileURL(absolute).href) as { decide?: GymPolicy; reset?: () => void; resetModel?: () => void };
   if (typeof mod.decide !== 'function') throw new Error(`policy must export decide(): ${absolute}`);
@@ -216,23 +216,23 @@ async function loadPolicy(policyPath?: string): Promise<LoadedPolicy> {
 }
 
 export async function runGym(options: GymOptions = {}): Promise<GymResult> {
-  const fighter = knownFighter(options.fighter ?? 'OMEGA');
-  const opponents = (options.opponents?.length ? options.opponents : ['FABLE', 'CODEX', 'BYU', 'ZANG']).map(knownFighter);
-  const styleNames = options.styleNames?.length ? options.styleNames : Object.keys(styles);
-  for (const name of styleNames) if (!styles[name]) throw new Error(`unknown style: ${name}`);
+  const fighter = knownGymFighter(options.fighter ?? 'OMEGA');
+  const opponents = (options.opponents?.length ? options.opponents : ['FABLE', 'CODEX', 'BYU', 'ZANG']).map(knownGymFighter);
+  const styleNames = options.styleNames?.length ? options.styleNames : Object.keys(gymStyles);
+  for (const name of styleNames) if (!gymStyles[name]) throw new Error(`unknown style: ${name}`);
   const matches = options.matches ?? 40;
   if (!Number.isInteger(matches) || matches < 1 || matches > 1000) throw new Error('--matches must be an integer from 1 to 1000');
   const seed = options.seed ?? 1;
   if (!Number.isInteger(seed)) throw new Error('--seed must be an integer');
-  const target = await loadPolicy(options.policyPath);
+  const target = await loadGymPolicy(options.policyPath);
 
   const originalRandom = Math.random;
-  Math.random = seededRandom(seed);
+  Math.random = seededGymRandom(seed);
   try {
     let totalWins = 0, totalLosses = 0, totalDraws = 0;
     const rows: GymResult['styles'] = [];
     for (const name of styleNames) {
-      const policy = styles[name]!;
+      const policy = gymStyles[name]!;
       let wins = 0, losses = 0, draws = 0, roundsWon = 0, roundsLost = 0;
       for (let i = 0; i < matches; i++) {
         const result = playMatch(target, policy, fighter, opponents[i % opponents.length]!);
