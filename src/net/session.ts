@@ -145,6 +145,7 @@ export class Session {
     if (fp) {
       this.player = db.touchOrCreate(fp);
       this.keyBindings = parseKeyBindings(this.player.key_bindings_json);
+      if (this.player.view_mode === 'half') this.renderMode = 'half';   // remembered view preference
       if (this.player.username) { this.username = this.player.username; landing = 'menu'; this.cursor = this.player.main_char; }
       else landing = 'username'; // registered key without a handle yet
     } else {
@@ -220,7 +221,15 @@ export class Session {
     // packet immediately after a transition instead of pressing Enter again.
     if (Date.now() < this.screenInputGuardUntil && /^[\r\n]+$/.test(d.toString('latin1'))) return;
     if (this.helpOpen) { this.helpOpen = false; this.prevFrame = null; this.forceFull = true; return; }
-    const data = d;
+    let data = d;
+    // 'v' cycles the view mode — sharp octant pixels <-> compatible cell text —
+    // so players whose terminal can't render octant can switch to something legible
+    // (and it's remembered). Not while typing a name or in the lounge chat.
+    if (this.screen !== 'username' && this.screen !== 'lounge' && /[vV]/.test(data.toString('latin1'))) {
+      this.setViewMode(this.renderMode === 'octant' ? 'half' : 'octant');
+      data = Buffer.from(data.toString('latin1').replace(/[vV]/g, ''), 'latin1');
+      if (data.length === 0) return;
+    }
     if (this.screen === 'fight') {
       // Fight controls use their own hold/motion parser, so handle the overlay
       // key here before forwarding bytes. Any key closes help without also
@@ -296,7 +305,7 @@ export class Session {
     const rows = clamp(this.rows || 40, 12, MAX_ROWS);
     // Pixel-only UI: if the terminal is too small for it to fit, show a "make
     // your terminal bigger" notice instead of a squashed screen.
-    if (SF_UI_CELL === false && !pixelReady(cols, rows)) {
+    if (SF_UI_CELL === false && this.renderMode === 'octant' && !pixelReady(cols, rows)) {
       const f = new Frame(cols, rows, this.renderMode);
       drawTooSmall(f);
       if (DEBUG_ON) drawDebugOverlay(f);
@@ -499,6 +508,15 @@ export class Session {
     this.keyBindings = withBinding(this.keyBindings, action, binding);
     this.persistKeyBindings();
     this.trackEvent('key_binding_changed', { action, binding });
+  }
+
+  /** Switch (and persist) the display mode: 'octant' sharp pixels or 'half' cell text. */
+  setViewMode(mode: RenderMode): void {
+    if (mode === this.renderMode) return;
+    this.renderMode = mode;
+    this.prevFrame = null; this.forceFull = true;
+    this.trackEvent('view_mode_changed', { mode });
+    if (!this.guest && this.fp) { db.setViewMode(this.fp, mode); this.player = db.getByFingerprint(this.fp) ?? this.player; }
   }
 
   resetKeyBindings(): void {

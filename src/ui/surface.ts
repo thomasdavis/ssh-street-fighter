@@ -86,11 +86,9 @@ class PixelSurface implements Surface {
   readonly rows: number;
   constructor(f: Frame) {
     const pw = f.cols * 2, ph = f.rows * 4;
-    // Render UI screens with the finer octant sampler (2×4 sub-pixels/cell): it
-    // stays crisp at a 1-sub-pixel font size, so the pixel font is both sharp AND
-    // small enough to fit a full screen of content — unlike half-block, which
-    // needs a 2-sub-pixel font and blurs/overflows at moderate zoom.
-    f.mode = 'octant';
+    // PixelSurface is only chosen when the frame is in octant mode (makeSurface),
+    // whose 2×4 sub-pixels/cell keep the 1-sub-pixel font crisp. In half mode the
+    // font would blur, so makeSurface routes to the crisp cell-text backend there.
     this.g = f.pixel();
     this.cellPx = Math.max(1, Math.round(ph * PIXEL_UNIT));
     this.cw = CW * this.cellPx;
@@ -170,8 +168,13 @@ export function minTerminal(): { cols: number; rows: number } {
 }
 
 export function makeSurface(f: Frame): Surface {
-  // Pixel-only UI. SF_UI=cell is a dev-only escape hatch.
-  const s = process.env.SF_UI === 'cell' ? new CellSurface(f) : new PixelSurface(f);
+  // Backend follows the frame's render mode (the player's view preference):
+  //   octant → constant-size pixel UI (crisp, needs a modern Unicode-16 terminal)
+  //   half   → crisp one-cell terminal text (works on ANY terminal)
+  // SF_UI ('pixel' | 'cell') is a dev-only override.
+  const forced = process.env.SF_UI;
+  const cell = forced === 'cell' ? true : forced === 'pixel' ? false : f.mode !== 'octant';
+  const s = cell ? new CellSurface(f) : new PixelSurface(f);
   lastSurfaceInfo = { kind: s.kind, cols: s.cols, rows: s.rows, cellPx: (s as unknown as { cellPx?: number }).cellPx ?? 0, mode: f.mode };
   return s;
 }

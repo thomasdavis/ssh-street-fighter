@@ -89,7 +89,7 @@ export const calibrate = {
 
     // Instruction panel, centered over the live scene.
     const w = Math.min(58, Math.max(28, ui.cols - 4));
-    const h = Math.min(ui.rows - 4, 13);
+    const h = Math.min(ui.rows - 4, 15);
     const x = Math.floor((ui.cols - w) / 2);
     const y = Math.max(2, Math.floor((ui.rows - h) / 2));
     const inner = ui.panel(x, y, w, h, { title: 'CALIBRATE YOUR VIEW' });
@@ -105,6 +105,8 @@ export const calibrate = {
     line('ZOOM OUT   CTRL -  /  CMD -        SMOOTHER FIGHTERS', THEME.accent2);
     line('ZOOM IN    CTRL SHIFT +  /  CMD +  BIGGER HUD TEXT', THEME.accent2);
     r += SP.gap;
+    line('PRESS  V  TO SWITCH VIEW IF TEXT LOOKS WRONG', THEME.accent);
+    r += SP.gap;
 
     // live resolution + quality meter (fidelity tracks the TERMINAL resolution)
     const q = quality(cols, rows);
@@ -118,7 +120,8 @@ export const calibrate = {
       if (q < QMAX) ui.text(mx + QUALITY[q]!.length + 1, r, '(ZOOM OUT FOR MORE)', { color: THEME.textDim });
     }
 
-    hints(ui, ui.rows - 1, [['?', 'MOVES'], ['ENTER', 'READY - LETS FIGHT']]);
+    const viewName = s.renderMode === 'octant' ? 'SHARP' : 'TEXT';
+    hints(ui, ui.rows - 1, [['V', `VIEW:${viewName}`], ['?', 'MOVES'], ['ENTER', 'READY - LETS FIGHT']]);
   },
 
   onKey(s: Session, k: Key): void {
