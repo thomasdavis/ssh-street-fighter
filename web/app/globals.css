@@ -512,3 +512,28 @@ button.regen:disabled { opacity: 0.4; cursor: not-allowed; }
   .rs-lounge--full { min-height: 62vh; max-height: 70vh; }
   .rs-chatpage .rs-lounge-side { min-height: 0; }
 }
+
+/* ============================ TV channel (/tv) ============================ */
+.rs-tv-wrap { max-width: 1180px; }
+.rs-tv-ph { text-align: center; }
+.rs-tv-ph h1 { color: var(--gold); }
+.rs-tv { max-width: 1120px; margin: 0 auto; }
+.rs-tv__screen { position: relative; width: 100%; aspect-ratio: 3 / 2; background: #0b0812;
+  border: 1px solid var(--edge); border-radius: 16px; overflow: hidden; box-shadow: var(--glow), 0 0 60px -20px #000; }
+.rs-tv__screen canvas { width: 100%; height: 100%; display: block; image-rendering: pixelated; }
+.rs-tv__scan { position: absolute; inset: 0; pointer-events: none; z-index: 2;
+  background: repeating-linear-gradient(0deg, transparent 0 3px, var(--scan) 3px 4px); }
+.rs-tv__cap { position: absolute; left: 0; right: 0; bottom: 0; z-index: 3; display: flex; align-items: center; gap: 14px;
+  padding: 16px 20px; background: linear-gradient(0deg, rgba(11,8,18,.95), rgba(11,8,18,.5) 62%, transparent); font-size: 14px; }
+.rs-tv__badge { display: inline-flex; align-items: center; gap: 6px; font-weight: 800; letter-spacing: 1.5px; color: var(--gold);
+  border: 1px solid var(--edge); border-radius: 999px; padding: 4px 13px; background: rgba(11,8,18,.65); white-space: nowrap; }
+.rs-tv__badge.live { color: #fff; border-color: var(--red); background: rgba(224,72,63,.22); }
+.rs-tv__badge .rs-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--red); box-shadow: 0 0 0 0 rgba(224,72,63,.6); animation: rsblink 1.4s infinite; }
+@keyframes rsblink { 0% { box-shadow: 0 0 0 0 rgba(224,72,63,.6); } 70% { box-shadow: 0 0 0 6px rgba(224,72,63,0); } 100% { box-shadow: 0 0 0 0 rgba(224,72,63,0); } }
+.rs-tv__title { color: var(--text); font-weight: 700; letter-spacing: .02em; }
+.rs-tv__sub { color: var(--dim); font-size: 12px; }
+.rs-tv__link { margin-left: auto; color: var(--cyan); text-decoration: none; font-size: 12px; text-transform: uppercase; letter-spacing: .1em; white-space: nowrap; }
+.rs-tv__link:hover { color: var(--gold); }
+.rs-tv__chan { position: absolute; top: 14px; right: 16px; z-index: 3; color: var(--gold); font-size: 11px; font-weight: 800;
+  letter-spacing: .18em; opacity: .8; text-shadow: 0 1px 4px #000; }
+@media (max-width: 640px) { .rs-tv__sub { display: none; } .rs-tv__cap { gap: 10px; padding: 12px 14px; } }

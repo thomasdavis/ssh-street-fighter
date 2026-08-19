@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { charColor } from '@/lib/chars';
 
 const LINKS: [string, string][] = [
-  ['/', 'Home'], ['/leaderboard', 'Leaderboard'], ['/characters', 'Stats'],
+  ['/', 'Home'], ['/tv', 'TV'], ['/leaderboard', 'Leaderboard'], ['/characters', 'Stats'],
   ['/matches', 'Matches'], ['/fighters', 'Fighters'], ['/chat', 'Chat'], ['/status', 'Server'], ['/bots', 'Bots'],
 ];
 
