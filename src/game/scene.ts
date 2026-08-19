@@ -222,19 +222,19 @@ const MOTIFS_ON = process.env.SF_MOTIFS !== '0';
 // in two families:
 //   • particles/effects — drift, rain, twinkle, glow, waves, beam, aurora, shaft
 //   • positioned sprites — flyby (crossing) / floaters (drifting in place), each
-//     rendered by a tiny procedural SpriteFn (bird, fish, book, cloud, star...).
+//     rendered by a tiny procedural SpriteFn (bird, fish, book, star, jelly...).
 // Add a stage or a new effect = add an entry / a function; no big if-else.
 // ---------------------------------------------------------------------------
 const dim = (c: RGB, f: number): RGB => rgb(Math.round(c.r * f), Math.round(c.g * f), Math.round(c.b * f));
 
-interface DriftOpts { count: number; colors: RGB[]; rise?: boolean; slant?: number; speed?: number; }
+interface DriftOpts { count: number; colors: RGB[]; rise?: boolean; slant?: number; speed?: number; size?: number; }
 function drift(g: PixelGrid, v: View, t: number, o: DriftOpts): void {
-  const period = WORLD_H + 20, speed = o.speed ?? 1;
+  const period = WORLD_H + 20, speed = o.speed ?? 1, s = o.size;
   for (let i = 0; i < o.count; i++) {
     const travel = (t * speed * (0.28 + (i % 4) * 0.07) + i * 31) % period;
     const y = o.rise ? GROUND_Y - travel : travel - 10;
     const x = ((i * 53 + t * (o.slant ?? 0)) % (WORLD_W + 20)) - 10 + Math.sin(t * 0.04 + i) * 5;
-    wrect(g, v, x, y, i % 3 === 0 ? 2 : 1, i % 4 === 0 ? 2 : 1, o.colors[i % o.colors.length]!);
+    wrect(g, v, x, y, s ?? (i % 3 === 0 ? 2 : 1), s ?? (i % 4 === 0 ? 2 : 1), o.colors[i % o.colors.length]!);
   }
 }
 
@@ -278,9 +278,20 @@ type SpriteFn = (g: PixelGrid, v: View, x: number, y: number, t: number, dir: nu
 const bird: SpriteFn = (g, v, x, y, t, _d, c) => { const f = Math.sin(t * 0.5 + x) > 0 ? 0 : 1; wrect(g, v, x - 2, y + f, 2, 1, c); wrect(g, v, x + 1, y + f, 2, 1, c); wrect(g, v, x, y, 1, 1, c); };
 const fish: SpriteFn = (g, v, x, y, t, dir, c) => { wrect(g, v, x, y, 3, 2, c); wrect(g, v, x - dir * 2, y - (Math.sin(t * 0.4 + x) > 0 ? 0 : 1), 2, 2, c); wrect(g, v, x + dir * 3, y, 1, 1, dim(c, 0.7)); };
 const book: SpriteFn = (g, v, x, y, t, _d, c) => { const f = Math.round(Math.sin(t * 0.1 + x)); wrect(g, v, x - 3, y - f, 3, 1, c); wrect(g, v, x + 1, y - f, 3, 1, c); wrect(g, v, x, y + 1, 1, 1, dim(c, 0.6)); };
-const cloud: SpriteFn = (g, v, x, y, _t, _d, c) => { wrect(g, v, x, y, 11, 3, c); wrect(g, v, x + 3, y - 2, 6, 2, c); wrect(g, v, x + 7, y, 7, 3, c); };
 const star: SpriteFn = (g, v, x, y, _t, dir, c) => { wrect(g, v, x, y, 2, 2, c); for (let i = 1; i < 6; i++) wrect(g, v, x - i * 2 * dir, y - i, 2, 1, dim(c, 1 - i * 0.16)); };
 const jelly: SpriteFn = (g, v, x, y, t, _d, c) => { wrect(g, v, x, y, 5, 3, c); wrect(g, v, x + 1, y - 1, 3, 1, c); for (let i = 0; i < 3; i++) wrect(g, v, x + 1 + i * 2, y + 3, 1, 3 + Math.round(Math.sin(t * 0.12 + i) * 1), dim(c, 0.8)); };
+const bat: SpriteFn = (g, v, x, y, t, _d, c) => { const f = Math.sin(t * 0.6 + x) > 0 ? 1 : 0; wrect(g, v, x - 3, y - f, 2, 1, c); wrect(g, v, x - 1, y, 4, 1, c); wrect(g, v, x + 2, y - f, 2, 1, c); };
+const tumble: SpriteFn = (g, v, x, y, t, dir, c) => { for (let i = 0; i < 6; i++) { const a = t * 0.3 * dir + i * 1.05; wrect(g, v, x + Math.cos(a) * 2.2, y + Math.sin(a) * 2.2, 1, 1, c); } };
+
+// Periodic firework bursts: a shell rises, then a colored ring expands and fades.
+function fireworks(g: PixelGrid, v: View, t: number, o: { origins: [number, number][]; colors: RGB[]; period?: number }): void {
+  const period = o.period ?? 96;
+  for (let k = 0; k < o.origins.length; k++) {
+    const local = (t + k * 41) % period, [ox, oy] = o.origins[k]!;
+    if (local < 18) wrect(g, v, ox, oy + 36 - local * 2, 1, 2, rgb(255, 240, 180));
+    else if (local < 40) { const r = local - 18, col = o.colors[k % o.colors.length]!, fade = 1 - r / 22; for (let a = 0; a < 10; a++) { const ang = a / 10 * Math.PI * 2; wrect(g, v, ox + Math.cos(ang) * r, oy + Math.sin(ang) * r, 1, 1, dim(col, 0.35 + fade * 0.6)); } }
+  }
+}
 
 interface FlybyOpts { draw: SpriteFn; count: number; y: number; color: RGB; cycle?: number; span?: number; speed?: number; gap?: number; wave?: number; dir?: number; }
 function flyby(g: PixelGrid, v: View, t: number, o: FlybyOpts): void {
@@ -374,12 +385,55 @@ const STAGE_MOTIFS: Record<string, Motif[]> = {
     (g, v, t) => flyby(g, v, t, { draw: fish, count: 4, y: 88, color: rgb(120, 210, 235), cycle: 300, span: 220, speed: 1.6, gap: 12, wave: 5, dir: -1 }),
     (g, v, t) => floaters(g, v, t, { draw: jelly, count: 3, x0: 24, x1: 214, y0: 34, y1: 78, color: rgb(230, 150, 220), speed: 0.12, bob: 5 }),
   ],
+  canyon: [
+    (g, v, t) => drift(g, v, t, { count: 14, colors: [rgb(216, 182, 132), rgb(232, 202, 152)], slant: 0.5, speed: 0.8 }),
+    (g, v, t) => flyby(g, v, t, { draw: tumble, count: 1, y: 146, color: rgb(150, 120, 70), cycle: 420, span: 260, speed: 1.0 }),
+    (g, v, t) => flyby(g, v, t, { draw: bird, count: 2, y: 24, color: rgb(60, 44, 40), cycle: 760, span: 220, speed: 1.0, gap: 20 }),
+  ],
+  bamboo: [
+    (g, v, t) => drift(g, v, t, { count: 12, colors: [rgb(120, 200, 90), rgb(210, 160, 70), rgb(180, 220, 110)], slant: 0.08, speed: 0.7 }),
+    (g, v, t) => twinkle(g, v, t, { count: 9, at: (i) => [16 + (i * 27) % 214, 80 + (i * 15) % 50], colors: [rgb(240, 255, 150)], period: 20, onFrac: 0.55 }),
+    (g, v, t) => flyby(g, v, t, { draw: bird, count: 3, y: 36, color: rgb(90, 150, 110), cycle: 560, span: 200, speed: 1.2 }),
+  ],
+  carnival: [
+    (g, v, t) => twinkle(g, v, t, { count: 16, at: (i) => [10 + (i * 29) % 224, 30 + (i * 17) % 64], colors: [rgb(255, 90, 120), rgb(90, 200, 255), rgb(255, 220, 90), rgb(160, 255, 140)], period: 8, onFrac: 0.6, size: 2 }),
+    (g, v, t) => fireworks(g, v, t, { origins: [[70, 34], [150, 26], [200, 40]], colors: [rgb(255, 120, 150), rgb(120, 220, 255), rgb(255, 230, 120)], period: 80 }),
+    (g, v, t) => drift(g, v, t, { count: 12, colors: [rgb(255, 90, 120), rgb(90, 200, 255), rgb(255, 220, 90), rgb(160, 255, 140)], slant: 0.25, speed: 1.0 }),
+  ],
+  cathedral: [
+    (g, v, t) => drift(g, v, t, { count: 14, colors: [rgb(200, 210, 240), rgb(170, 180, 220)], slant: 0.01, speed: 0.35 }),
+    (g, v, t) => twinkle(g, v, t, { count: 10, at: (i) => [18 + i * 22, 118 + (i % 2) * 6], colors: [rgb(255, 200, 110), rgb(255, 236, 160)], period: 14, onFrac: 0.72, size: 2 }),
+    (g, v, t) => flyby(g, v, t, { draw: bat, count: 3, y: 40, color: rgb(28, 24, 36), cycle: 520, span: 200, speed: 1.5, gap: 14, wave: 5 }),
+  ],
+  orbital: [
+    (g, v, t) => twinkle(g, v, t, { count: 22, at: (i) => [6 + (i * 31) % 228, 4 + (i * 23) % 70], colors: [rgb(235, 240, 255), rgb(190, 210, 255)], period: 24, onFrac: 0.5 }),
+    (g, v, t) => drift(g, v, t, { count: 6, colors: [rgb(200, 210, 230), rgb(150, 160, 200)], slant: 0.35, speed: 0.3, size: 1 }),
+    (g, v, t) => flyby(g, v, t, { draw: star, count: 1, y: 20, color: rgb(240, 245, 255), cycle: 420, span: 80, speed: 3.2 }),
+  ],
+};
+
+// Foreground motifs (drawn OVER the fighters) — a few close, bigger particles for
+// parallax depth. Only for stages where it reads well.
+const STAGE_FG: Record<string, Motif[]> = {
+  monsoon: [(g, v, t) => rain(g, v, t, { count: 10, color: rgb(190, 212, 244), slant: 0.42, len: 9 })],
+  harbor: [(g, v, t) => rain(g, v, t, { count: 12, color: rgb(170, 200, 244), slant: 0.55, len: 10 })],
+  neon: [(g, v, t) => rain(g, v, t, { count: 12, color: rgb(160, 220, 248), slant: 0.5, len: 10 })],
+  volcano: [(g, v, t) => drift(g, v, t, { count: 6, colors: [rgb(255, 190, 90), rgb(255, 130, 60)], rise: true, slant: 0.02, speed: 2.0, size: 2 })],
+  tundra: [(g, v, t) => drift(g, v, t, { count: 8, colors: [rgb(248, 252, 255)], slant: 0.05, speed: 1.1, size: 2 })],
+  reef: [(g, v, t) => drift(g, v, t, { count: 6, colors: [rgb(225, 250, 255)], rise: true, slant: 0.03, speed: 1.2, size: 2 })],
+  carnival: [(g, v, t) => drift(g, v, t, { count: 10, colors: [rgb(255, 100, 130), rgb(100, 205, 255), rgb(255, 225, 100)], slant: 0.22, speed: 1.4, size: 2 })],
+  canyon: [(g, v, t) => drift(g, v, t, { count: 8, colors: [rgb(224, 196, 150)], slant: 0.6, speed: 1.2, size: 2 })],
 };
 
 function drawMotifs(g: PixelGrid, v: View, frame: number, stage: string): void {
   const t = Math.floor(frame / 4);
   const motifs = STAGE_MOTIFS[stage];
   if (motifs) for (const m of motifs) m(g, v, t);
+}
+
+function drawMotifsFg(g: PixelGrid, v: View, frame: number, stage: string): void {
+  const fg = STAGE_FG[stage];
+  if (fg) { const t = Math.floor(frame / 4); for (const m of fg) m(g, v, t); }
 }
 
 function fillCircle(g: PixelGrid, v: View, wx: number, wy: number, wr: number, c: RGB): void {
@@ -488,6 +542,7 @@ export function composeScene(m: Match, pw = WORLD_W, ph = WORLD_H, practice = fa
   for (const f of order) { drawFighterOnStage(g, v, f); drawSpecialAura(g, v, f); drawOmegaTech(g, v, f); drawCodexTrails(g, v, f); }
   drawProjectiles(g, v, m);
   drawSparks(g, v, m);
+  if (MOTIFS_ON) drawMotifsFg(g, v, m.frame, m.stage);   // parallax foreground weather
   return g;
 }
 

@@ -95,6 +95,41 @@ SCENE: an underwater sunken temple in a glowing coral reef. Crumbling barnacle-c
 STYLE: vivid hand-painted pixel-art and cel shading, bold outlines, luminous saturated aquatic color, rich foreground-midground-background depth, detailed and immersive but readable at small size.
 COMPOSITION: keep the central fighting area open; straight level floor edge to edge; NO readable words, UI, logos, watermark, characters, people or animals.`,
   },
+  {
+    id: 'canyon',
+    prompt: `A 2D 1990s arcade fighting-game STAGE BACKGROUND, wide fixed side view, with NO people and NO fighters.
+SCENE: a vast desert canyon at golden-hour sunset. Towering red-orange sandstone mesas and rock arches frame both edges, tall saguaro cacti and dry brush, a winding dry riverbed, distant layered buttes fading into a warm orange-and-pink hazy sky with a low sun and a few high clouds, blowing sand and dust. A broad flat cracked-earth-and-sand canyon floor spans the bottom 18 percent.
+STYLE: vivid hand-painted pixel-art and cel shading, bold outlines, warm saturated color, rich foreground-midground-background depth, detailed and immersive but readable at small size.
+COMPOSITION: keep the central fighting area open; straight level floor edge to edge; NO readable words, UI, logos, watermark, characters, people or animals.`,
+  },
+  {
+    id: 'bamboo',
+    prompt: `A 2D 1990s arcade fighting-game STAGE BACKGROUND, wide fixed side view, with NO people and NO fighters.
+SCENE: a serene bamboo forest grove beside a tall misty waterfall at dawn. Dense tall green bamboo stalks frame both edges, a cascading waterfall pouring into a clear pool with lily pads in the mid background, mossy rocks, red maple accents, stone lanterns and drifting mist, soft dappled sunlight through the canopy under a pale morning sky. A broad flat mossy stone-and-earth floor spans the bottom 18 percent.
+STYLE: vivid hand-painted pixel-art and cel shading, bold outlines, lush saturated green color, rich foreground-midground-background depth, detailed and immersive but readable at small size.
+COMPOSITION: keep the central fighting area open; straight level floor edge to edge; NO readable words, UI, logos, watermark, characters, people or animals.`,
+  },
+  {
+    id: 'carnival',
+    prompt: `A 2D 1990s arcade fighting-game STAGE BACKGROUND, wide fixed side view, with NO people and NO fighters.
+SCENE: a vibrant nighttime carnival fairground. A giant glowing ferris wheel and a red-and-white striped circus tent dominate the background, colorful strung festival lights and bunting, a carousel, game stalls, and a starry night sky with distant firework bursts; warm festive multicolored glow everywhere. A broad flat trampled-fairground-dirt floor with scattered confetti spans the bottom 18 percent.
+STYLE: vivid hand-painted pixel-art and cel shading, bold outlines, festive saturated color, rich foreground-midground-background depth, detailed and immersive but readable at small size.
+COMPOSITION: keep the central fighting area open; straight level floor edge to edge; NO readable words, UI, logos, watermark, characters, people or animals.`,
+  },
+  {
+    id: 'cathedral',
+    prompt: `A 2D 1990s arcade fighting-game STAGE BACKGROUND, wide fixed side view, with NO people and NO fighters.
+SCENE: the grand interior of a gothic cathedral at night. Soaring stone columns and pointed arches frame both edges, tall glowing stained-glass rose windows, rows of lit candelabra and hanging iron chandeliers, stone banners, and cool blue moonlight streaming through the high windows into the vaulted nave. A broad polished stone cathedral floor spans the bottom 18 percent.
+STYLE: vivid hand-painted pixel-art and cel shading, bold outlines, deep saturated jewel color, rich foreground-midground-background depth, detailed and immersive but readable at small size.
+COMPOSITION: keep the central fighting area open; straight level floor edge to edge; NO readable words, UI, logos, watermark, characters, people or animals.`,
+  },
+  {
+    id: 'orbital',
+    prompt: `A 2D 1990s arcade fighting-game STAGE BACKGROUND, wide fixed side view, with NO people and NO fighters.
+SCENE: the interior observation deck of a vast space station in orbit. Sleek metal bulkheads, glowing control panels, cables and structural trusses frame both edges, and a huge curved panoramic window fills the background revealing the brilliant blue-and-white curve of Earth below, its glowing atmosphere, distant satellites, the Moon and a dense field of stars in deep black space. A broad flat metal grated deck floor spans the bottom 18 percent.
+STYLE: vivid hand-painted pixel-art and cel shading, bold outlines, cool saturated sci-fi color, rich foreground-midground-background depth, detailed and immersive but readable at small size.
+COMPOSITION: keep the central fighting area open; straight level floor edge to edge; NO readable words, UI, logos, watermark, characters, people or animals.`,
+  },
 ];
 
 async function generate(prompt: string): Promise<Buffer> {
