@@ -190,8 +190,11 @@ See [the architecture guide](docs/ARCHITECTURE.md) for the render and session pi
 pnpm typecheck
 pnpm test                 # combat, assets, persistence, ANSI reconstruction
 pnpm test:e2e             # lounge, challenge, matchmaking, and practice over real SSH
+pnpm gym --fighter CODEX --seed 42 --matches 20 --json
 pnpm exec tsx src/dump-png.ts fight 112 36
 ```
+
+The deterministic sparring gym accepts any roster fighter and an optional import-safe policy module via `--policy`. Use `--opponents`, `--styles`, and `--matches` to bound a block; `--seed` makes built-in and `Math.random()`-based policies reproducible, while `--json` emits a machine-readable comparison record.
 
 The asset contract verifies all thirteen complete dossiers, all 39 explained special-move definitions, every required fighter pose, and all six stage payloads. CI also rebuilds the authoritative fighter catalog and the Next.js site.
 
