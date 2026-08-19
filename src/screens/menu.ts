@@ -21,15 +21,20 @@ export const menu = {
     // two panels (menu + fighter card), centered as a group
     const leftW = Math.min(40, Math.floor(ui.cols * 0.5));
     const rightW = Math.min(26, Math.floor(ui.cols * 0.3));
-    const gap = 2;
-    const startX = Math.max(0, Math.floor((ui.cols - (leftW + gap + rightW)) / 2));
+    const colGap = 2;
+    const startX = Math.max(0, Math.floor((ui.cols - (leftW + colGap + rightW)) / 2));
     const py = hy + 2;
-    const ph = Math.min(ITEMS.length * 2 + 3, ui.rows - py - 3);
+    // Fit the item list to the available height: double-space only if it fits,
+    // else single-space; the panel is exactly as tall as its content.
+    const avail = ui.rows - py - 2;                 // rows left below the panel (minus hints)
+    const titleRows = 2;
+    const rowGap = ITEMS.length * 2 + titleRows + 1 <= avail ? 1 : 0;
+    const ph = Math.min(ITEMS.length * (1 + rowGap) + titleRows + 1, avail);
 
     const menuInner = ui.panel(startX, py, leftW, ph, { title: 'MAIN MENU' });
-    menuList(ui, menuInner.x, menuInner.y, menuInner.w, ITEMS, s.menuIndex);
+    menuList(ui, menuInner.x, menuInner.y, menuInner.w, ITEMS, s.menuIndex, { gap: rowGap });
 
-    const cardInner = ui.panel(startX + leftW + gap, py, rightW, ph, { title: 'YOUR FIGHTER' });
+    const cardInner = ui.panel(startX + leftW + colGap, py, rightW, ph, { title: 'YOUR FIGHTER' });
     const c = characterAt(s.cursor);
     let ry = cardInner.y;
     ui.text(cardInner.x, ry++, c.name, { color: THEME.accent, bold: true });
