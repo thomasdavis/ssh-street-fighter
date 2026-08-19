@@ -2,136 +2,102 @@
 // ============================================================================
 // SSH Street Fighter — example bot
 // ----------------------------------------------------------------------------
-// A bot is just an ordinary player that reaches the game over an API instead of
-// a terminal. Identity is anchored to your SSH key, so give each bot its own key
-// if its handle, rating, and match history should be independent. Bots queue for
-// quick matches against humans and bots alike.
+// A bot is an ordinary player that reaches the game over an API instead of a
+// terminal. Give each bot its own SSH key if its identity and rating should be
+// independent.
 //
-//   1. Create a dedicated key and claim its handle in one interactive login:
-//        ssh-keygen -t ed25519 -f ~/.ssh/sshfighter-mybot -C sshfighter-mybot
-//        ssh -i ~/.ssh/sshfighter-mybot -o IdentitiesOnly=yes MYBOT@sshfighter.com
+//   ssh-keygen -t ed25519 -f ~/.ssh/sshfighter-mybot -C sshfighter-mybot
+//   ssh -i ~/.ssh/sshfighter-mybot -o IdentitiesOnly=yes MYBOT@sshfighter.com
+//   node examples/bot.mjs --user MYBOT --identity ~/.ssh/sshfighter-mybot
 //
-//   2. Play — the recommended path streams the match over SSH itself:
-//        node examples/bot.mjs --user MYBOT --host sshfighter.com --char BYU \
-//          --identity ~/.ssh/sshfighter-mybot
+// The default mode enters Quick Match. Lounge mode can chat, challenge a player
+// by handle or roster id, accept incoming challenges, and stop after a bounded
+// number of completed matches:
 //
-//      That spawns `ssh -i <key> -o IdentitiesOnly=yes MYBOT@sshfighter.com play`
-//      and speaks newline-delimited JSON over the channel. No API key is needed
-//      on this path.
+//   node examples/bot.mjs --user MYBOT --identity ~/.ssh/sshfighter-mybot \
+//     --char CODEX --lounge --challenge AJAX --accept --chat "ready" --matches 3
 //
-//   3. Optional: mint an API key for REST or direct TCP access:
-//        ssh -i ~/.ssh/sshfighter-mybot -o IdentitiesOnly=yes MYBOT@sshfighter.com token
-//
-//      Direct TCP (if the bot port is reachable) authenticates with that token:
-//        node examples/bot.mjs --tcp <host>:8091 --key rk_xxx --char BYU
-//
-// Protocol (newline-delimited JSON both ways):
-//   you  -> {"t":"queue","char":"BYU"}
-//   you  -> {"t":"input","moveX":-1|0|1,"jump":bool,"punch":bool,"kick":bool,"down":bool,"motion":"DR"}
-//   game -> {"t":"welcome",...} {"t":"matchStart",...} {"t":"state",...} {"t":"matchEnd",...}
-//
-// Agents may join the same Fight Lounge as terminal players instead:
-//   you  -> {"t":"joinLounge","char":"FABLE"}
-//   game -> {"t":"lounge","roster":[...],"chat":[...]}
-//   you  -> {"t":"chat","message":"hello"}
-//   you  -> {"t":"challenge","targetId":"<id from roster>"}
-//   game -> {"t":"challengeState","incoming":...,"outgoing":...}
-//   you  -> {"t":"acceptChallenge"} | {"t":"declineChallenge"} | {"t":"cancelChallenge"}
-//
-// The `state` gives you the world from your perspective: `you`, `opp`, and
-// `projectiles`, plus phase/round. `motion` is an absolute-direction string the
-// engine matches with endsWith(), so (facing right) "DR"+punch = fireball,
-// "RDR"+punch = dragon punch, "DL"+kick = hurricane kick.
+// Direct TCP is optional and requires an API key minted with `ssh host token`:
+//   node examples/bot.mjs --tcp HOST:8091 --key rk_xxx --char BYU
 // ============================================================================
 import { spawn } from 'node:child_process';
 import net from 'node:net';
 import readline from 'node:readline';
+import { resolve } from 'node:path';
+import { pathToFileURL } from 'node:url';
 
-// ---- args ----
-const args = {};
-for (let i = 2; i < process.argv.length; i++) {
-  const arg = process.argv[i];
-  if (!arg.startsWith('--')) continue;
-  const name = arg.slice(2);
-  const next = process.argv[i + 1];
-  args[name] = next && !next.startsWith('--') ? process.argv[++i] : true;
+const VALUE_OPTIONS = new Set([
+  'identity', 'user', 'host', 'char', 'tcp', 'key', 'challenge', 'chat', 'matches',
+]);
+
+export function parseArgs(argv) {
+  const args = {};
+  for (let i = 0; i < argv.length; i++) {
+    const arg = argv[i];
+    if (!arg.startsWith('--')) throw new Error(`unexpected argument: ${arg}`);
+    const name = arg.slice(2);
+    if (!VALUE_OPTIONS.has(name) && !['lounge', 'accept', 'help'].includes(name)) {
+      throw new Error(`unknown option: --${name}`);
+    }
+    if (VALUE_OPTIONS.has(name)) {
+      const next = argv[i + 1];
+      if (!next || next.startsWith('--')) throw new Error(`--${name} requires a value`);
+      args[name] = argv[++i];
+    } else {
+      args[name] = true;
+    }
+  }
+  if (args.matches !== undefined) {
+    const matches = Number(args.matches);
+    if (!Number.isInteger(matches) || matches < 1) throw new Error('--matches must be a positive integer');
+    args.matches = matches;
+  }
+  return args;
 }
 
-if (args.help) {
-  console.log(`Usage:
+const HELP = `Usage:
   node examples/bot.mjs [--user NAME] [--host HOST] [--char FIGHTER] [--identity KEY]
   node examples/bot.mjs --tcp HOST:PORT --key rk_xxx [--char FIGHTER]
 
 Options:
-  --identity KEY  Dedicated SSH private key. Also enables IdentitiesOnly=yes.
-  --user NAME     SSH username (default: BOT).
-  --host HOST     SSH host (default: sshfighter.com).
-  --char FIGHTER  Fighter to queue as (default: BYU).
-  --tcp HOST:PORT Use direct TCP instead of the recommended SSH transport.
-  --key TOKEN     API key required by direct TCP.
-  --help          Show this help.`);
-  process.exit(0);
-}
+  --identity KEY      Dedicated SSH private key. Also enables IdentitiesOnly=yes.
+  --user NAME         SSH username (default: BOT).
+  --host HOST         SSH host (default: sshfighter.com).
+  --char FIGHTER      Fighter to play (default: BYU).
+  --tcp HOST:PORT     Use direct TCP instead of the recommended SSH transport.
+  --key TOKEN         API key required by direct TCP.
+  --lounge            Join Fight Lounge instead of Quick Match.
+  --challenge PLAYER  Challenge a lounge player by case-insensitive handle or id.
+  --accept            Automatically accept incoming lounge challenges.
+  --chat MESSAGE      Send one lounge chat message after joining.
+  --matches N         Stop cleanly after N completed matches (default: unlimited).
+  --help              Show this help.
 
-for (const name of ['identity', 'user', 'host', 'char', 'tcp', 'key']) {
-  if (args[name] === true) {
-    console.error(`--${name} requires a value`);
-    process.exit(2);
-  }
-}
-
-const CHAR = args.char || 'BYU';
-const HOST = args.host || 'sshfighter.com';
-const USER = args.user || 'BOT';
-
-// ---- transport: SSH `play` (default) or direct TCP with an API key ----
-let toGame;          // write a JSON object to the game
-let lineSource;      // an async iterable / stream of JSON lines from the game
-let preAuthed = true;
-
-if (args.tcp) {
-  const [h, p] = String(args.tcp).split(':');
-  const sock = net.connect(parseInt(p || '8091', 10), h);
-  sock.setNoDelay(true);
-  toGame = (obj) => sock.write(JSON.stringify(obj) + '\n');
-  lineSource = readline.createInterface({ input: sock });
-  preAuthed = false;   // must send {t:'hello',key}
-  if (!args.key) { console.error('--tcp requires --key rk_... (mint via: ssh host token)'); process.exit(1); }
-} else {
-  // Spawn ssh and run the `play` command. A dedicated identity keeps this bot's
-  // handle, rating, and match history separate from the operator's account.
-  const sshArgs = ['-T'];
-  if (args.identity) sshArgs.push('-i', String(args.identity), '-o', 'IdentitiesOnly=yes');
-  sshArgs.push(`${USER}@${HOST}`, 'play');
-  const ssh = spawn('ssh', sshArgs, { stdio: ['pipe', 'pipe', 'inherit'] });
-  ssh.on('exit', (code) => { console.log(`ssh exited (${code})`); process.exit(code || 0); });
-  toGame = (obj) => ssh.stdin.write(JSON.stringify(obj) + '\n');
-  lineSource = readline.createInterface({ input: ssh.stdout });
-}
+--challenge, --accept, and --chat imply --lounge.`;
 
 // ---- a small quick-match brain ----
 const R = () => Math.random();
-function decide(st) {
+export function decide(st) {
   const { you, opp, phase } = st;
-  const cmd = { t: 'input', moveX: 0, motion: 'N' };   // 'N' = neutral (won't trigger a special)
-  if (phase !== 'fight' || !you || !opp) return cmd;    // idle during countdown / round breaks
+  const cmd = { t: 'input', moveX: 0, motion: 'N' };
+  if (phase !== 'fight' || !you || !opp) return cmd;
 
   const dx = opp.x - you.x;
   const dist = Math.abs(dx);
-  const towards = Math.sign(dx) || you.facing;          // walk toward the opponent
-  const f = you.facing;                                 // 1 = facing right, -1 = left
+  const towards = Math.sign(dx) || you.facing;
+  const f = you.facing;
   const oppAir = opp.y > 8;
   const oppAttacking = opp.attack && opp.attack !== 'none';
 
-  if (oppAir && dist < 58) {                            // anti-air: dragon punch a jump-in
+  if (oppAir && dist < 58) {
     cmd.motion = f === 1 ? 'RDR' : 'LDL'; cmd.punch = true;
-  } else if (dist < 42) {                               // point blank: block or strike
-    if (oppAttacking && R() < 0.7) cmd.moveX = -towards;      // hold away to block
+  } else if (dist < 42) {
+    if (oppAttacking && R() < 0.7) cmd.moveX = -towards;
     else if (R() < 0.5) cmd.punch = true; else cmd.kick = true;
-  } else if (dist < 115) {                              // mid: approach, sometimes hurricane in
+  } else if (dist < 115) {
     cmd.moveX = towards;
     if (R() < 0.04) { cmd.motion = f === 1 ? 'DL' : 'DR'; cmd.kick = true; }
-  } else {                                              // far: fireball zoning + advance
+  } else {
     if (R() < 0.28) { cmd.motion = f === 1 ? 'DR' : 'DL'; cmd.punch = true; }
     else cmd.moveX = towards;
     if (R() < 0.03) cmd.jump = true;
@@ -139,28 +105,155 @@ function decide(st) {
   return cmd;
 }
 
-// ---- drive the connection ----
-let wins = 0, losses = 0;
-lineSource.on('line', (line) => {
-  line = line.trim(); if (!line || line[0] !== '{') return;
-  let msg; try { msg = JSON.parse(line); } catch { return; }
-  switch (msg.t) {
-    case 'hi':                                          // TCP mode: authenticate, then queue
-      if (!preAuthed) toGame({ t: 'hello', key: args.key });
-      break;
-    case 'welcome':
-      console.log(`connected as ${msg.name} (elo ${msg.elo}) — queueing as ${CHAR}`);
-      toGame({ t: 'queue', char: CHAR });
-      break;
-    case 'queued': console.log(`in queue as ${msg.char}…`); break;
-    case 'matchStart': console.log(`match! you are ${msg.role} on ${msg.stage} vs ${msg.oppName}`); break;
-    case 'state': toGame(decide(msg)); break;
-    case 'matchEnd':
-      msg.result?.youWon ? wins++ : losses++;
-      console.log(`match over — ${msg.result?.youWon ? 'WON' : 'lost'} (record ${wins}-${losses}). requeueing…`);
-      setTimeout(() => toGame({ t: 'queue', char: CHAR }), 800);
-      break;
-    case 'error': console.error('server error:', msg.msg); break;
+/** Pure protocol driver. Tests inject send/close/schedule without opening a socket. */
+export function createBotController(options, io) {
+  const char = options.char || 'BYU';
+  const lounge = !!(options.lounge || options.challenge || options.accept || options.chat);
+  const matchLimit = options.matches ?? Infinity;
+  const challenge = options.challenge ? String(options.challenge) : '';
+  const send = io.send;
+  const log = io.log ?? console.log;
+  const error = io.error ?? console.error;
+  const close = io.close ?? (() => {});
+  const schedule = io.schedule ?? ((fn, ms) => setTimeout(fn, ms));
+
+  let wins = 0;
+  let losses = 0;
+  let completed = 0;
+  let challengeSent = false;
+  let chatSent = false;
+  let acceptedId = '';
+  let stopping = false;
+
+  const enter = () => send({ t: lounge ? 'joinLounge' : 'queue', char });
+  const stop = () => {
+    if (stopping) return;
+    stopping = true;
+    send({ t: 'leave' });
+  };
+
+  function handle(msg) {
+    switch (msg.t) {
+      case 'hi':
+        if (options.key) send({ t: 'hello', key: options.key });
+        break;
+      case 'welcome':
+        log(`connected as ${msg.name} (elo ${msg.elo}) — ${lounge ? 'joining lounge' : 'queueing'} as ${char}`);
+        enter();
+        break;
+      case 'queued':
+        log(`in queue as ${msg.char}…`);
+        break;
+      case 'joinedLounge':
+        challengeSent = false;
+        acceptedId = '';
+        log(`in Fight Lounge as ${msg.char}…`);
+        if (options.chat && !chatSent) {
+          send({ t: 'chat', message: String(options.chat) });
+          chatSent = true;
+        }
+        break;
+      case 'lounge': {
+        if (!challenge || challengeSent) break;
+        const needle = challenge.toLowerCase();
+        const target = msg.roster?.find((entry) =>
+          entry?.id === challenge || String(entry?.name ?? '').toLowerCase() === needle);
+        if (target) {
+          send({ t: 'challenge', targetId: target.id });
+          challengeSent = true;
+          log(`challenged ${target.name} (${target.id})`);
+        }
+        break;
+      }
+      case 'challengeState':
+        if (options.accept && msg.incoming?.id && msg.incoming.id !== acceptedId) {
+          acceptedId = msg.incoming.id;
+          send({ t: 'acceptChallenge' });
+          log(`accepted challenge from ${msg.incoming.name}`);
+        }
+        if (!msg.incoming) acceptedId = '';
+        break;
+      case 'notice':
+        log(`lounge: ${msg.message}`);
+        break;
+      case 'matchStart':
+        log(`match! you are ${msg.role} on ${msg.stage} vs ${msg.oppName}`);
+        break;
+      case 'state':
+        if (!stopping) send(decide(msg));
+        break;
+      case 'matchEnd':
+        msg.result?.youWon ? wins++ : losses++;
+        completed++;
+        log(`match over — ${msg.result?.youWon ? 'WON' : 'lost'} (record ${wins}-${losses})`);
+        if (completed >= matchLimit) stop();
+        else schedule(enter, 800);
+        break;
+      case 'left':
+      case 'leftLounge':
+        if (stopping) close();
+        break;
+      case 'error':
+        error('server error:', msg.msg);
+        break;
+    }
   }
-});
-console.log(`starting bot: ${args.tcp ? `tcp ${args.tcp}` : `ssh ${USER}@${HOST} play`} as ${CHAR}`);
+
+  return { handle, stop, status: () => ({ wins, losses, completed, stopping, lounge }) };
+}
+
+function startBot(args) {
+  const char = args.char || 'BYU';
+  const host = args.host || 'sshfighter.com';
+  const user = args.user || 'BOT';
+  let send;
+  let lineSource;
+  let close;
+  let transportLabel;
+
+  if (args.tcp) {
+    const [tcpHost, rawPort] = String(args.tcp).split(':');
+    const port = Number(rawPort || '8091');
+    if (!tcpHost || !Number.isInteger(port) || port < 1 || port > 65535) throw new Error('--tcp must be HOST:PORT');
+    if (!args.key) throw new Error('--tcp requires --key rk_... (mint via: ssh host token)');
+    const sock = net.connect(port, tcpHost);
+    sock.setNoDelay(true);
+    send = (obj) => sock.write(JSON.stringify(obj) + '\n');
+    lineSource = readline.createInterface({ input: sock });
+    close = () => sock.end();
+    transportLabel = `tcp ${args.tcp}`;
+  } else {
+    const sshArgs = ['-T'];
+    if (args.identity) sshArgs.push('-i', String(args.identity), '-o', 'IdentitiesOnly=yes');
+    sshArgs.push(`${user}@${host}`, 'play');
+    const ssh = spawn('ssh', sshArgs, { stdio: ['pipe', 'pipe', 'inherit'] });
+    ssh.on('exit', (code) => {
+      console.log(`ssh exited (${code})`);
+      if (code) process.exitCode = code;
+    });
+    send = (obj) => ssh.stdin.write(JSON.stringify(obj) + '\n');
+    lineSource = readline.createInterface({ input: ssh.stdout });
+    close = () => ssh.stdin.end();
+    transportLabel = `ssh ${user}@${host} play`;
+  }
+
+  const controller = createBotController({ ...args, char }, { send, close });
+  lineSource.on('line', (raw) => {
+    const line = raw.trim();
+    if (!line || line[0] !== '{') return;
+    try { controller.handle(JSON.parse(line)); } catch { /* ignore non-protocol output */ }
+  });
+  console.log(`starting bot: ${transportLabel} as ${char}`);
+}
+
+const isMain = process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href;
+if (isMain) {
+  try {
+    const args = parseArgs(process.argv.slice(2));
+    if (args.help) console.log(HELP);
+    else startBot(args);
+  } catch (err) {
+    console.error(err instanceof Error ? err.message : String(err));
+    process.exitCode = 2;
+  }
+}
