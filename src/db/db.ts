@@ -116,11 +116,22 @@ export function initDb(): void {
   ensureColumn('players', 'peak_elo', 'peak_elo INTEGER NOT NULL DEFAULT 1200');
   ensureColumn('players', 'key_bindings_json', 'key_bindings_json TEXT');
   ensureColumn('players', 'calibrated', 'calibrated INTEGER NOT NULL DEFAULT 0');
-  ensureColumn('players', 'view_mode', "view_mode TEXT NOT NULL DEFAULT 'octant'");   // 'octant' | 'quadrant'
+  ensureColumn('players', 'view_mode', "view_mode TEXT NOT NULL DEFAULT 'quadrant'");   // 'octant' | 'quadrant'
   ensureColumn('match_history', 'winner_elo_before', 'winner_elo_before INTEGER');
   ensureColumn('match_history', 'winner_elo_after', 'winner_elo_after INTEGER');
   ensureColumn('match_history', 'loser_elo_before', 'loser_elo_before INTEGER');
   ensureColumn('match_history', 'loser_elo_after', 'loser_elo_after INTEGER');
+
+  // One-time data migrations, guarded so they run exactly once.
+  db.exec('CREATE TABLE IF NOT EXISTS app_meta (key TEXT PRIMARY KEY, value TEXT)');
+  const once = (key: string, fn: () => void): void => {
+    if (db.prepare('SELECT 1 FROM app_meta WHERE key = ?').get(key)) return;
+    fn();
+    db.prepare('INSERT INTO app_meta (key, value) VALUES (?, ?)').run(key, String(Date.now()));
+  };
+  // view_mode default flipped to 'quadrant'; existing rows only ever held the old
+  // migration default ('octant'), never a real choice, so promote them once.
+  once('view_mode_default_quadrant', () => db.prepare("UPDATE players SET view_mode = 'quadrant' WHERE view_mode = 'octant'").run());
 }
 
 export function getByFingerprint(fp: string): Player | undefined {

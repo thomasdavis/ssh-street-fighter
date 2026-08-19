@@ -95,10 +95,10 @@ export class Session {
   controlsCursor = 0;
   bindingCapture: BindableAction | null = null;
   controlsNotice = '';
-  // Octant (2x4 sub-pixels/cell): the whole pixel UI renders in it and the
-  // "terminal too small" gate only admits octant-capable terminals, so it's the
-  // one render mode now (the old 'v' half-block toggle has been retired).
-  renderMode: RenderMode = 'octant';
+  // Default to 'quadrant' (2x2 blocks): renders on ANY terminal without drift.
+  // Modern terminals can press V for the crisper 'octant' (2x4) view; the choice
+  // is remembered per player.
+  renderMode: RenderMode = 'quadrant';
   leader: db.LeaderRow[] = [];
   result: MatchResult | null = null;
   loungeFocus: 'chat' | 'players' = 'chat';
@@ -145,7 +145,7 @@ export class Session {
     if (fp) {
       this.player = db.touchOrCreate(fp);
       this.keyBindings = parseKeyBindings(this.player.key_bindings_json);
-      if (this.player.view_mode === 'quadrant') this.renderMode = 'quadrant';   // remembered view preference
+      if (this.player.view_mode === 'octant') this.renderMode = 'octant';   // remembered view preference (else stays quadrant)
       if (this.player.username) { this.username = this.player.username; landing = 'menu'; this.cursor = this.player.main_char; }
       else landing = 'username'; // registered key without a handle yet
     } else {

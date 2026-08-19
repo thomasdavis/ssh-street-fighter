@@ -105,7 +105,7 @@ export const calibrate = {
     line('ZOOM OUT   CTRL -  /  CMD -        SMOOTHER FIGHTERS', THEME.accent2);
     line('ZOOM IN    CTRL SHIFT +  /  CMD +  BIGGER HUD TEXT', THEME.accent2);
     r += SP.gap;
-    line('PRESS  V  IF THE ART LOOKS GARBLED OR SHIFTED', THEME.accent);
+    line('PRESS  V  FOR SHARPER ART ON A MODERN TERMINAL', THEME.accent);
     r += SP.gap;
 
     // live resolution + quality meter (fidelity tracks the TERMINAL resolution)
