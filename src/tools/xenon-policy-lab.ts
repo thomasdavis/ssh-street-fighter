@@ -24,7 +24,11 @@ const MECHANICS_FILES = ['game/engine.ts', 'game/moves.ts', 'game/types.ts'] as 
 const POLICY_SOURCE_VERSION = 'xenon-policy-lab-policies/v1';
 const DEFAULT_TRAIN_SEEDS = [101, 211, 307];
 const DEFAULT_HELD_OUT_SEEDS = [401, 503, 607];
-const DEFAULT_INPUT_DELAYS = [0, 2, 5];
+const DEFAULT_DELAY_SCENARIOS: DelayScenario[] = [
+  { targetDelay: 0, opponentDelay: 0 }, { targetDelay: 2, opponentDelay: 0 },
+  { targetDelay: 5, opponentDelay: 0 }, { targetDelay: 0, opponentDelay: 2 },
+  { targetDelay: 2, opponentDelay: 2 }, { targetDelay: 5, opponentDelay: 2 },
+];
 const DEFAULT_OPPONENTS = ['OMEGA', 'MNEME', 'AJAX', 'FABLE'] as const;
 // Three full 60-second rounds plus countdown/inter-round ceremony fit below this
 // cap. Reaching it is an error, never a draw silently folded into evaluation.
@@ -34,6 +38,8 @@ type Side = 'a' | 'b';
 type Split = 'train' | 'held-out';
 type Outcome = 'win' | 'loss';
 type OpponentName = typeof DEFAULT_OPPONENTS[number];
+
+export interface DelayScenario { targetDelay: number; opponentDelay: number; }
 
 export interface RawFighterObservation {
   x: number;
@@ -116,7 +122,8 @@ export interface MatchResult {
   opponentConfigHash: string;
   targetPolicy: string;
   targetConfigHash: string;
-  inputDelay: number;
+  delayScenario: DelayScenario;
+  seatDelays: { a: number; b: number };
   stage: string;
   frames: number;
   rounds: { executor: number; opponent: number };
@@ -151,12 +158,12 @@ export interface CandidateScore {
 }
 
 export interface RobustCandidateScore {
-  worstDelayCleanKoWins: number;
+  worstScenarioCleanKoWins: number;
   totalCleanKoWins: number;
   totalTimeoutPenalty: number;
-  worstDelayKoRoundMargin: number;
+  worstScenarioKoRoundMargin: number;
   totalKoRoundMargin: number;
-  byDelay: Array<{ inputDelay: number; evidence: CandidateScore }>;
+  byScenario: Array<{ scenario: DelayScenario; evidence: CandidateScore }>;
 }
 
 export interface CandidateSummary extends Aggregate {
@@ -174,7 +181,7 @@ export interface EvaluationBlock {
   configHash: string;
   train: Aggregate;
   heldOut: Aggregate;
-  byDelay: Array<{ inputDelay: number; train: Aggregate; heldOut: Aggregate }>;
+  byScenario: Array<{ scenario: DelayScenario; train: Aggregate; heldOut: Aggregate }>;
   matches: MatchResult[];
 }
 
@@ -182,7 +189,7 @@ export interface PolicyLabOptions {
   seed?: number;
   trainSeeds?: number[];
   heldOutSeeds?: number[];
-  inputDelays?: number[];
+  delayScenarios?: DelayScenario[];
   candidateLimit?: number;
   includeSearchMatches?: boolean;
 }
@@ -204,7 +211,7 @@ export interface PolicyLabResult {
     seed: number;
     trainSeeds: number[];
     heldOutSeeds: number[];
-    inputDelays: number[];
+    delayScenarios: DelayScenario[];
     opponents: OpponentName[];
     sideAssignments: Side[];
     candidateCount: number;
@@ -488,6 +495,12 @@ class InputDelay {
   }
 }
 
+export function delaysBySeat(scenario: DelayScenario, executorSide: Side): { a: number; b: number } {
+  return executorSide === 'a'
+    ? { a: scenario.targetDelay, b: scenario.opponentDelay }
+    : { a: scenario.opponentDelay, b: scenario.targetDelay };
+}
+
 function playMatch(
   target: PolicyDefinition,
   opponent: PolicyDefinition,
@@ -495,7 +508,7 @@ function playMatch(
   executorSide: Side,
   runSeed: number,
   seed: number,
-  inputDelay: number,
+  delayScenario: DelayScenario,
 ): MatchResult {
   // Common-random-number design: every candidate and both seat assignments see
   // the same stochastic streams for a given split/opponent/scenario. Candidate
@@ -511,8 +524,9 @@ function playMatch(
   const bCharacter = executorSide === 'b' ? 'XENON' : opponent.character;
   const match = makeMatch(makeFighter('a', aCharacter, 'a'), makeFighter('b', bCharacter, 'b'));
   match.stage = 'dojo'; // stages are cosmetic; pin one to eliminate OS-CSPRNG provenance noise.
-  const delayA = new InputDelay(inputDelay);
-  const delayB = new InputDelay(inputDelay);
+  const seatDelays = delaysBySeat(delayScenario, executorSide);
+  const delayA = new InputDelay(seatDelays.a);
+  const delayB = new InputDelay(seatDelays.b);
   const roundTerminals: RoundTerminal[] = [];
   let previousPhase: MatchPhase = match.phase;
 
@@ -549,11 +563,11 @@ function playMatch(
   const last = roundTerminals.at(-1);
   const terminal = last?.reason ?? 'frame-cap';
   return {
-    id: hash(`${matchSeed}|${target.id}|${target.configHash}|${opponent.id}|${executorSide}|${inputDelay}`).slice(0, 16), split,
+    id: hash(`${matchSeed}|${target.id}|${target.configHash}|${opponent.id}|${executorSide}|${delayScenario.targetDelay}:${delayScenario.opponentDelay}`).slice(0, 16), split,
     scenarioSeed: seed, streamRootSeed, matchSeed, targetPolicySeed, opponentPolicySeed,
     executorSide, executor: 'XENON', opponent: opponent.character as OpponentName,
     opponentPolicy: opponent.id, opponentFamily: opponent.family, opponentConfigHash: opponent.configHash,
-    targetPolicy: target.id, targetConfigHash: target.configHash, inputDelay, stage: match.stage,
+    targetPolicy: target.id, targetConfigHash: target.configHash, delayScenario: { ...delayScenario }, seatDelays, stage: match.stage,
     frames: match.frame,
     rounds: { executor: executorSide === 'a' ? match.a.wins : match.b.wins, opponent: executorSide === 'a' ? match.b.wins : match.a.wins },
     winner: executorWins ? 'executor' : 'opponent', outcome: executorWins ? 'win' : 'loss',
@@ -588,14 +602,14 @@ function scenarios(
   split: Split,
   seeds: number[],
   runSeed: number,
-  inputDelays: number[],
+  delayScenarios: DelayScenario[],
   ensemble: Map<string, PolicyDefinition>,
 ): MatchResult[] {
   const results: MatchResult[] = [];
-  for (const inputDelay of inputDelays) for (const opponentName of DEFAULT_OPPONENTS) {
+  for (const delayScenario of delayScenarios) for (const opponentName of DEFAULT_OPPONENTS) {
     const opponent = ensemble.get(`${split}:${opponentName}`)!;
     for (const seed of seeds) for (const side of ['a', 'b'] as const)
-      results.push(playMatch(target, opponent, split, side, runSeed, seed, inputDelay));
+      results.push(playMatch(target, opponent, split, side, runSeed, seed, delayScenario));
   }
   return results;
 }
@@ -612,26 +626,28 @@ export function score(matches: readonly MatchResult[]): CandidateScore {
   };
 }
 
-function robustScore(matches: readonly MatchResult[], inputDelays: readonly number[]): RobustCandidateScore {
-  const byDelay = inputDelays.map((inputDelay) => ({
-    inputDelay,
-    evidence: score(matches.filter((match) => match.inputDelay === inputDelay)),
+const scenarioKey = (scenario: DelayScenario): string => `${scenario.targetDelay}:${scenario.opponentDelay}`;
+
+function robustScore(matches: readonly MatchResult[], delayScenarios: readonly DelayScenario[]): RobustCandidateScore {
+  const byScenario = delayScenarios.map((scenario) => ({
+    scenario: { ...scenario },
+    evidence: score(matches.filter((match) => scenarioKey(match.delayScenario) === scenarioKey(scenario))),
   }));
   return {
-    worstDelayCleanKoWins: Math.min(...byDelay.map((row) => row.evidence.primaryCleanKoWins)),
-    totalCleanKoWins: byDelay.reduce((sum, row) => sum + row.evidence.primaryCleanKoWins, 0),
-    totalTimeoutPenalty: byDelay.reduce((sum, row) => sum + row.evidence.timeoutPenalty, 0),
-    worstDelayKoRoundMargin: Math.min(...byDelay.map((row) => row.evidence.koRoundMargin)),
-    totalKoRoundMargin: byDelay.reduce((sum, row) => sum + row.evidence.koRoundMargin, 0),
-    byDelay,
+    worstScenarioCleanKoWins: Math.min(...byScenario.map((row) => row.evidence.primaryCleanKoWins)),
+    totalCleanKoWins: byScenario.reduce((sum, row) => sum + row.evidence.primaryCleanKoWins, 0),
+    totalTimeoutPenalty: byScenario.reduce((sum, row) => sum + row.evidence.timeoutPenalty, 0),
+    worstScenarioKoRoundMargin: Math.min(...byScenario.map((row) => row.evidence.koRoundMargin)),
+    totalKoRoundMargin: byScenario.reduce((sum, row) => sum + row.evidence.koRoundMargin, 0),
+    byScenario,
   };
 }
 
 function compareRobustScore(a: RobustCandidateScore, b: RobustCandidateScore): number {
-  return b.worstDelayCleanKoWins - a.worstDelayCleanKoWins
+  return b.worstScenarioCleanKoWins - a.worstScenarioCleanKoWins
     || b.totalCleanKoWins - a.totalCleanKoWins
     || a.totalTimeoutPenalty - b.totalTimeoutPenalty
-    || b.worstDelayKoRoundMargin - a.worstDelayKoRoundMargin
+    || b.worstScenarioKoRoundMargin - a.worstScenarioKoRoundMargin
     || b.totalKoRoundMargin - a.totalKoRoundMargin;
 }
 
@@ -639,17 +655,19 @@ function validateOptions(options: PolicyLabOptions): Required<PolicyLabOptions> 
   const seed = options.seed ?? 1;
   const trainSeeds = options.trainSeeds ?? DEFAULT_TRAIN_SEEDS;
   const heldOutSeeds = options.heldOutSeeds ?? DEFAULT_HELD_OUT_SEEDS;
-  const inputDelays = options.inputDelays ?? DEFAULT_INPUT_DELAYS;
+  const delayScenarios = options.delayScenarios ?? DEFAULT_DELAY_SCENARIOS;
   const candidateLimit = options.candidateLimit ?? 48;
   if (!Number.isInteger(seed)) throw new Error('seed must be an integer');
   if (!trainSeeds.length || !heldOutSeeds.length || [...trainSeeds, ...heldOutSeeds].some((s) => !Number.isInteger(s)))
     throw new Error('train and held-out seeds must be non-empty integer lists');
   if (trainSeeds.some((s) => heldOutSeeds.includes(s))) throw new Error('train and held-out seeds must be disjoint');
-  if (!inputDelays.length || inputDelays.some((delay) => !Number.isInteger(delay) || delay < 0 || delay > 30))
-    throw new Error('inputDelays must be a non-empty list of integers from 0 to 30');
-  if (new Set(inputDelays).size !== inputDelays.length) throw new Error('inputDelays must be unique');
+  if (!delayScenarios.length || delayScenarios.some(({ targetDelay, opponentDelay }) =>
+    !Number.isInteger(targetDelay) || targetDelay < 0 || targetDelay > 30
+    || !Number.isInteger(opponentDelay) || opponentDelay < 0 || opponentDelay > 30))
+    throw new Error('delayScenarios must contain target/opponent integer delays from 0 to 30');
+  if (new Set(delayScenarios.map(scenarioKey)).size !== delayScenarios.length) throw new Error('delayScenarios must be unique');
   if (!Number.isInteger(candidateLimit) || candidateLimit < 1 || candidateLimit > 324) throw new Error('candidateLimit must be an integer from 1 to 324');
-  return { seed, trainSeeds, heldOutSeeds, inputDelays: [...inputDelays], candidateLimit, includeSearchMatches: options.includeSearchMatches ?? false };
+  return { seed, trainSeeds, heldOutSeeds, delayScenarios: delayScenarios.map((scenario) => ({ ...scenario })), candidateLimit, includeSearchMatches: options.includeSearchMatches ?? false };
 }
 
 export async function runPolicyLab(options: PolicyLabOptions = {}): Promise<PolicyLabResult> {
@@ -664,9 +682,9 @@ export async function runPolicyLab(options: PolicyLabOptions = {}): Promise<Poli
   const searchMatches: MatchResult[] = [];
   for (const [index, config] of candidateConfigs(checked.candidateLimit).entries()) {
     const target = xenonPolicy(`xenon-search-${index.toString().padStart(3, '0')}`, 'searched-grid-v1', config);
-    const matches = scenarios(target, 'train', checked.trainSeeds, checked.seed, checked.inputDelays, ensemble);
+    const matches = scenarios(target, 'train', checked.trainSeeds, checked.seed, checked.delayScenarios, ensemble);
     const totals = aggregate(matches);
-    candidateRows.push({ ...totals, score: robustScore(matches, checked.inputDelays), policyId: target.id, config, configHash: target.configHash });
+    candidateRows.push({ ...totals, score: robustScore(matches, checked.delayScenarios), policyId: target.id, config, configHash: target.configHash });
     if (checked.includeSearchMatches) searchMatches.push(...matches);
   }
   candidateRows.sort((a, b) => compareRobustScore(a.score, b.score) || a.configHash.localeCompare(b.configHash));
@@ -676,17 +694,17 @@ export async function runPolicyLab(options: PolicyLabOptions = {}): Promise<Poli
 
   const evaluate = (policy: PolicyDefinition): EvaluationBlock => {
     const matches = [
-      ...scenarios(policy, 'train', checked.trainSeeds, checked.seed, checked.inputDelays, ensemble),
-      ...scenarios(policy, 'held-out', checked.heldOutSeeds, checked.seed, checked.inputDelays, ensemble),
+      ...scenarios(policy, 'train', checked.trainSeeds, checked.seed, checked.delayScenarios, ensemble),
+      ...scenarios(policy, 'held-out', checked.heldOutSeeds, checked.seed, checked.delayScenarios, ensemble),
     ];
     return {
       policyId: policy.id, policySourceHash: policy.sourceHash, config: policy.config, configHash: policy.configHash,
       train: aggregate(matches.filter((m) => m.split === 'train')),
       heldOut: aggregate(matches.filter((m) => m.split === 'held-out')),
-      byDelay: checked.inputDelays.map((inputDelay) => ({
-        inputDelay,
-        train: aggregate(matches.filter((m) => m.split === 'train' && m.inputDelay === inputDelay)),
-        heldOut: aggregate(matches.filter((m) => m.split === 'held-out' && m.inputDelay === inputDelay)),
+      byScenario: checked.delayScenarios.map((scenario) => ({
+        scenario: { ...scenario },
+        train: aggregate(matches.filter((m) => m.split === 'train' && scenarioKey(m.delayScenario) === scenarioKey(scenario))),
+        heldOut: aggregate(matches.filter((m) => m.split === 'held-out' && scenarioKey(m.delayScenario) === scenarioKey(scenario))),
       })),
       matches,
     };
@@ -711,15 +729,15 @@ export async function runPolicyLab(options: PolicyLabOptions = {}): Promise<Poli
     },
     run: {
       seed: checked.seed, trainSeeds: [...checked.trainSeeds], heldOutSeeds: [...checked.heldOutSeeds],
-      inputDelays: [...checked.inputDelays], opponents: [...DEFAULT_OPPONENTS], sideAssignments: ['a', 'b'],
+      delayScenarios: checked.delayScenarios.map((scenario) => ({ ...scenario })), opponents: [...DEFAULT_OPPONENTS], sideAssignments: ['a', 'b'],
       candidateCount: candidateRows.length,
     },
     opponentEnsemble,
     search: {
       selectedPolicyId: selected.policyId, selectedConfig: selected.config, selectedConfigHash: selected.configHash,
       scoring: {
-        ordering: ['worst-delay cleanKoWins descending', 'total cleanKoWins descending', 'total timeoutPenalty ascending', 'worst-delay KO-terminal round margin descending', 'total KO-terminal round margin descending', 'configHash ascending'],
-        note: 'One config is frozen across all delays. Timeout wins receive zero clean-KO or round-margin credit and one penalty.',
+        ordering: ['worst-scenario cleanKoWins descending', 'total cleanKoWins descending', 'total timeoutPenalty ascending', 'worst-scenario KO-terminal round margin descending', 'total KO-terminal round margin descending', 'configHash ascending'],
+        note: 'One config is frozen across all asymmetric target/opponent delay scenarios. Timeout wins receive zero clean-KO or round-margin credit and one penalty.',
       },
       candidates: candidateRows,
       ...(checked.includeSearchMatches ? { matches: searchMatches } : {}),
@@ -741,6 +759,14 @@ function parseSeedList(value: string | undefined): number[] | undefined {
   return value?.split(',').filter(Boolean).map(Number);
 }
 
+function parseDelayScenarios(value: string | undefined): DelayScenario[] | undefined {
+  return value?.split(',').filter(Boolean).map((entry) => {
+    const parts = entry.split(':');
+    if (parts.length !== 2 || parts.some((part) => part === '')) throw new Error(`invalid delay scenario: ${entry}`);
+    return { targetDelay: Number(parts[0]), opponentDelay: Number(parts[1]) };
+  });
+}
+
 function parseArgs(argv: string[]): PolicyLabOptions & { pretty: boolean; help: boolean } {
   const values: Record<string, string> = {};
   let pretty = false, help = false, includeSearchMatches = false;
@@ -757,7 +783,7 @@ function parseArgs(argv: string[]): PolicyLabOptions & { pretty: boolean; help: 
   return {
     seed: values.seed ? Number(values.seed) : undefined,
     trainSeeds: parseSeedList(values['train-seeds']), heldOutSeeds: parseSeedList(values['held-out-seeds']),
-    inputDelays: parseSeedList(values['input-delays']),
+    delayScenarios: parseDelayScenarios(values['delay-scenarios']),
     candidateLimit: values.candidates ? Number(values.candidates) : undefined,
     includeSearchMatches, pretty, help,
   };
@@ -767,7 +793,7 @@ const invokedPath = process.argv[1] ? pathToFileURL(resolve(process.argv[1])).hr
 if (import.meta.url === invokedPath) {
   const parsed = parseArgs(process.argv.slice(2));
   if (parsed.help) {
-    console.log(`Usage: pnpm policy:xenon [options]\n\nOptions:\n  --seed N                    run provenance seed\n  --train-seeds A,B,C         deterministic search/eval seeds\n  --held-out-seeds A,B,C      disjoint evaluation-only seeds\n  --input-delays A,B,C        unique delays in frames, each 0-30 (default 0,2,5)\n  --candidates N              bounded grid candidates (1-324)\n  --include-search-matches    include every search match in JSON\n  --pretty                    pretty-print JSON\n  --help                      show this help`);
+    console.log(`Usage: pnpm policy:xenon [options]\n\nOptions:\n  --seed N                    run provenance seed\n  --train-seeds A,B,C         deterministic search/eval seeds\n  --held-out-seeds A,B,C      disjoint evaluation-only seeds\n  --delay-scenarios T:O,...   unique target:opponent delays, each 0-30\n  --candidates N              bounded grid candidates (1-324)\n  --include-search-matches    include every search match in JSON\n  --pretty                    pretty-print JSON\n  --help                      show this help`);
   } else {
     const result = await runPolicyLab(parsed);
     console.log(JSON.stringify(result, null, parsed.pretty ? 2 : 0));
