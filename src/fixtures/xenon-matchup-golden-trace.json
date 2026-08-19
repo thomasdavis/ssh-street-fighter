@@ -1,0 +1,57 @@
+{
+  "schema": "xenon-matchup-golden-trace/v1",
+  "derivedFromCommit": "8b2438bc2c633c98e2e86923fc8f0eaeacda0340",
+  "approvedCrossCommit": "ebb0495f0846211bcdbef20a42701295670df266",
+  "approvedPolicySourceHash": "0ca16d112b292090e19d5606b47aa612a961862b6175fd5833c727690c80bc79",
+  "derivation": "Run matchupXenonDecision from the frozen target commit with the recorded config/context/delay and a constant random() equal to each row's random value.",
+  "cases": [
+    {
+      "id": "fable-envelope",
+      "opponent": "FABLE",
+      "actionDelay": 0,
+      "random": 0.75,
+      "context": { "self": { "x": 80, "y": 0, "vx": 0, "facing": 1, "attack": "none", "attackFrame": 0, "stun": 0 }, "opponent": { "x": 150, "y": 0, "vx": 0, "facing": -1, "attack": "none", "attackFrame": 0, "stun": 0 }, "projectiles": [], "phase": "fight" },
+      "action": { "moveX": 0, "down": false, "jump": false, "punch": false, "kick": true, "throw": false, "motion": "LR" }
+    },
+    {
+      "id": "fable-airborne",
+      "opponent": "FABLE",
+      "actionDelay": 0,
+      "random": 0.75,
+      "context": { "self": { "x": 80, "y": 10, "vx": 0, "facing": 1, "attack": "none", "attackFrame": 0, "stun": 0 }, "opponent": { "x": 120, "y": 0, "vx": 0, "facing": -1, "attack": "none", "attackFrame": 0, "stun": 0 }, "projectiles": [], "phase": "fight" },
+      "action": { "moveX": 1, "down": false, "jump": false, "punch": false, "kick": true, "throw": false, "motion": "" }
+    },
+    {
+      "id": "mneme-construct",
+      "opponent": "MNEME",
+      "actionDelay": 5,
+      "random": 0.75,
+      "context": { "self": { "x": 80, "y": 0, "vx": 0, "facing": 1, "attack": "none", "attackFrame": 0, "stun": 0 }, "opponent": { "x": 145, "y": 0, "vx": 0, "facing": -1, "attack": "construct", "attackFrame": 2, "stun": 0 }, "projectiles": [], "phase": "fight" },
+      "action": { "moveX": 0, "down": false, "jump": false, "punch": false, "kick": true, "throw": false, "motion": "LR" }
+    },
+    {
+      "id": "mneme-nova",
+      "opponent": "MNEME",
+      "actionDelay": 5,
+      "random": 0.75,
+      "context": { "self": { "x": 80, "y": 0, "vx": 0, "facing": 1, "attack": "none", "attackFrame": 0, "stun": 0 }, "opponent": { "x": 120, "y": 0, "vx": 0, "facing": -1, "attack": "nova", "attackFrame": 3, "stun": 0 }, "projectiles": [], "phase": "fight" },
+      "action": { "moveX": -1, "down": true, "jump": false, "punch": false, "kick": false, "throw": false, "motion": "" }
+    },
+    {
+      "id": "omega-far",
+      "opponent": "OMEGA",
+      "actionDelay": 0,
+      "random": 0.75,
+      "context": { "self": { "x": 80, "y": 0, "vx": 0, "facing": 1, "attack": "none", "attackFrame": 0, "stun": 0 }, "opponent": { "x": 210, "y": 0, "vx": 0, "facing": -1, "attack": "none", "attackFrame": 0, "stun": 0 }, "projectiles": [], "phase": "fight" },
+      "action": { "moveX": 0, "down": false, "jump": false, "punch": true, "kick": false, "throw": false, "motion": "DL" }
+    },
+    {
+      "id": "ajax-projectile",
+      "opponent": "AJAX",
+      "actionDelay": 0,
+      "random": 0.75,
+      "context": { "self": { "x": 80, "y": 0, "vx": 0, "facing": 1, "attack": "none", "attackFrame": 0, "stun": 0 }, "opponent": { "x": 180, "y": 0, "vx": 0, "facing": -1, "attack": "none", "attackFrame": 0, "stun": 0 }, "projectiles": [{ "owner": "opponent", "x": 110, "y": 0, "vx": -4, "style": "boomerang" }], "phase": "fight" },
+      "action": { "moveX": 0, "down": false, "jump": false, "punch": true, "kick": false, "throw": false, "motion": "DU" }
+    }
+  ]
+}
