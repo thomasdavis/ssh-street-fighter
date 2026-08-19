@@ -14,16 +14,17 @@ const P1 = rgb(120, 236, 252);   // player 1 cyan
 const P2 = rgb(255, 138, 200);   // player 2 magenta
 
 function controls(cols: number, practice: boolean, bindings: KeyBindings): [string, string][] {
-  const quit = practice ? 'EXIT' : 'QUIT';
+  // Practice can exit with Q; a ranked match can't be quit, so no Q hint there.
+  const exit: [string, string][] = practice ? [['Q', 'EXIT']] : [];
   const move = `${bindingLabel(bindings.left)}/${bindingLabel(bindings.right)}`;
   const jump = bindingLabel(bindings.jump);
   const crouch = bindingLabel(bindings.crouch);
   const punch = bindingLabel(bindings.punch);
   const kick = bindingLabel(bindings.kick);
-  if (cols >= 78) return [[move, 'MOVE'], [jump, 'JUMP'], [crouch, 'CROUCH'], [punch, 'PUNCH'], [kick, 'KICK'], ['BACK', 'BLOCK'], ['?', 'MOVES'], ['Q', quit]];
-  if (cols >= 58) return [[move, 'MOVE'], [jump, 'JUMP'], [punch, 'PUNCH'], [kick, 'KICK'], ['?', 'MOVES'], ['Q', quit]];
-  if (cols >= 42) return [[move, 'MOVE'], [punch, 'HIT'], [kick, 'KICK'], ['?', 'MOVES'], ['Q', quit]];
-  return [[punch, 'HIT'], [kick, 'KICK'], ['?', 'MOVES'], ['Q', quit]];
+  if (cols >= 78) return [[move, 'MOVE'], [jump, 'JUMP'], [crouch, 'CROUCH'], [punch, 'PUNCH'], [kick, 'KICK'], ['BACK', 'BLOCK'], ['?', 'MOVES'], ...exit];
+  if (cols >= 58) return [[move, 'MOVE'], [jump, 'JUMP'], [punch, 'PUNCH'], [kick, 'KICK'], ['?', 'MOVES'], ...exit];
+  if (cols >= 42) return [[move, 'MOVE'], [punch, 'HIT'], [kick, 'KICK'], ['?', 'MOVES'], ...exit];
+  return [[punch, 'HIT'], [kick, 'KICK'], ['?', 'MOVES'], ...exit];
 }
 
 /** Draw the HUD through an existing surface. Exported separately so tests can

@@ -265,11 +265,8 @@ export class Session {
         this.pending.push({ seq, input: inp });
         if (this.pending.length > 150) this.pending.shift();
         HUB.relayInput(this, inp, seq);
-        if (this.fightInput.quit) {
-          HUB.leaveMatch(this);
-          this.remoteVersus = false; this.remoteMid = ''; this.match = null; this.pending = [];
-          this.goTo('menu'); return;
-        }
+        // No quitting a ranked match — you win or you lose. (Disconnecting still
+        // forfeits.) 'q' is ignored here so an accidental press can't drop you.
         if (this.match && this.match.phase === 'fight') predictLocal(this.match, this.role, inp);
         if (this.alive && !this.outputBlocked) this.renderCurrent();
         return; // rendered the predicted frame; skip the throttled render below
@@ -277,11 +274,8 @@ export class Session {
       else if (this.isStepper && this.match && this.peer && this.peer.alive) {
         stepMatch(this.match, this.fightInput.snapshot(), this.peer.fightInput.snapshot());
         this.trackSpecialAttacks();
-        if (this.fightInput.quit) return this.forfeit(this);
-        if (this.peer.fightInput.quit) return this.forfeit(this.peer);
+        // versus is fight-to-the-finish — 'q' does not forfeit (disconnect does).
         this.checkVersusEnd();
-      } else if (!this.practice && this.fightInput.quit) {
-        return this.leaveFight();
       }
     } else {
       SCREENS[this.screen].tick?.(this);

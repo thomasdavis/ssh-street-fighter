@@ -62,7 +62,9 @@ for (const [cols, rows] of sizes) {
     timer: text.includes('47'),
     health: probe.fills.some((c) => sameColor(c, THEME.hpFull)) && probe.fills.some((c) => sameColor(c, THEME.accent)),
     announcement: probe.headings.includes('ROUND 1'),
-    essential_controls: probe.texts.includes('?') && probe.texts.includes('Q'),
+    // A ranked match shows the moves-help control but NOT a quit hint (you can't
+    // quit a versus match — win or lose), so 'Q' must be absent here.
+    essential_controls: probe.texts.includes('?') && !probe.texts.includes('Q'),
   };
   const ok = Object.values(checks).every(Boolean);
   if (!ok) failed = true;
