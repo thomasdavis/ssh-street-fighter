@@ -19,8 +19,10 @@
     "test:coordinator": "tsx src/coordinator-test.ts",
     "test:bot": "tsx src/bot-server-test.ts",
     "test:newwave": "tsx src/newwave-test.ts",
-    "test": "pnpm typecheck && pnpm test:engine && pnpm test:assets && pnpm test:db && pnpm test:input && pnpm test:render && pnpm test:hud && pnpm test:telemetry && pnpm test:recorder && pnpm test:coordinator && pnpm test:bot && pnpm test:newwave",
+    "test:gym": "tsx src/sparring-gym-test.ts",
+    "test": "pnpm typecheck && pnpm test:engine && pnpm test:assets && pnpm test:db && pnpm test:input && pnpm test:render && pnpm test:hud && pnpm test:telemetry && pnpm test:recorder && pnpm test:coordinator && pnpm test:bot && pnpm test:newwave && pnpm test:gym",
     "test:e2e": "tsx src/navigation-test.ts && tsx src/controls-test.ts && tsx src/social-test.ts && tsx src/ssh-test.ts && tsx src/practice-test.ts",
+    "gym": "tsx src/tools/omega-gym.ts",
     "render-test": "tsx src/render-test.ts",
     "keygen": "mkdir -p keys && if [ ! -f keys/host.key ]; then ssh-keygen -t ed25519 -f keys/host.key -N \"\"; fi"
   },
