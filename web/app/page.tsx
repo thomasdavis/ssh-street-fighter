@@ -1,11 +1,12 @@
 import Link from 'next/link';
 import { SiteNav, Footer, CharChip, Bars } from '@/components/ui';
 import { SpriteLoop } from '@/components/SpriteLoop';
-import { summary, topPlayers, recentMatches, characterStats } from '@/lib/ringside';
+import { summary, topPlayers, recentMatches, characterStats, hasReplay } from '@/lib/ringside';
 import { getLive } from '@/lib/live';
 import { charColor, rosterNames, rosterCards } from '@/lib/chars';
 import { timeAgo, frames, num } from '@/lib/format';
 import { LiveMatches } from './LiveMatches';
+import { HomeTheater } from './HomeTheater';
 
 export const dynamic = 'force-dynamic';
 export const metadata = {
@@ -22,6 +23,8 @@ export default async function Home() {
   const names = rosterNames();
   const cards = rosterCards();
   const [heroL, heroR] = [names[0] ?? 'BYU', names[1] ?? 'MEN'];
+  const lastReplay = recentMatches(16).find((m) => hasReplay(m.id));
+  const replayTitle = lastReplay ? `${lastReplay.a_name} vs ${lastReplay.b_name} · ${lastReplay.stage}` : '';
   const topByGames = [...chars].filter((c) => c.games > 0).sort((a, b) => b.games - a.games).slice(0, 6);
 
   return (
@@ -49,6 +52,8 @@ export default async function Home() {
             </div>
           </div>
           <div className="rs-hero__art" aria-hidden>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img className="rs-hero__scene" src={`/api/stage/${lastReplay?.stage ?? 'neon'}`} alt="" />
             <SpriteLoop char={heroL} poses={['idle_1', 'idle_2']} className="l" />
             <span className="vs">VS</span>
             <SpriteLoop char={heroR} poses={['idle_1', 'idle_2']} className="r" />
@@ -64,6 +69,14 @@ export default async function Home() {
           <div className="rs-stat"><b>{num(s.matches24h)}</b><span>Last 24 hours</span></div>
           <div className="rs-stat"><b>{num(s.replays)}</b><span>Replays saved</span></div>
         </section>
+
+        {/* theater: live fight if one's on, else the latest replay looping */}
+        {(lastReplay || live.activeMatches > 0) && (
+          <section className="rs-section">
+            <div className="rs-section__head"><h2>◉ In the ring</h2><Link href="/matches">All matches →</Link></div>
+            <HomeTheater replayId={lastReplay?.id ?? null} replayTitle={replayTitle} />
+          </section>
+        )}
 
         {/* roster showcase */}
         <section className="rs-section">

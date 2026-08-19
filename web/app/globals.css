@@ -424,3 +424,20 @@ button.regen:disabled { opacity: 0.4; cursor: not-allowed; }
   border-radius: 10px; height: 132px; display: flex; align-items: flex-end; justify-content: center; overflow: hidden; position: relative; }
 .pose-cell img { max-height: 92%; max-width: 92%; image-rendering: pixelated; }
 .pose-cell span { position: absolute; bottom: 4px; left: 6px; color: var(--dim); font-size: 9px; letter-spacing: .06em; text-transform: uppercase; background: rgba(11,8,18,.6); padding: 1px 5px; border-radius: 4px; }
+
+/* homepage theater (live/replay showcase) */
+.rs-theater { max-width: 880px; margin: 0 auto; }
+.rs-theater__cap { position: absolute; left: 0; right: 0; bottom: 0; display: flex; align-items: center; gap: 12px;
+  padding: 12px 16px; background: linear-gradient(0deg, rgba(11,8,18,.94), rgba(11,8,18,.55) 60%, transparent); font-size: 12px; }
+.rs-theater__badge { display: inline-flex; align-items: center; gap: 6px; font-weight: 800; letter-spacing: 1px; color: var(--gold);
+  border: 1px solid var(--edge); border-radius: 999px; padding: 3px 11px; background: rgba(11,8,18,.6); white-space: nowrap; }
+.rs-theater__badge.live { color: var(--green); border-color: #2b5a35; }
+.rs-theater__title { color: var(--text); text-transform: uppercase; letter-spacing: .06em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rs-theater__link { margin-left: auto; color: var(--cyan); text-decoration: none; white-space: nowrap; font-weight: 700; }
+.rs-theater__link:hover { color: var(--gold); }
+
+/* subtle scene behind the hero fighters */
+.rs-hero__scene { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; image-rendering: pixelated;
+  opacity: .42; z-index: 0; filter: saturate(1.1) contrast(1.02); mask-image: linear-gradient(180deg, #000 60%, transparent); }
+.rs-hero__art img.l, .rs-hero__art img.r { z-index: 1; }
+.rs-hero__art .vs { z-index: 2; }
