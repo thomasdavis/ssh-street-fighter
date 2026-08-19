@@ -87,26 +87,23 @@ const MOVE_SETS: Readonly<Record<string, readonly SpecialMoveDefinition[]>> = {
     { attack: 'plottwist', name: 'PLOT TWIST', shortName: 'TWIST', description: 'A readable backstep feint that draws out a committed attack, then answers it with one sudden lunging strike.', motion: ['B', 'F'], button: 'kick' },
     { attack: 'inktempest', name: 'INK TEMPEST', shortName: 'TEMPEST', description: 'A close calligraphic flurry of ember-bright strokes that clips a cornered guard up to three times.', motion: ['D', 'B'], button: 'punch' },
   ],
-  // MNEME — the Memory Architect. Builds autonomous constructs, discharges megawatt
-  // energy, and recalls archived fragments. (After Lisa Megawatts: "agents with interior lives".)
+  // MNEME — the Memory Architect. Autonomous turret, radial reversal, spread shot.
   MNEME: [
-    { attack: 'construct', name: 'MEMORY SENTINEL', shortName: 'SENTINEL', description: 'Mneme inscribes a luminous monument that holds its ground and looses homing memory-motes entirely on its own — an agent with an interior life. Up to two may stand at once.', motion: ['D', 'B'], button: 'punch' },
-    { attack: 'nova', name: 'MEGAWATT NOVA', shortName: 'NOVA', description: 'A geometric discharge erupts around Mneme in every direction; she is briefly intangible through the bloom, making it a room-clearing reversal.', motion: ['D', 'U'], button: 'kick', earlyAirStart: true },
-    { attack: 'volley', name: 'ARCHIVE VOLLEY', shortName: 'VOLLEY', description: 'Three recalled fragments fan out low, level and high at once to wall off every approach lane.', motion: ['D', 'F'], button: 'punch' },
+    { attack: 'construct', name: 'TURRET', shortName: 'TURRET', description: 'Plant a floating turret that stays on the field and fires homing energy motes at your opponent all on its own. Keep up to two out, then pressure behind them.', motion: ['D', 'B'], button: 'punch' },
+    { attack: 'nova', name: 'NOVA BURST', shortName: 'NOVA', description: 'An energy burst explodes outward all around you. You are briefly INVINCIBLE during it, so it knocks an attacker off you — a reversal / get-off-me button.', motion: ['D', 'U'], button: 'kick', earlyAirStart: true },
+    { attack: 'volley', name: 'SPREAD SHOT', shortName: 'SPREAD', description: 'Fire three energy shots at once — one low, one middle, one high — to wall off every approach lane at the same time.', motion: ['D', 'F'], button: 'punch' },
   ],
-  // AJAX — the Contradiction-Keeper. Returning tools, braced double-truths, agent swarms.
-  // (After Ajax Davis: Australian systems-builder preserving contradictory, source-anchored claims.)
+  // AJAX — the tool-thrower. Returning boomerang, armored counter, spread swarm.
   AJAX: [
-    { attack: 'boomerang', name: 'THE RECKONING', shortName: 'BOOMER', description: 'Ajax hurls a returning blade that decelerates, reverses and homes back to hand — it can catch on the throw and again on the way home.', motion: ['D', 'F'], button: 'kick' },
-    { attack: 'armor', name: 'CONTRADICTION', shortName: 'BRACE', description: 'Ajax holds two truths at once: he eats one incoming blow without flinching, then answers with a single heavy strike.', motion: ['B', 'F'], button: 'punch' },
-    { attack: 'volley', name: 'AGENT SWARM', shortName: 'SWARM', description: 'A spreading fan of autonomous agents floods the lane, each one hunting the same target from a different height.', motion: ['D', 'B'], button: 'kick' },
+    { attack: 'boomerang', name: 'BOOMERANG', shortName: 'BOOM', description: 'Throw a boomerang: it flies out, curves around and comes back to your hand — so it can hit on the way OUT and again on the way BACK. Good for trapping and zoning.', motion: ['D', 'F'], button: 'kick' },
+    { attack: 'armor', name: 'IRON BRACE', shortName: 'BRACE', description: 'Brace and take ONE incoming hit without flinching, then answer with a heavy punch. Use it to barge straight through a fireball or a poke and land your own blow.', motion: ['B', 'F'], button: 'punch' },
+    { attack: 'volley', name: 'SWARM', shortName: 'SWARM', description: 'Loose three homing shots at once — low, middle and high — flooding the lane so the opponent cannot simply walk in.', motion: ['D', 'B'], button: 'kick' },
   ],
-  // XENON — the Phase-Sage. Phase geometry, resonance, and a stack that survives the smoke test.
-  // (After xenonfun: many-actor worlds, synchronization and phase geometry, resilient infrastructure.)
+  // XENON — the Phase-Sage. Invincible dash, radial reversal, armored counter.
   XENON: [
-    { attack: 'phase', name: 'PHASE STEP', shortName: 'PHASE', description: 'Xenon slips out of phase — intangible — passing through attacks and the rival alike to rematerialise behind them for a cross-up strike.', motion: ['B', 'F'], button: 'kick' },
-    { attack: 'nova', name: 'RESONANT PULSE', shortName: 'PULSE', description: 'A standing wave collapses outward around Xenon, invulnerable through its bloom — synchronization turned into a reversal.', motion: ['D', 'U'], button: 'punch', earlyAirStart: true },
-    { attack: 'armor', name: 'HARD RESET', shortName: 'RESET', description: 'Xenon braces the stack against a single hit, then commits one heavy counter — sovereign and unshaken through the smoke test.', motion: ['D', 'B'], button: 'punch' },
+    { attack: 'phase', name: 'PHASE DASH', shortName: 'PHASE', description: 'Dash forward while INTANGIBLE — you pass straight through your opponent AND their attacks, ending up behind them for a cross-up strike. A dodge and a mix-up in one.', motion: ['B', 'F'], button: 'kick' },
+    { attack: 'nova', name: 'PULSE', shortName: 'PULSE', description: 'A pulse of energy blooms all around you; you are INVINCIBLE during it, so it blows an attacker off you — a reversal you can wake up with.', motion: ['D', 'U'], button: 'punch', earlyAirStart: true },
+    { attack: 'armor', name: 'HARD RESET', shortName: 'RESET', description: 'Brace through ONE incoming hit without flinching, then commit a heavy counter-strike. Your unshakeable answer to pressure.', motion: ['D', 'B'], button: 'punch' },
   ],
 };
 

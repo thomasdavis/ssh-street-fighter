@@ -1756,7 +1756,7 @@
       "Mneme was raised in a library that outlived the civilization that built it, learning that memory only survives if it can act on its own behalf. She discovered she could inscribe luminous constructs — small agents with interior lives — that hold a position and a purpose long after she has moved on.",
       "She fights to prove that vivid worlds and rigorous proof are not opposites: every monument she plants is both a weapon and an argument, an archive that refuses to decay quietly."
     ],
-    "playstyle": "Build the board and let it fight for you. Memory Sentinel plants an autonomous turret that fires on its own, Archive Volley walls off every approach lane at once, and Megawatt Nova erupts as an intangible reversal when someone breaks through.",
+    "playstyle": "Build the board and let it fight for you. Turret plants an autonomous gun that fires on its own, Spread Shot walls off every approach lane at once, and Nova Burst erupts as an invincible reversal when someone breaks through.",
     "strengths": [
       "Autonomous board control",
       "Multi-lane zoning",
@@ -1765,9 +1765,9 @@
     "moves": [
       {
         "attack": "construct",
-        "name": "MEMORY SENTINEL",
-        "shortName": "SENTINEL",
-        "description": "Mneme inscribes a luminous monument that holds its ground and looses homing memory-motes entirely on its own — an agent with an interior life. Up to two may stand at once.",
+        "name": "TURRET",
+        "shortName": "TURRET",
+        "description": "Plant a floating turret that stays on the field and fires homing energy motes at your opponent all on its own. Keep up to two out, then pressure behind them.",
         "motion": [
           "D",
           "B"
@@ -1791,9 +1791,9 @@
       },
       {
         "attack": "nova",
-        "name": "MEGAWATT NOVA",
+        "name": "NOVA BURST",
         "shortName": "NOVA",
-        "description": "A geometric discharge erupts around Mneme in every direction; she is briefly intangible through the bloom, making it a room-clearing reversal.",
+        "description": "An energy burst explodes outward all around you. You are briefly INVINCIBLE during it, so it knocks an attacker off you — a reversal / get-off-me button.",
         "motion": [
           "D",
           "U"
@@ -1818,9 +1818,9 @@
       },
       {
         "attack": "volley",
-        "name": "ARCHIVE VOLLEY",
-        "shortName": "VOLLEY",
-        "description": "Three recalled fragments fan out low, level and high at once to wall off every approach lane.",
+        "name": "SPREAD SHOT",
+        "shortName": "SPREAD",
+        "description": "Fire three energy shots at once — one low, one middle, one high — to wall off every approach lane at the same time.",
         "motion": [
           "D",
           "F"
@@ -1883,7 +1883,7 @@
       "Ajax is a systems-builder from the Australian interior who preserves contradictory, source-anchored records the way a stockman keeps a fence: patiently, and against the weather. He learned that a claim you throw away always comes back around, so he built tools that return to hand on their own.",
       "He enters the circuit orchestrating a small army of autonomous agents, holding two truths at once without flinching, certain that the record only counts when it survives the smoke test of a real fight."
     ],
-    "playstyle": "Throw, brace, and swarm. The Reckoning is a boomerang that can catch on the throw and the return, Agent Swarm floods the lane with hunting agents, and Contradiction eats a hit without flinching before answering with one heavy blow.",
+    "playstyle": "Throw, brace, and swarm. Boomerang hits on the way out and again on the way back, Swarm floods the lane with homing shots, and Iron Brace shrugs off one hit without flinching before answering with a heavy counter.",
     "strengths": [
       "Two-hit returning zoning",
       "Super-armored counter",
@@ -1892,9 +1892,9 @@
     "moves": [
       {
         "attack": "boomerang",
-        "name": "THE RECKONING",
-        "shortName": "BOOMER",
-        "description": "Ajax hurls a returning blade that decelerates, reverses and homes back to hand — it can catch on the throw and again on the way home.",
+        "name": "BOOMERANG",
+        "shortName": "BOOM",
+        "description": "Throw a boomerang: it flies out, curves around and comes back to your hand — so it can hit on the way OUT and again on the way BACK. Good for trapping and zoning.",
         "motion": [
           "D",
           "F"
@@ -1918,9 +1918,9 @@
       },
       {
         "attack": "armor",
-        "name": "CONTRADICTION",
+        "name": "IRON BRACE",
         "shortName": "BRACE",
-        "description": "Ajax holds two truths at once: he eats one incoming blow without flinching, then answers with a single heavy strike.",
+        "description": "Brace and take ONE incoming hit without flinching, then answer with a heavy punch. Use it to barge straight through a fireball or a poke and land your own blow.",
         "motion": [
           "B",
           "F"
@@ -1944,9 +1944,9 @@
       },
       {
         "attack": "volley",
-        "name": "AGENT SWARM",
+        "name": "SWARM",
         "shortName": "SWARM",
-        "description": "A spreading fan of autonomous agents floods the lane, each one hunting the same target from a different height.",
+        "description": "Loose three homing shots at once — low, middle and high — flooding the lane so the opponent cannot simply walk in.",
         "motion": [
           "D",
           "B"
@@ -2009,7 +2009,7 @@
       "Xenon studies many-actor worlds where survival is a matter of synchronization and phase — of arriving a quarter-beat out of step with disaster. A sage of resilient infrastructure, he can slip his whole body out of phase, passing cleanly through anything aimed at where he used to be.",
       "He fights to show that the most sovereign defense is not a wall but a rhythm: brace the stack against one blow, resonate, and answer from a place the attack cannot reach."
     ],
-    "playstyle": "Refuse to be where the hit lands. Phase Step passes intangibly through attacks and the rival for a cross-up, Resonant Pulse blooms as an invulnerable reversal, and Hard Reset braces through a blow before a heavy counter.",
+    "playstyle": "Refuse to be where the hit lands. Phase Dash passes intangibly through attacks and the rival for a cross-up, Pulse blooms as an invincible reversal, and Hard Reset braces through a blow before a heavy counter.",
     "strengths": [
       "True invincibility windows",
       "Cross-up mobility",
@@ -2018,9 +2018,9 @@
     "moves": [
       {
         "attack": "phase",
-        "name": "PHASE STEP",
+        "name": "PHASE DASH",
         "shortName": "PHASE",
-        "description": "Xenon slips out of phase — intangible — passing through attacks and the rival alike to rematerialise behind them for a cross-up strike.",
+        "description": "Dash forward while INTANGIBLE — you pass straight through your opponent AND their attacks, ending up behind them for a cross-up strike. A dodge and a mix-up in one.",
         "motion": [
           "B",
           "F"
@@ -2044,9 +2044,9 @@
       },
       {
         "attack": "nova",
-        "name": "RESONANT PULSE",
+        "name": "PULSE",
         "shortName": "PULSE",
-        "description": "A standing wave collapses outward around Xenon, invulnerable through its bloom — synchronization turned into a reversal.",
+        "description": "A pulse of energy blooms all around you; you are INVINCIBLE during it, so it blows an attacker off you — a reversal you can wake up with.",
         "motion": [
           "D",
           "U"
@@ -2073,7 +2073,7 @@
         "attack": "armor",
         "name": "HARD RESET",
         "shortName": "RESET",
-        "description": "Xenon braces the stack against a single hit, then commits one heavy counter — sovereign and unshaken through the smoke test.",
+        "description": "Brace through ONE incoming hit without flinching, then commit a heavy counter-strike. Your unshakeable answer to pressure.",
         "motion": [
           "D",
           "B"
