@@ -26,7 +26,7 @@ function controls(cols: number, practice: boolean, bindings: KeyBindings): [stri
   return [[punch, 'HIT'], [kick, 'KICK'], ['?', 'MOVES'], ['Q', quit]];
 }
 
-export function drawFightHud(f: Frame, m: Match, practice: boolean, bindings: KeyBindings = DEFAULT_KEY_BINDINGS): void {
+export function drawFightHud(f: Frame, m: Match, practice: boolean, bindings: KeyBindings = DEFAULT_KEY_BINDINGS, showControls = true): void {
   const ui = makeSurface(f);
   const cols = ui.cols;
   const margin = 2;
@@ -58,6 +58,6 @@ export function drawFightHud(f: Frame, m: Match, practice: boolean, bindings: Ke
     banner(ui, Math.max(3, Math.floor(ui.rows * 0.34)), m.message, col);
   }
 
-  // --- controls ---
-  hints(ui, ui.rows - 1, controls(cols, practice, bindings));
+  // --- controls (suppressed when the host screen draws its own footer, e.g. calibrate) ---
+  if (showControls) hints(ui, ui.rows - 1, controls(cols, practice, bindings));
 }

@@ -2,7 +2,7 @@ import type { Frame } from '../render/frame.js';
 import type { Key } from '../ui/key.js';
 import type { Session } from '../net/session.js';
 import { makeSurface } from '../ui/surface.js';
-import { menuList, hints, stat } from '../ui/widgets.js';
+import { menuList, hints, stat, SP } from '../ui/widgets.js';
 import { THEME } from '../ui/theme.js';
 import { characterAt, ROSTER } from '../game/roster.js';
 import * as db from '../db/db.js';
@@ -36,21 +36,21 @@ export const menu = {
 
     const cardInner = ui.panel(startX + leftW + colGap, py, rightW, ph, { title: 'YOUR FIGHTER' });
     const c = characterAt(s.cursor);
-    let ry = cardInner.y;
-    ui.text(cardInner.x, ry++, c.name, { color: THEME.accent, bold: true });
-    ui.text(cardInner.x, ry++, c.tagline.toUpperCase(), { color: THEME.textDim });
-    ry++;
+    const cx = cardInner.x;
+    ui.text(cx, cardInner.y, c.name, { color: THEME.accent });
+    ui.text(cx, cardInner.y + SP.line, c.tagline.toUpperCase(), { color: THEME.textDim });
+    let ry = cardInner.y + SP.line + SP.section;
     const p = s.player;
     if (p) {
       const rank = s.fp ? db.playerRank(s.fp) : null;
-      stat(ui, cardInner.x, ry++, 'WINS', String(p.wins), THEME.good);
-      stat(ui, cardInner.x, ry++, 'LOSSES', String(p.losses), THEME.bad);
-      stat(ui, cardInner.x, ry++, 'ELO', String(p.elo), THEME.accent);
-      if (rank) stat(ui, cardInner.x, ry++, 'RANK', `#${rank}`, THEME.accent2);
-      stat(ui, cardInner.x, ry++, 'WIN%', String(p.matches ? Math.round((p.wins / p.matches) * 100) : 0));
+      stat(ui, cx, ry, 'WINS', String(p.wins), THEME.good); ry += SP.row;
+      stat(ui, cx, ry, 'LOSSES', String(p.losses), THEME.bad); ry += SP.row;
+      stat(ui, cx, ry, 'ELO', String(p.elo), THEME.accent); ry += SP.row;
+      if (rank) { stat(ui, cx, ry, 'RANK', `#${rank}`, THEME.accent2); ry += SP.row; }
+      stat(ui, cx, ry, 'WIN%', String(p.matches ? Math.round((p.wins / p.matches) * 100) : 0));
     } else {
-      ui.text(cardInner.x, ry++, 'GUEST', { color: THEME.textDim });
-      ui.text(cardInner.x, ry++, 'stats not saved', { color: THEME.textDim });
+      ui.text(cx, ry, 'GUEST', { color: THEME.textDim });
+      ui.text(cx, ry + SP.line, 'STATS NOT SAVED', { color: THEME.textDim });
     }
 
     hints(ui, ui.rows - 2, [['W/S', 'MOVE'], ['ENTER', 'SELECT'], ['?', 'HELP']]);

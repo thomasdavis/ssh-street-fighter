@@ -14,7 +14,7 @@ import { makeFighter, makeMatch, stepMatch } from '../game/engine.js';
 import { emptyInputs, type Inputs, type Match } from '../game/types.js';
 import { characterAt } from '../game/roster.js';
 import { makeSurface } from '../ui/surface.js';
-import { hints, meter } from '../ui/widgets.js';
+import { hints, meter, SP } from '../ui/widgets.js';
 import { THEME } from '../ui/theme.js';
 import * as db from '../db/db.js';
 
@@ -82,39 +82,39 @@ export const calibrate = {
     const { cols, rows } = f;
     if (s.calibMatch) {
       f.usePixel(composeSceneCached(s.calibMatch, cols * 2, rows * 4, false));
-      drawFightHud(f, s.calibMatch, false, s.keyBindings);
+      drawFightHud(f, s.calibMatch, false, s.keyBindings, false);   // calibrate draws its own footer hints
     }
     const ui = makeSurface(f);
     if (!s.calibMatch) ui.gradient(THEME.bgTop, THEME.bgBot);
 
     // Instruction panel, centered over the live scene.
     const w = Math.min(58, Math.max(28, ui.cols - 4));
-    const h = Math.min(ui.rows - 4, 12);
+    const h = Math.min(ui.rows - 4, 13);
     const x = Math.floor((ui.cols - w) / 2);
     const y = Math.max(2, Math.floor((ui.rows - h) / 2));
     const inner = ui.panel(x, y, w, h, { title: 'CALIBRATE YOUR VIEW' });
-    const iw = Math.floor(inner.w);
-    let r = inner.y;
-    const line = (str: string, fg = THEME.text, bold = false) => {
-      if (r < inner.y + inner.h) ui.text(inner.x, r, str.slice(0, iw), { color: fg, bold });
-      r++;
+    const cx = inner.x + 0.5, iw = Math.floor(inner.w - 1);
+    let r = inner.y + 0.3;
+    const line = (str: string, fg = THEME.text) => {
+      if (r < inner.y + inner.h) ui.text(cx, r, str.slice(0, iw), { color: fg });
+      r += SP.line;
     };
     line('THIS IS EXACTLY HOW A FIGHT LOOKS. TUNE YOUR', THEME.textDim);
     line('TERMINAL SO BOTH READ CLEAN:', THEME.textDim);
-    r++;
-    line('ZOOM OUT  (CTRL - / CMD -)  SMOOTHER FIGHTERS', THEME.accent2, true);
-    line('ZOOM IN   (CTRL + / CMD +)  LARGER HUD TEXT', THEME.accent2, true);
-    r++;
+    r += SP.gap;
+    line('ZOOM OUT  (CTRL - / CMD -)  SMOOTHER FIGHTERS', THEME.accent2);
+    line('ZOOM IN   (CTRL + / CMD +)  LARGER HUD TEXT', THEME.accent2);
+    r += SP.gap;
 
     // live resolution + quality meter (fidelity tracks the TERMINAL resolution)
     const q = quality(cols, rows);
     const qcol = q <= 0 ? THEME.bad : q === 1 ? THEME.accent : q >= QMAX ? THEME.good : THEME.accent2;
     line(`CANVAS ${cols}x${rows} CELLS - ${cols * 2}x${rows * 4} SUBPIXELS`, THEME.text);
     if (r < inner.y + inner.h) {
-      ui.text(inner.x, r, 'FIDELITY', { color: THEME.textDim });
-      meter(ui, inner.x + 9, r, QUALITY.length, q + 1, qcol);
-      const mx = inner.x + 9 + QUALITY.length * 1.1 + 1;
-      ui.text(mx, r, QUALITY[q]!, { color: qcol, bold: true });
+      ui.text(cx, r, 'FIDELITY', { color: THEME.textDim });
+      meter(ui, cx + 9, r, QUALITY.length, q + 1, qcol);
+      const mx = cx + 9 + QUALITY.length * 1.1 + 1;
+      ui.text(mx, r, QUALITY[q]!, { color: qcol });
       if (q < QMAX) ui.text(mx + QUALITY[q]!.length + 1, r, '(ZOOM OUT FOR MORE)', { color: THEME.textDim });
     }
 

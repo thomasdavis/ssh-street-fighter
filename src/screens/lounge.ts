@@ -3,7 +3,7 @@ import type { Key } from '../ui/key.js';
 import type { Session } from '../net/session.js';
 import type { Surface } from '../ui/surface.js';
 import { makeSurface } from '../ui/surface.js';
-import { hints, inputField, centerText } from '../ui/widgets.js';
+import { hints, inputField, centerText, SP } from '../ui/widgets.js';
 import { THEME } from '../ui/theme.js';
 import { characterAt } from '../game/roster.js';
 
@@ -41,24 +41,24 @@ export const lounge = {
     const ui = makeSurface(f);
     ui.gradient(THEME.bgTop, THEME.bgBot);
     ui.heading(1, 'FIGHT LOUNGE', THEME.accent, 1);
-    const hy = ui.headingHeight(1) + 1;
+    const hy = 1 + ui.headingHeight(1) + Math.round(SP.gap);
     const you = characterAt(s.cursor);
     const ownElo = s.player ? String(s.player.elo) : 'UNRATED';
-    centerText(ui, hy, `${s.displayName}  ·  ${you.name}  ·  ELO ${ownElo}`, { color: THEME.accent2, bold: true });
+    centerText(ui, hy, `${s.displayName}  ·  ${you.name}  ·  ELO ${ownElo}`, { color: THEME.accent2 });
 
-    const banner = hy + 1;
+    const banner = hy + SP.row;
     if (s.incoming) {
-      ui.fill(0, banner, ui.cols, 1, THEME.select);
-      centerText(ui, banner, `${s.incoming.name} CHALLENGED YOU  ·  Y ACCEPT / N DECLINE`, { color: THEME.selectText, bold: true });
+      ui.fill(0, banner - 0.2, ui.cols, 1.2, THEME.select);
+      centerText(ui, banner, `${s.incoming.name} CHALLENGED YOU  ·  Y ACCEPT / N DECLINE`, { color: THEME.selectText });
     } else if (s.outgoing) {
-      ui.fill(0, banner, ui.cols, 1, THEME.select);
-      centerText(ui, banner, `CHALLENGE SENT TO ${s.outgoing.name}  ·  X CANCEL`, { color: THEME.selectText, bold: true });
+      ui.fill(0, banner - 0.2, ui.cols, 1.2, THEME.select);
+      centerText(ui, banner, `CHALLENGE SENT TO ${s.outgoing.name}  ·  X CANCEL`, { color: THEME.selectText });
     } else {
-      centerText(ui, banner, '[ESC] MAIN MENU  ·  [TAB] SWITCH CHAT / PLAYERS', { color: THEME.textDim, bold: true });
+      centerText(ui, banner, '[ESC] MAIN MENU  ·  [TAB] SWITCH CHAT / PLAYERS', { color: THEME.textDim });
     }
 
     const narrow = ui.cols < 76;
-    const top = banner + 2;
+    const top = Math.ceil(banner + SP.row + 0.5);
     const bottom = Math.max(top + 4, ui.rows - 6);
     const panelH = bottom - top;
     const roster = s.loungeRoster;
@@ -74,16 +74,18 @@ export const lounge = {
 
       const list = ui.panel(chatW + 3, top, playersW, panelH, { title: s.loungeFocus === 'players' ? 'PLAYERS · ACTIVE' : 'PLAYERS', border: s.loungeFocus === 'players' ? THEME.accent : THEME.panelBorder });
       if (!roster.length) {
-        ui.text(list.x, list.y + 1, 'NOBODY ELSE ONLINE', { color: THEME.textDim });
-        ui.text(list.x, list.y + 3, 'INVITE A FRIEND TO SSH IN.', { color: THEME.textDim });
+        ui.text(list.x, list.y + 0.5, 'NOBODY ELSE ONLINE', { color: THEME.textDim });
+        ui.text(list.x, list.y + 0.5 + SP.row, 'INVITE A FRIEND TO SSH IN.', { color: THEME.textDim });
       } else {
         s.loungeCursor = Math.max(0, Math.min(roster.length - 1, s.loungeCursor));
-        for (let i = 0; i < roster.length && i < list.h; i++) {
+        const maxRows = Math.floor(list.h / SP.row);
+        for (let i = 0; i < roster.length && i < maxRows; i++) {
           const p = roster[i]!, selected = s.loungeFocus === 'players' && i === s.loungeCursor;
-          if (selected) ui.fill(list.x - 0.5, list.y + i, list.w + 1, 1, THEME.select);
+          const ry = list.y + 0.3 + i * SP.row;
+          if (selected) ui.fill(list.x - 0.7, ry - 0.3, list.w + 1.4, 1.2, THEME.select);
           const elo = p.elo ?? '---';
           const row = `${selected ? '▶' : ' '} ${p.name.slice(0, 12).padEnd(12)} ${characterAt(p.cursor).name.padEnd(6)} ${elo}`;
-          ui.text(list.x, list.y + i, row.slice(0, Math.floor(list.w)), { color: selected ? THEME.selectText : THEME.text, bold: selected });
+          ui.text(list.x, ry, row.slice(0, Math.floor(list.w)), { color: selected ? THEME.selectText : THEME.text });
         }
       }
     }
