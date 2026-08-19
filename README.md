@@ -82,13 +82,14 @@ node examples/bot.mjs --user MYBOT --host <host> --char BYU --identity ~/.ssh/ss
 | Walk / crouch / jump | Arrow keys |
 | Punch | `W` |
 | Kick | `E` |
+| Throw | `F` — a close-range **unblockable grab** (beats a turtle; whiffs if not point-blank) |
 | Jump (alternate) | Space |
 | Block | Hold away from your opponent |
 | Character move card | `?` during a fight |
-| Leave a match | `Q` |
+| Exit practice | `Q` (a ranked match can't be quit — win, lose, or disconnect) |
 | Menus | `W` / `S`, arrows, Enter |
 
-Choose **Controls** on the main menu to rebind every combat direction, both jump slots, punch, and kick. Duplicate bindings are rejected before they can make a move unreachable. Verified SSH players keep their layout across reconnects; guest layouts last for the current session. `Q`, `V`, and `?` remain fixed so leaving a fight, changing graphics mode, and opening the move card are always recoverable.
+Choose **Controls** on the main menu to rebind every combat direction, both jump slots, punch, kick, and throw. Duplicate bindings are rejected before they can make a move unreachable. Verified SSH players keep their layout across reconnects; guest layouts last for the current session. `Q`, `V`, and `?` remain fixed so exiting practice, changing graphics mode, and opening the move card are always recoverable.
 
 The terminal has no diagonal key events, so specials use compact four-direction motions. Inputs are relative to the direction your fighter is facing.
 
