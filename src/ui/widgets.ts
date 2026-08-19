@@ -62,7 +62,8 @@ export function meter(s: Surface, x: number, y: number, segs: number, filled: nu
  *  ten chunk ticks. `mirror` fills from the right (player 2). All fills — no glyphs. */
 export function healthBar(s: Surface, x: number, y: number, w: number, pct: number, mirror = false): void {
   const p = Math.max(0, Math.min(1, pct));
-  const h = 0.85;
+  const h = 0.9;
+  s.fill(x - 0.2, y - 0.18, w + 0.4, h + 0.36, THEME.panelBorder);    // frame
   s.fill(x, y, w, h, THEME.shadow);                                   // empty track
   const fw = w * p;
   const col = p <= 0.3 ? THEME.hpLow : p <= 0.55 ? THEME.accent : THEME.hpFull;

@@ -33,24 +33,29 @@ export function drawFightHud(f: Frame, m: Match, practice: boolean, bindings: Ke
   const gap = cols >= 40 ? 6 : 2;
   const barW = Math.max(6, Math.floor((cols - margin * 2 - gap) / 2));
 
-  // --- top band: names / hp / wins + centered timer (row 0), health bars (row 1) ---
-  ui.fill(0, 0, cols, 2, THEME.shadow);
+  // --- top band with padding: names/hp/wins + timer, then framed health bars ---
+  const nameY = 0.7;                 // padded down from the screen top
+  const barY = nameY + 1.25;
+  const bandH = barY + 1.2;
+  ui.fill(0, 0, cols, bandH, THEME.shadow);
+  ui.fill(0, bandH - 0.14, cols, 0.14, THEME.panelBorder);   // bottom edge
+
   const detailed = cols >= 52;
-  const left = detailed ? `${m.a.name}  ${m.a.hp}  W${m.a.wins}` : `${m.a.name} ${m.a.hp}`;
-  const right = detailed ? `W${m.b.wins}  ${m.b.hp}  ${m.b.name}` : `${m.b.hp} ${m.b.name}`;
+  const left = detailed ? `${m.a.name}  HP ${m.a.hp}  W${m.a.wins}` : `${m.a.name} ${m.a.hp}`;
+  const right = detailed ? `W${m.b.wins}  HP ${m.b.hp}  ${m.b.name}` : `${m.b.hp} ${m.b.name}`;
   const timer = practice ? 'TRAIN' : `R${m.round}  ${String(Math.max(0, Math.ceil(m.roundTime))).padStart(2, '0')}`;
   const timerX = Math.max(0, Math.floor((cols - timer.length) / 2));
   const leftMax = Math.max(0, timerX - margin - 1);
   const rightStart = Math.min(cols - margin, timerX + timer.length + 1);
   const rightMax = Math.max(0, cols - margin - rightStart);
   const shownRight = right.length > rightMax ? right.slice(right.length - rightMax) : right;
-  ui.text(margin, 0, left.slice(0, leftMax), { color: P1, bold: true });
-  ui.text(timerX, 0, timer, { color: practice ? P1 : THEME.accent, bold: true });
-  ui.text(cols - margin - shownRight.length, 0, shownRight, { color: P2, bold: true });
+  ui.text(margin, nameY, left.slice(0, leftMax), { color: P1 });
+  ui.text(timerX, nameY, timer, { color: practice ? P1 : THEME.accent });
+  ui.text(cols - margin - shownRight.length, nameY, shownRight, { color: P2 });
 
-  healthBar(ui, margin, 1, barW, m.a.hp / 100, false);
-  healthBar(ui, cols - margin - barW, 1, barW, m.b.hp / 100, true);
-  if (gap >= 4) centerText(ui, 1, 'VS', { color: THEME.textDim, bold: true });
+  healthBar(ui, margin, barY, barW, m.a.hp / 100, false);
+  healthBar(ui, cols - margin - barW, barY, barW, m.b.hp / 100, true);
+  if (gap >= 4) centerText(ui, barY, 'VS', { color: THEME.textDim });
 
   // --- center announcement (ROUND 1 / FIGHT! / KO / X WINS ROUND / DRAW) ---
   if (m.message) {

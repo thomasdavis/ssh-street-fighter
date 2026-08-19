@@ -16,6 +16,8 @@ import type { FighterPalette } from './types.js';
 const GOLD = rgb(250, 224, 96);
 const SHADOW = rgb(24, 18, 30);
 const SELECT_FLOOR = 112; // fighters stand here (world units), leaving room for labels below
+const SELECT_BG = 'dojo';     // character-select backdrop stage
+const WAITING_BG = 'monsoon'; // waiting-for-opponent backdrop stage
 
 interface View { ws: number; ox: number; oy: number; pw: number; ph: number; }
 function makeView(pw: number, ph: number): View {
@@ -59,6 +61,20 @@ function dimGrid(g: PixelGrid, factor: number): void {
   }
 }
 
+/** Fill the frame with a stage image, cover-cropped and dimmed (a moody backdrop
+ *  the fighters + UI sit over). Falls back to the gradient if the stage is absent. */
+function stageBackdrop(g: PixelGrid, pw: number, ph: number, stageId: string, dim: number): void {
+  const coverH = Math.max(ph, Math.ceil(pw / 1.5));   // 3:2 stage sized to cover the frame
+  const stage = STAGES.get(stageId, coverH);
+  if (stage) {
+    const sw = stage[0]?.length ?? 0, sh = stage.length;
+    blit(g, stage, Math.round((pw - sw) / 2), Math.round((ph - sh) / 2), false);
+    dimGrid(g, dim);
+  } else {
+    backdrop(g, makeView(pw, ph));
+  }
+}
+
 export interface SelectSlot { x: number; baseline: number; standH: number; }
 export function fighterSlot(i: number, n: number): SelectSlot {
   if (n <= 4) return { x: Math.round((WORLD_W / n) * i + WORLD_W / n / 2), baseline: SELECT_FLOOR, standH: 52 };
@@ -79,7 +95,7 @@ export const SELECT_STAGE = { W: WORLD_W, H: WORLD_H, floor: SELECT_FLOOR };
 export function composeSelectStage(cursor: number, frame: number, pw: number, ph: number): PixelGrid {
   const v = makeView(pw, ph);
   const g = createGrid(pw, ph, rgb(0, 0, 0));
-  backdrop(g, v);
+  stageBackdrop(g, pw, ph, SELECT_BG, 0.4);   // dimmed stage so the roster pops
   const n = ROSTER.length;
   const sel = ((cursor % n) + n) % n;
   const bob = Math.round(Math.sin(frame / 5) * 2);
@@ -103,13 +119,7 @@ export function composeSelectStage(cursor: number, frame: number, pw: number, ph
  *  framebuffer resolution; the menu UI is drawn over it by the screen. */
 export function composeMenuStage(cursor: number, frame: number, pw: number, ph: number, stageId: string): PixelGrid {
   const g = createGrid(pw, ph, rgb(12, 10, 20));
-  const coverH = Math.max(ph, Math.ceil(pw / 1.5));   // 3:2 stage sized to cover the frame
-  const stage = STAGES.get(stageId, coverH);
-  if (stage) {
-    const sw = stage[0]?.length ?? 0, sh = stage.length;
-    blit(g, stage, Math.round((pw - sw) / 2), Math.round((ph - sh) / 2), false);
-  }
-  dimGrid(g, 0.5);   // moody title vibe + keeps overlaid UI legible
+  stageBackdrop(g, pw, ph, stageId, 0.5);   // moody title vibe + keeps overlaid UI legible
   const v = makeView(pw, ph);
   const c = characterAt(cursor);
   const bob = Math.round(Math.sin(frame / 9) * 1.5);
@@ -117,16 +127,14 @@ export function composeMenuStage(cursor: number, frame: number, pw: number, ph: 
   return g;
 }
 
+/** Waiting-for-opponent screen: a dimmed stage with your chosen fighter posing
+ *  centre-stage in the title-screen hero pose — same look as the main menu. */
 export function composeWaitingStage(cursor: number, frame: number, pw: number, ph: number): PixelGrid {
+  const g = createGrid(pw, ph, rgb(12, 10, 20));
+  stageBackdrop(g, pw, ph, WAITING_BG, 0.5);
   const v = makeView(pw, ph);
-  const g = createGrid(pw, ph, rgb(0, 0, 0));
-  backdrop(g, v);
   const c = characterAt(cursor);
-  const cx = WORLD_W / 2;
-  const bob = Math.round(Math.sin(frame / 5) * 2);
-  wrect(g, v, cx - 24, 30, 48, SELECT_FLOOR - 30, rgb(70, 56, 104));
-  wrect(g, v, cx - 22, SELECT_FLOOR - 2, 44, 4, GOLD);
-  wrect(g, v, cx - 16, SELECT_FLOOR - 1, 32, 2, SHADOW);
-  drawIdleAt(g, v, c.name, c.palette, cx, SELECT_FLOOR, 52, bob);
+  const bob = Math.round(Math.sin(frame / 9) * 1.5);
+  drawIdleAt(g, v, c.name, c.palette, WORLD_W / 2, SELECT_FLOOR + 16, 108, bob, 'menu', 1);
   return g;
 }
