@@ -78,6 +78,7 @@ export interface Projectile {
   life?: number;          // frames remaining (construct turret; motes)
   fireT?: number;         // construct: frames until it spits the next mote
   returning?: boolean;    // boomerang: currently arcing back to its owner
+  x0?: number;            // boomerang: launch origin x (to measure how far it has flown out)
 }
 
 export type MatchPhase = 'countdown' | 'fight' | 'round-over' | 'match-over';

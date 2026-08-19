@@ -51,16 +51,23 @@ const mv = (motion: string, btn: 'punch' | 'kick'): Inputs => ({ ...emptyInputs(
   check('super-armor: took damage but never flinched or lost the move', m.a.hp < before && !flinched && !dropped, `hp=${m.a.hp} flinch=${flinched} dropped=${dropped}`);
 }
 
-// --- AJAX THE RECKONING (returning boomerang) --------------------------------
+// --- AJAX BOOMERANG (flies out to a real reach, hits, returns, is caught) -----
 {
   const m = setup('AJAX', 'MEN');
-  const facing = m.a.facing;
-  stepMatch(m, mv(facing === 1 ? 'DR' : 'DL', 'kick'), NEUT());
-  for (let i = 0; i < BOOMERANG.spawn + 2; i++) stepMatch(m, NEUT(), NEUT());
-  check('boomerang is thrown', m.projectiles.some((p) => p.style === 'boomerang'));
-  let returned = false;
-  for (let i = 0; i < 60; i++) { stepMatch(m, NEUT(), NEUT()); if (m.projectiles.some((p) => p.style === 'boomerang' && p.returning)) returned = true; }
-  check('boomerang reverses and homes back', returned);
+  m.a.x = 80; m.a.facing = 1; m.b.x = 170; m.b.facing = -1;   // opponent ~90 away, inside the flight path
+  const bHp0 = m.b.hp;
+  stepMatch(m, mv('DR', 'kick'), NEUT());                     // boomerang = D,F + kick
+  let maxOut = 0, returned = false, caught = false, existed = false;
+  for (let i = 0; i < 90; i++) {
+    stepMatch(m, NEUT(), NEUT());
+    const b = m.projectiles.find((p) => p.style === 'boomerang');
+    if (b) { existed = true; maxOut = Math.max(maxOut, Math.abs(b.x - m.a.x)); if (b.returning) returned = true; }
+    else if (existed && returned) caught = true;              // gone after the return leg = caught in hand
+  }
+  check('boomerang is thrown', existed);
+  check('boomerang flies a real distance out', maxOut >= 90, `maxOut=${maxOut.toFixed(0)}`);
+  check('boomerang hits a distant opponent', m.b.hp < bHp0, `bHp ${bHp0}->${m.b.hp}`);
+  check('boomerang reverses and is caught', returned && caught);
 }
 
 // --- MNEME MEMORY SENTINEL (construct + motes) -------------------------------

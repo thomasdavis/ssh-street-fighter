@@ -112,7 +112,7 @@ export const NOVA = { startup: 6, active: 8, recovery: 16, total: 30, dmg: 13, r
 // shared — VOLLEY: a spread of projectiles loosed on one frame (memory motes / agent swarm).
 export const VOLLEY = { startup: 8, spawn: 11, recovery: 15, total: 34, dmg: 6, chip: 2, count: 3, speed: 3.6, r: 5 };
 // AJAX — BOOMERANG: an out-and-back projectile that can catch on the throw and the return.
-export const BOOMERANG = { startup: 7, spawn: 9, recovery: 16, total: 33, speed: 4.4, decel: 0.16, minV: 0.5, dmg: 9, chip: 3, r: 6 };
+export const BOOMERANG = { startup: 7, spawn: 9, recovery: 16, total: 33, speed: 4.8, reach: 120, dmg: 9, chip: 3, r: 7 };
 // shared — ARMORED STRIKE: eats one hit without flinching during the wind-up, then a heavy blow.
 export const ARMOR = { startup: 11, active: 6, recovery: 15, total: 32, dmg: 15, range: 40, kb: 5.6, chip: 4, vert: 42, armor: 17 };
 // XENON — PHASE STEP: an intangible dash that passes through attacks AND the rival.
@@ -589,7 +589,8 @@ function spawnFireball(m: Match, f: Fighter, owner: 'a' | 'b'): void {
 }
 // AJAX — a boomerang thrown flat that decelerates, reverses, and homes back.
 function spawnBoomerang(m: Match, f: Fighter, owner: 'a' | 'b'): void {
-  m.projectiles.push({ owner, x: f.x + f.facing * 16, y: 34, vx: f.facing * BOOMERANG.speed, active: true, hit: false, frame: 0, facing: f.facing, style: 'boomerang', returning: false });
+  const x0 = f.x + f.facing * 16;
+  m.projectiles.push({ owner, x: x0, x0, y: 34, vx: f.facing * BOOMERANG.speed, active: true, hit: false, frame: 0, facing: f.facing, style: 'boomerang', returning: false });
 }
 // AJAX — a LASSO: a short-range rope hook that yanks a caught rival back in.
 function spawnLasso(m: Match, f: Fighter, owner: 'a' | 'b'): void {
@@ -631,14 +632,15 @@ function stepProjectiles(m: Match): void {
 
     if (p.style === 'boomerang') {
       if (!p.returning) {
-        p.vx *= 1 - BOOMERANG.decel;
-        if (Math.abs(p.vx) <= BOOMERANG.minV) { p.returning = true; p.hit = false; }   // reverse — can catch again
+        p.x += p.vx;                                                                     // fly out at full speed
+        const flown = Math.abs(p.x - (p.x0 ?? p.x));
+        if (flown >= BOOMERANG.reach || p.x <= STAGE_LEFT - 6 || p.x >= STAGE_RIGHT + 6) { p.returning = true; p.hit = false; }  // reverse — can catch again on the way home
       } else {
         const owner = p.owner === 'a' ? m.a : m.b;
-        p.vx = (owner.x >= p.x ? 1 : -1) * BOOMERANG.speed * 0.85;
-        if (Math.abs(owner.x - p.x) < 10) { p.active = false; continue; }               // caught
+        p.vx = (owner.x >= p.x ? 1 : -1) * BOOMERANG.speed;                              // home back to the (moving) thrower
+        p.x += p.vx;
+        if (Math.abs(owner.x - p.x) < 14) { p.active = false; continue; }               // caught in hand
       }
-      p.x += p.vx;
     } else {
       p.x += p.vx;
       if ((p.style === 'mote' || p.style === 'rope') && p.life !== undefined) { p.life--; if (p.life <= 0) { p.active = false; continue; } }
