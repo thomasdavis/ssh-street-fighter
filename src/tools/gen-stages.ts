@@ -60,6 +60,41 @@ SCENE: a stormy neon industrial harbor at night. Massive cargo cranes and contai
 STYLE: vivid hand-painted pixel-art and cel shading, bold outlines, saturated color, rich foreground-midground-background depth, detailed and immersive but readable at small size.
 COMPOSITION: keep the central fighting area open; straight level floor edge to edge; NO readable words, UI, logos, watermark, characters, people or animals.`,
   },
+  {
+    id: 'volcano',
+    prompt: `A 2D 1990s arcade fighting-game STAGE BACKGROUND, wide fixed side view, with NO people and NO fighters.
+SCENE: a vast volcanic forge cavern. Rivers of glowing orange-and-yellow molten lava pour down jagged black basalt cliffs on both sides into a bright bubbling lava pool in the mid background, casting a fiery glow; hanging iron chains, giant anvils and half-forged blades, cracked obsidian ledges, drifting embers and heat haze, a smoky dark-red sky glimpsed through a cavern opening high above. A broad cracked black stone floor veined with glowing lava seams spans the bottom 18 percent.
+STYLE: vivid hand-painted pixel-art and cel shading, bold outlines, saturated fiery color, rich foreground-midground-background depth, detailed and immersive but readable at small size.
+COMPOSITION: keep the central fighting area open; straight level floor edge to edge; NO readable words, UI, logos, watermark, characters, people or animals.`,
+  },
+  {
+    id: 'tundra',
+    prompt: `A 2D 1990s arcade fighting-game STAGE BACKGROUND, wide fixed side view, with NO people and NO fighters.
+SCENE: a frozen arctic tundra at night beneath a glowing green-and-violet aurora borealis. Towering translucent blue ice pillars and jagged glaciers frame both edges, snow-laden dark pines, a frozen mirror lake, distant snow mountains, softly falling snow, and a star-filled sky behind shimmering aurora curtains. A broad packed snow-and-ice floor spans the bottom 18 percent.
+STYLE: vivid hand-painted pixel-art and cel shading, bold outlines, cool saturated color, rich foreground-midground-background depth, detailed and immersive but readable at small size.
+COMPOSITION: keep the central fighting area open; straight level floor edge to edge; NO readable words, UI, logos, watermark, characters, people or animals.`,
+  },
+  {
+    id: 'neon',
+    prompt: `A 2D 1990s arcade fighting-game STAGE BACKGROUND, wide fixed side view, with NO people and NO fighters.
+SCENE: a rain-soaked cyberpunk skyscraper rooftop at night. Towering neon-lit megatowers with glowing pink, cyan and purple signs, holographic billboards, blinking antenna lights and flying-car light streaks fill the deep background; rooftop AC units, satellite dishes, tangled cables and a puddled metal deck reflecting the neon fill the foreground; heavy diagonal rain and drifting mist. A broad wet reflective rooftop floor spans the bottom 18 percent.
+STYLE: vivid hand-painted pixel-art and cel shading, bold outlines, glowing saturated neon color, rich foreground-midground-background depth, detailed and immersive but readable at small size.
+COMPOSITION: keep the central fighting area open; straight level floor edge to edge; NO readable words, UI, logos, watermark, characters, people or animals.`,
+  },
+  {
+    id: 'observatory',
+    prompt: `A 2D 1990s arcade fighting-game STAGE BACKGROUND, wide fixed side view, with NO people and NO fighters.
+SCENE: a grand ancient celestial observatory open to the cosmos. Tall carved stone arches and towering bookshelves frame both edges, a huge brass armillary sphere and telescope, floating candles and hanging star-lanterns, scattered floating open books and glowing parchment, marble columns; through the great open dome roof a breathtaking star-filled purple-and-blue nebula sky with a bright moon and drifting stardust. A broad polished marble floor inlaid with a faint zodiac ring spans the bottom 18 percent.
+STYLE: vivid hand-painted pixel-art and cel shading, bold outlines, deep saturated cosmic color, rich foreground-midground-background depth, detailed and immersive but readable at small size.
+COMPOSITION: keep the central fighting area open; straight level floor edge to edge; NO readable words, UI, logos, watermark, characters, people or animals.`,
+  },
+  {
+    id: 'reef',
+    prompt: `A 2D 1990s arcade fighting-game STAGE BACKGROUND, wide fixed side view, with NO people and NO fighters.
+SCENE: an underwater sunken temple in a glowing coral reef. Crumbling barnacle-covered stone columns and a great carved archway frame both edges, vibrant pink, orange and purple coral, swaying green kelp and seaweed, a giant broken statue, tiny distant fish schools, and turquoise sunlight god-rays streaming down from the bright surface far above with rising bubbles. A broad flat sandy seabed floor with scattered coral spans the bottom 18 percent.
+STYLE: vivid hand-painted pixel-art and cel shading, bold outlines, luminous saturated aquatic color, rich foreground-midground-background depth, detailed and immersive but readable at small size.
+COMPOSITION: keep the central fighting area open; straight level floor edge to edge; NO readable words, UI, logos, watermark, characters, people or animals.`,
+  },
 ];
 
 async function generate(prompt: string): Promise<Buffer> {
