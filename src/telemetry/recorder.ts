@@ -6,8 +6,11 @@ import { specialMoveForAttack } from '../game/moves.js';
 import { captureMatch, captureEvents, captureReplay, type MatchRecord, type MatchEvent, type SideRec } from './store.js';
 
 /** Bumped whenever a sim change would make older replays re-simulate differently.
- *  sf-2: TESTIMONY beam nerf. sf-3: throw mechanic (F) — close-range unblockable grab. */
-export const ENGINE_VERSION = 'sf-5';
+ *  sf-2: TESTIMONY beam nerf. sf-3: throw mechanic (F). sf-4/5: WoE + FABLE + throw
+ *  rework. sf-6: MNEME/AJAX/XENON + their new specials (construct, nova, volley,
+ *  boomerang [proper out-and-back], armor, phase, lasso, reflect, blink), universal
+ *  flying kick, and victory poses. */
+export const ENGINE_VERSION = 'sf-6';
 
 const KEYFRAME_EVERY = 300;        // 10s at 30 Hz — seek points for the replayer
 const COMBO_WINDOW = 24;           // frames within which consecutive hits chain

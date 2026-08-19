@@ -587,7 +587,7 @@ function spawnFireball(m: Match, f: Fighter, owner: 'a' | 'b'): void {
   const style = specialMoveForAttack(f.name, 'hadouken')?.projectile ?? 'blue';
   m.projectiles.push({ owner, x: f.x + f.facing * 16, y: 30, vx: f.facing * FIRE_SPEED, active: true, hit: false, frame: 0, facing: f.facing, style });
 }
-// AJAX — a boomerang thrown flat that decelerates, reverses, and homes back.
+// AJAX — a boomerang thrown flat that flies out to a fixed reach, reverses, and homes back.
 function spawnBoomerang(m: Match, f: Fighter, owner: 'a' | 'b'): void {
   const x0 = f.x + f.facing * 16;
   m.projectiles.push({ owner, x: x0, x0, y: 34, vx: f.facing * BOOMERANG.speed, active: true, hit: false, frame: 0, facing: f.facing, style: 'boomerang', returning: false });
