@@ -3,6 +3,7 @@
 import { existsSync, readdirSync, readFileSync } from 'fs';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
+import { randomInt } from 'crypto';
 import { resizeRGBA, type PixelGrid } from '../render/pixel.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -31,10 +32,12 @@ class StageSet {
 
   has(id: string): boolean { this.ensure(); return this.stages.has(id); }
   ids(): string[] { this.ensure(); return [...this.stages.keys()]; }
-  /** A random loaded stage id (falls back to 'dojo' if none are present). */
+  /** A random loaded stage id (falls back to 'dojo' if none are present). Uses the
+   *  OS CSPRNG, not Math.random(): cluster workers can inherit the same V8 PRNG
+   *  seed at fork time, which made freshly-forked workers pick identical stages. */
   pick(): string {
     const list = this.ids();
-    return list.length ? list[Math.floor(Math.random() * list.length)]! : 'dojo';
+    return list.length ? list[randomInt(list.length)]! : 'dojo';
   }
 
   /** Stage resized to `targetH` px tall (aspect-preserved → 3:2 world region). */
