@@ -201,13 +201,19 @@ async function genImage(prompt: string, ref?: Buffer): Promise<Buffer> {
 
 interface Raw { data: Buffer; w: number; h: number; ch: number; }
 // Hue-based magenta key: transparent where the pixel is magenta-dominant (catches
-// anti-aliased edges too); light despill on kept pinkish fringe pixels.
+// the flat screen), then remove the magenta component from darker anti-aliased
+// outline pixels.  Without the second step a black outline blended against the
+// screen survives as a one-pixel purple halo on both light and dark stages.
 function chromaKey(raw: Raw): void {
   const { data, w, h, ch } = raw;
   for (let i = 0; i < w * h; i++) {
     const p = i * ch, r = data[p]!, g = data[p + 1]!, b = data[p + 2]!;
     if (r > 110 && b > 110 && g < r - 55 && g < b - 55) { data[p + 3] = 0; continue; }
-    if (r > 120 && b > 120 && g < r - 20 && g < b - 20) { const g2 = Math.min(r, b); data[p + 1] = Math.round((g + g2) / 2); } // despill
+    const magentaExcess = Math.max(0, Math.min(r, b) - g);
+    if (magentaExcess > 8 && Math.abs(r - b) < 96) {
+      data[p] = Math.max(0, r - magentaExcess);
+      data[p + 2] = Math.max(0, b - magentaExcess);
+    }
   }
 }
 async function rawRGBA(png: Buffer): Promise<Raw> {
