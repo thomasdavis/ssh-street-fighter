@@ -75,21 +75,94 @@ export function textWidth(text: string, scale = 1): number {
 export const FONT3X5: Record<string, string[]> = F;
 export function glyphRows(ch: string): string[] { return F[ch.toUpperCase()] ?? F[' ']!; }
 
+// --- 5x7 pixel font for the pixel UI (crisp, legible letterforms) -------------
+// The octant renderer is pixel-perfect (any 2x4 cell pattern, fg+bg), so glyph
+// resolution is the only lever on how good the text looks. 5x7 is the classic
+// legible small-font size — far cleaner than the 3x5 HUD font above.
+const GW7 = 5, GH7 = 7, ADV7 = 6;   // glyph width, height, and advance (width + 1)
+const F7: Record<string, string[]> = {
+  'A': [' ### ', '#   #', '#   #', '#####', '#   #', '#   #', '#   #'],
+  'B': ['#### ', '#   #', '#   #', '#### ', '#   #', '#   #', '#### '],
+  'C': [' ####', '#    ', '#    ', '#    ', '#    ', '#    ', ' ####'],
+  'D': ['#### ', '#   #', '#   #', '#   #', '#   #', '#   #', '#### '],
+  'E': ['#####', '#    ', '#    ', '#### ', '#    ', '#    ', '#####'],
+  'F': ['#####', '#    ', '#    ', '#### ', '#    ', '#    ', '#    '],
+  'G': [' ####', '#    ', '#    ', '#  ##', '#   #', '#   #', ' ####'],
+  'H': ['#   #', '#   #', '#   #', '#####', '#   #', '#   #', '#   #'],
+  'I': ['#####', '  #  ', '  #  ', '  #  ', '  #  ', '  #  ', '#####'],
+  'J': ['#####', '    #', '    #', '    #', '    #', '#   #', ' ### '],
+  'K': ['#   #', '#  # ', '# #  ', '##   ', '# #  ', '#  # ', '#   #'],
+  'L': ['#    ', '#    ', '#    ', '#    ', '#    ', '#    ', '#####'],
+  'M': ['#   #', '## ##', '# # #', '# # #', '#   #', '#   #', '#   #'],
+  'N': ['#   #', '##  #', '# # #', '#  ##', '#   #', '#   #', '#   #'],
+  'O': [' ### ', '#   #', '#   #', '#   #', '#   #', '#   #', ' ### '],
+  'P': ['#### ', '#   #', '#   #', '#### ', '#    ', '#    ', '#    '],
+  'Q': [' ### ', '#   #', '#   #', '#   #', '# # #', '#  # ', ' ## #'],
+  'R': ['#### ', '#   #', '#   #', '#### ', '# #  ', '#  # ', '#   #'],
+  'S': [' ####', '#    ', '#    ', ' ### ', '    #', '    #', '#### '],
+  'T': ['#####', '  #  ', '  #  ', '  #  ', '  #  ', '  #  ', '  #  '],
+  'U': ['#   #', '#   #', '#   #', '#   #', '#   #', '#   #', ' ### '],
+  'V': ['#   #', '#   #', '#   #', '#   #', '#   #', ' # # ', '  #  '],
+  'W': ['#   #', '#   #', '#   #', '# # #', '# # #', '## ##', '#   #'],
+  'X': ['#   #', '#   #', ' # # ', '  #  ', ' # # ', '#   #', '#   #'],
+  'Y': ['#   #', '#   #', ' # # ', '  #  ', '  #  ', '  #  ', '  #  '],
+  'Z': ['#####', '    #', '   # ', '  #  ', ' #   ', '#    ', '#####'],
+  '0': [' ### ', '#   #', '#  ##', '# # #', '##  #', '#   #', ' ### '],
+  '1': ['  #  ', ' ##  ', '  #  ', '  #  ', '  #  ', '  #  ', ' ### '],
+  '2': [' ### ', '#   #', '    #', '   # ', '  #  ', ' #   ', '#####'],
+  '3': ['#####', '   # ', '  ## ', '    #', '    #', '#   #', ' ### '],
+  '4': ['   # ', '  ## ', ' # # ', '#  # ', '#####', '   # ', '   # '],
+  '5': ['#####', '#    ', '#### ', '    #', '    #', '#   #', ' ### '],
+  '6': [' ### ', '#    ', '#    ', '#### ', '#   #', '#   #', ' ### '],
+  '7': ['#####', '    #', '   # ', '  #  ', ' #   ', ' #   ', ' #   '],
+  '8': [' ### ', '#   #', '#   #', ' ### ', '#   #', '#   #', ' ### '],
+  '9': [' ### ', '#   #', '#   #', ' ####', '    #', '    #', ' ### '],
+  ' ': ['     ', '     ', '     ', '     ', '     ', '     ', '     '],
+  '!': ['  #  ', '  #  ', '  #  ', '  #  ', '  #  ', '     ', '  #  '],
+  '-': ['     ', '     ', '     ', '#####', '     ', '     ', '     '],
+  ':': ['     ', '  #  ', '     ', '     ', '     ', '  #  ', '     '],
+  '.': ['     ', '     ', '     ', '     ', '     ', ' ##  ', ' ##  '],
+  '/': ['    #', '    #', '   # ', '  #  ', ' #   ', '#    ', '#    '],
+  '%': ['##  #', '##  #', '   # ', '  #  ', ' #   ', '#  ##', '#  ##'],
+  '#': [' # # ', ' # # ', '#####', ' # # ', '#####', ' # # ', ' # # '],
+  '(': ['  ## ', ' #   ', '#    ', '#    ', '#    ', ' #   ', '  ## '],
+  ')': [' ##  ', '   # ', '    #', '    #', '    #', '   # ', ' ##  '],
+  '+': ['     ', '  #  ', '  #  ', '#####', '  #  ', '  #  ', '     '],
+  ',': ['     ', '     ', '     ', '     ', ' ##  ', '  #  ', ' #   '],
+  '?': [' ### ', '#   #', '    #', '   # ', '  #  ', '     ', '  #  '],
+  '=': ['     ', '     ', '#####', '     ', '#####', '     ', '     '],
+  ';': ['     ', '  #  ', '     ', '     ', ' ##  ', '  #  ', ' #   '],
+  "'": ['  #  ', '  #  ', ' #   ', '     ', '     ', '     ', '     '],
+  '<': ['   # ', '  #  ', ' #   ', '#    ', ' #   ', '  #  ', '   # '],
+  '>': [' #   ', '  #  ', '   # ', '    #', '   # ', '  #  ', ' #   '],
+  '[': [' ### ', ' #   ', ' #   ', ' #   ', ' #   ', ' #   ', ' ### '],
+  ']': [' ### ', '   # ', '   # ', '   # ', '   # ', '   # ', ' ### '],
+  '←': ['     ', '  #  ', ' #   ', '#####', ' #   ', '  #  ', '     '],
+  '→': ['     ', '  #  ', '   # ', '#####', '   # ', '  #  ', '     '],
+  '↑': ['  #  ', ' ### ', '#####', '  #  ', '  #  ', '  #  ', '  #  '],
+  '↓': ['  #  ', '  #  ', '  #  ', '  #  ', '#####', ' ### ', '  #  '],
+  '·': ['     ', '     ', '     ', ' ##  ', ' ##  ', '     ', '     '],
+  '▶': ['#    ', '##   ', '###  ', '#### ', '###  ', '##   ', '#    '],
+  '▲': ['     ', '  #  ', '  #  ', ' ### ', ' ### ', '#####', '#####'],
+};
+/** The 5x7 glyph map used by the pixel UI. */
+export const FONT5X7: Record<string, string[]> = F7;
+
 // --- continuous-scale pixel text (each font pixel = a cellPx-sized square) ---
-// cellPx may be fractional, so text scales smoothly with the framebuffer size
-// instead of stepping like the integer block font. Draws into a PixelGrid.
+// cellPx may be fractional, so text scales smoothly with the framebuffer size.
+// Draws the 5x7 font into a PixelGrid. Advance is ADV7 (width + 1) font-pixels.
 export function textPxWidth(text: string, cellPx: number): number {
-  return Math.round(text.length * 4 * cellPx - cellPx);
+  return Math.round(text.length * ADV7 * cellPx - cellPx);
 }
 
 export function drawTextPx(g: PixelGrid, text: string, x0: number, y0: number, color: Pixel, cellPx: number): void {
   const sz = Math.max(1, Math.round(cellPx));
   let fx = x0;
   for (const chRaw of text.toUpperCase()) {
-    const glyph = F[chRaw] ?? F[' ']!;
-    for (let gy = 0; gy < 5; gy++) {
+    const glyph = F7[chRaw] ?? F7[' ']!;
+    for (let gy = 0; gy < GH7; gy++) {
       const row = glyph[gy]!;
-      for (let gx = 0; gx < 3; gx++) {
+      for (let gx = 0; gx < GW7; gx++) {
         if (row[gx] !== '#') continue;
         const rx = Math.round(fx + gx * cellPx), ry = Math.round(y0 + gy * cellPx);
         for (let dy = 0; dy < sz; dy++) {
@@ -99,7 +172,7 @@ export function drawTextPx(g: PixelGrid, text: string, x0: number, y0: number, c
         }
       }
     }
-    fx += 4 * cellPx;
+    fx += ADV7 * cellPx;
   }
 }
 

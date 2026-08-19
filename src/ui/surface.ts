@@ -71,7 +71,11 @@ class CellSurface implements Surface {
 }
 
 // ---------- constant-size pixel-font backend ----------
-const PIXEL_UNIT = 0.0055;  // font-pixel size as a fraction of screen height → constant physical size
+// 5x7 font metrics (in font-pixels): 6-wide advance, 9-tall line. The octant
+// renderer is pixel-perfect, so a 1-sub-pixel font (cellPx=1) is already crisp —
+// it just needs to be a legible physical size, which 5x7 is.
+const PIXEL_UNIT = 0.0040;   // font-pixel size as a fraction of screen height
+const CW = 6, LH = 9, GLYPH_H = 7;
 class PixelSurface implements Surface {
   readonly kind = 'pixel' as const;
   private g: PixelGrid;
@@ -88,11 +92,9 @@ class PixelSurface implements Surface {
     // needs a 2-sub-pixel font and blurs/overflows at moderate zoom.
     f.mode = 'octant';
     this.g = f.pixel();
-    // ≥2 sub-pixels per font pixel: the 3×5 glyph is only legible at that size
-    // (a 1-sub-pixel font reads as noise). Scales up as you zoom further out.
-    this.cellPx = Math.max(2, Math.round(ph * PIXEL_UNIT));
-    this.cw = 4 * this.cellPx;
-    this.lh = 6 * this.cellPx;
+    this.cellPx = Math.max(1, Math.round(ph * PIXEL_UNIT));
+    this.cw = CW * this.cellPx;
+    this.lh = LH * this.cellPx;
     this.cols = Math.floor(pw / this.cw);
     this.rows = Math.floor(ph / this.lh);
   }
@@ -110,7 +112,7 @@ class PixelSurface implements Surface {
   }
   text(x: number, y: number, str: string, o: TextOpts = {}): void {
     if (o.bg) this.fill(x, y, str.length, 1, o.bg);
-    const yOff = 2 * Math.round((this.lh - 5 * this.cellPx) / 4); // center, kept even for crispness
+    const yOff = this.cellPx * Math.round((this.lh / this.cellPx - GLYPH_H) / 2); // center the glyph in the line, aligned to cellPx
     drawTextPx(this.g, str, this.gx(x), this.gy(y) + yOff, o.color ?? THEME.text, this.cellPx);
   }
   panel(x: number, y: number, w: number, h: number, o: PanelOpts = {}): Rect {
@@ -132,9 +134,9 @@ class PixelSurface implements Surface {
   heading(y: number, str: string, color: RGB, scale = 1): void {
     const s = this.cellPx * (scale + 1);
     const w = textPxWidth(str, s);
-    drawTextPx(this.g, str, 2 * Math.round(((this.cols * this.cw) - w) / 4), this.gy(y), color, s);
+    drawTextPx(this.g, str, s * Math.round(((this.cols * this.cw) - w) / (2 * s)), this.gy(y), color, s);
   }
-  headingHeight(scale = 1): number { return Math.ceil((5 * (scale + 1)) / 6) + 1; }
+  headingHeight(scale = 1): number { return Math.ceil((GLYPH_H * (scale + 1)) / LH) + 1; }
   width(str: string): number { return str.length; }
   unitX(subPx: number): number { return subPx / this.cw; }
   unitY(subPy: number): number { return subPy / this.lh; }
@@ -154,8 +156,8 @@ export const MIN_PIXEL_COLS = 48, MIN_PIXEL_ROWS = 22;   // virtual-grid minimum
  *  this we show a "make your terminal bigger" notice instead of a squashed UI. */
 export function pixelReady(cols: number, rows: number): boolean {
   const pw = cols * 2, ph = rows * 4;
-  const cellPx = Math.max(2, Math.round(ph * PIXEL_UNIT));
-  return Math.floor(pw / (4 * cellPx)) >= MIN_PIXEL_COLS && Math.floor(ph / (6 * cellPx)) >= MIN_PIXEL_ROWS;
+  const cellPx = Math.max(1, Math.round(ph * PIXEL_UNIT));
+  return Math.floor(pw / (CW * cellPx)) >= MIN_PIXEL_COLS && Math.floor(ph / (LH * cellPx)) >= MIN_PIXEL_ROWS;
 }
 
 /** Smallest terminal (cols, rows) that satisfies pixelReady — shown in the notice. */
