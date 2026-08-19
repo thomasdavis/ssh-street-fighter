@@ -82,7 +82,9 @@ class PixelSurface implements Surface {
     // needs a 2-sub-pixel font and blurs/overflows at moderate zoom.
     f.mode = 'octant';
     this.g = f.pixel();
-    this.cellPx = Math.max(1, Math.round(ph * PIXEL_UNIT));
+    // ≥2 sub-pixels per font pixel: the 3×5 glyph is only legible at that size
+    // (a 1-sub-pixel font reads as noise). Scales up as you zoom further out.
+    this.cellPx = Math.max(2, Math.round(ph * PIXEL_UNIT));
     this.cw = 4 * this.cellPx;
     this.lh = 6 * this.cellPx;
     this.cols = Math.floor(pw / this.cw);
@@ -139,10 +141,21 @@ class PixelSurface implements Surface {
 export interface SurfaceInfo { kind: 'cell' | 'pixel'; cols: number; rows: number; cellPx: number; mode: string; }
 export let lastSurfaceInfo: SurfaceInfo = { kind: 'cell', cols: 0, rows: 0, cellPx: 0, mode: '-' };
 
+/** Would the pixel backend have a big enough grid (at its ≥2px legible size) to
+ *  fit a screen of content here? Below this it overflows, so we use crisp cells. */
+function pixelFits(f: Frame): boolean {
+  const pw = f.cols * 2, ph = f.rows * 4;
+  const cellPx = Math.max(2, Math.round(ph * PIXEL_UNIT));
+  return Math.floor(pw / (4 * cellPx)) >= 48 && Math.floor(ph / (6 * cellPx)) >= 22;
+}
+
 export function makeSurface(f: Frame): Surface {
-  // Pixel (constant-size) UI by default now that it stays crisp at any zoom;
-  // SF_UI=cell forces the one-cell backend.
-  const s = process.env.SF_UI === 'cell' ? new CellSurface(f) : new PixelSurface(f);
+  // Constant-size pixel UI when the terminal is big enough for it to read AND
+  // fit; crisp one-cell text otherwise (readable at every zoom). SF_UI forces:
+  // 'pixel' | 'cell'.
+  const forced = process.env.SF_UI;
+  const usePixel = forced === 'pixel' ? true : forced === 'cell' ? false : pixelFits(f);
+  const s = usePixel ? new PixelSurface(f) : new CellSurface(f);
   lastSurfaceInfo = { kind: s.kind, cols: s.cols, rows: s.rows, cellPx: (s as unknown as { cellPx?: number }).cellPx ?? 0, mode: f.mode };
   return s;
 }
