@@ -1,4 +1,4 @@
-import { runPolicyLab, validateMechanicsSnapshot, ENGINE_COMMIT, EXPECTED_MECHANICS_HASH, LAB_SCHEMA } from './tools/xenon-policy-lab.js';
+import { runPolicyLab, score, validateMechanicsSnapshot, ENGINE_COMMIT, EXPECTED_MECHANICS_HASH, LAB_SCHEMA } from './tools/xenon-policy-lab.js';
 
 let pass = true;
 const check = (name: string, ok: boolean, detail = ''): void => {
@@ -88,8 +88,24 @@ check('aggregate clean-KO and timeout fields are executor-relative and unambiguo
       && aggregate.cleanKoWins === matches.filter((m) => m.outcome === 'win' && m.terminal === 'ko').length
       && aggregate.timeoutWins === matches.filter((m) => m.outcome === 'win' && m.terminal === 'time').length
       && aggregate.timeoutLosses === matches.filter((m) => m.outcome === 'loss' && m.terminal === 'time').length
-      && aggregate.cleanKoWinRate === aggregate.cleanKoWins / aggregate.played;
+      && aggregate.cleanKoWinRate === aggregate.cleanKoWins / aggregate.played
+      && aggregate.koRoundsWon === matches.filter((m) => m.terminal === 'ko').reduce((sum, m) => sum + m.rounds.executor, 0)
+      && aggregate.koRoundsLost === matches.filter((m) => m.terminal === 'ko').reduce((sum, m) => sum + m.rounds.opponent, 0);
   })));
+const timeoutFixture = await runPolicyLab({ ...options, inputDelay: 0, candidateLimit: 1, includeSearchMatches: false });
+const timeoutWin = [timeoutFixture.evaluation.searched, ...timeoutFixture.evaluation.frozenBaselines]
+  .flatMap((block) => block.matches).find((m) => m.outcome === 'win' && m.terminal === 'time');
+const timeoutOnlyScore = timeoutWin ? score([timeoutWin]) : null;
+check('a timeout win has zero primary and round-margin credit plus one penalty',
+  !!timeoutWin && !timeoutWin.cleanKoWin
+    && timeoutOnlyScore?.primaryCleanKoWins === 0
+    && timeoutOnlyScore.koRoundMargin === 0
+    && timeoutOnlyScore.timeoutPenalty === 1);
+check('reported candidate scoring declares clean-KO-first timeout-penalized ordering',
+  first.search.scoring.ordering.join('|') === 'cleanKoWins descending|timeoutPenalty ascending|KO-terminal round margin descending|configHash ascending'
+    && first.search.candidates.every((candidate) => candidate.score.primaryCleanKoWins === candidate.cleanKoWins
+      && candidate.score.timeoutPenalty === candidate.timeoutWins + candidate.timeoutLosses
+      && candidate.score.koRoundMargin === candidate.koRoundsWon - candidate.koRoundsLost));
 
 let overlapRejected = false;
 try { await runPolicyLab({ trainSeeds: [1], heldOutSeeds: [1], candidateLimit: 1 }); } catch { overlapRejected = true; }

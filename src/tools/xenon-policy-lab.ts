@@ -139,11 +139,19 @@ export interface Aggregate {
   cleanKoWinRate: number;
   roundsWon: number;
   roundsLost: number;
+  koRoundsWon: number;
+  koRoundsLost: number;
+}
+
+export interface CandidateScore {
+  primaryCleanKoWins: number;
+  timeoutPenalty: number;
+  koRoundMargin: number;
 }
 
 export interface CandidateSummary extends Aggregate {
   rank?: number;
-  score: number;
+  score: CandidateScore;
   policyId: string;
   config: XenonConfig;
   configHash: string;
@@ -202,6 +210,10 @@ export interface PolicyLabResult {
     selectedPolicyId: string;
     selectedConfig: XenonConfig;
     selectedConfigHash: string;
+    scoring: {
+      ordering: string[];
+      note: string;
+    };
     candidates: CandidateSummary[];
     matches?: MatchResult[];
   };
@@ -547,12 +559,15 @@ function aggregate(matches: MatchResult[]): Aggregate {
   const cleanKoWins = matches.filter((m) => m.cleanKoWin).length;
   const timeoutWins = matches.filter((m) => m.terminal === 'time' && m.outcome === 'win').length;
   const timeoutLosses = matches.filter((m) => m.terminal === 'time' && m.outcome === 'loss').length;
+  const koMatches = matches.filter((m) => m.terminal === 'ko');
+  const koRoundsWon = koMatches.reduce((sum, m) => sum + m.rounds.executor, 0);
+  const koRoundsLost = koMatches.reduce((sum, m) => sum + m.rounds.opponent, 0);
   return {
     played: matches.length, wins, losses: matches.length - wins,
     koTerminals, cleanKoWins, timeoutWins, timeoutLosses,
     winRate: matches.length ? wins / matches.length : 0,
     cleanKoWinRate: matches.length ? cleanKoWins / matches.length : 0,
-    roundsWon, roundsLost,
+    roundsWon, roundsLost, koRoundsWon, koRoundsLost,
   };
 }
 
@@ -573,10 +588,22 @@ function scenarios(
   return results;
 }
 
-function score(summary: Aggregate): number {
-  // Search only on train scenarios. A frame-cap/non-terminal match throws, while
-  // timeout finals remain visible and are penalized rather than silently dropped.
-  return summary.wins * 1000 + (summary.roundsWon - summary.roundsLost) * 10 + summary.cleanKoWins;
+export function score(matches: readonly MatchResult[]): CandidateScore {
+  const koMatches = matches.filter((match) => match.terminal === 'ko');
+  return {
+    // Challenge objective: only executor wins ending in KO are primary evidence.
+    primaryCleanKoWins: koMatches.filter((match) => match.outcome === 'win').length,
+    // Every timeout is a penalty, including a timeout win. It contributes no
+    // clean-KO or round-margin credit.
+    timeoutPenalty: matches.filter((match) => match.terminal === 'time').length,
+    koRoundMargin: koMatches.reduce((margin, match) => margin + match.rounds.executor - match.rounds.opponent, 0),
+  };
+}
+
+function compareScore(a: CandidateScore, b: CandidateScore): number {
+  return b.primaryCleanKoWins - a.primaryCleanKoWins
+    || a.timeoutPenalty - b.timeoutPenalty
+    || b.koRoundMargin - a.koRoundMargin;
 }
 
 function validateOptions(options: PolicyLabOptions): Required<PolicyLabOptions> {
@@ -608,10 +635,10 @@ export async function runPolicyLab(options: PolicyLabOptions = {}): Promise<Poli
     const target = xenonPolicy(`xenon-search-${index.toString().padStart(3, '0')}`, 'searched-grid-v1', config);
     const matches = scenarios(target, 'train', checked.trainSeeds, checked.seed, checked.inputDelay, ensemble);
     const totals = aggregate(matches);
-    candidateRows.push({ ...totals, score: score(totals), policyId: target.id, config, configHash: target.configHash });
+    candidateRows.push({ ...totals, score: score(matches), policyId: target.id, config, configHash: target.configHash });
     if (checked.includeSearchMatches) searchMatches.push(...matches);
   }
-  candidateRows.sort((a, b) => b.score - a.score || a.configHash.localeCompare(b.configHash));
+  candidateRows.sort((a, b) => compareScore(a.score, b.score) || a.configHash.localeCompare(b.configHash));
   candidateRows.forEach((row, index) => { row.rank = index + 1; });
   const selected = candidateRows[0]!;
   const selectedPolicy = xenonPolicy(selected.policyId, 'searched-grid-v1', selected.config);
@@ -653,6 +680,10 @@ export async function runPolicyLab(options: PolicyLabOptions = {}): Promise<Poli
     opponentEnsemble,
     search: {
       selectedPolicyId: selected.policyId, selectedConfig: selected.config, selectedConfigHash: selected.configHash,
+      scoring: {
+        ordering: ['cleanKoWins descending', 'timeoutPenalty ascending', 'KO-terminal round margin descending', 'configHash ascending'],
+        note: 'Timeout wins remain descriptive wins but receive zero primary or round-margin credit and one timeout penalty.',
+      },
       candidates: candidateRows,
       ...(checked.includeSearchMatches ? { matches: searchMatches } : {}),
     },
