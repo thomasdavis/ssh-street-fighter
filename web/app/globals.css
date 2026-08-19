@@ -502,3 +502,13 @@ button.regen:disabled { opacity: 0.4; cursor: not-allowed; }
   .rs-lounge-wrap { grid-template-columns: 1fr; }
   .rs-lounge { min-height: 360px; max-height: 440px; }
 }
+
+/* dedicated /chat page */
+.rs-chatpage { display: grid; grid-template-columns: 1.7fr 1fr; gap: 22px; align-items: stretch; }
+.rs-lounge--full { max-height: min(72vh, 780px); min-height: 56vh; }
+.rs-chatpage .rs-lounge-side { min-height: 56vh; }
+@media (max-width: 820px) {
+  .rs-chatpage { grid-template-columns: 1fr; }
+  .rs-lounge--full { min-height: 62vh; max-height: 70vh; }
+  .rs-chatpage .rs-lounge-side { min-height: 0; }
+}

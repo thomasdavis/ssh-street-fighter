@@ -3,7 +3,7 @@ import { charColor } from '@/lib/chars';
 
 const LINKS: [string, string][] = [
   ['/', 'Home'], ['/leaderboard', 'Leaderboard'], ['/characters', 'Stats'],
-  ['/matches', 'Matches'], ['/fighters', 'Fighters'], ['/status', 'Server'], ['/bots', 'Bots'],
+  ['/matches', 'Matches'], ['/fighters', 'Fighters'], ['/chat', 'Chat'], ['/status', 'Server'], ['/bots', 'Bots'],
 ];
 
 export function SiteNav({ active, online }: { active?: string; online?: number }) {

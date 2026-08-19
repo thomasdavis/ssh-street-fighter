@@ -21,7 +21,7 @@ function ago(ms: number): string {
 
 // Live, read-only view of the Fight Lounge banter. Polls the game API; visitors
 // join over SSH to actually talk (bots chat here too — see PR #10).
-export function LoungeChat({ initial, online, lounge }: { initial: Msg[]; online: number; lounge: number }) {
+export function LoungeChat({ initial, online, lounge, full }: { initial: Msg[]; online: number; lounge: number; full?: boolean }) {
   const [msgs, setMsgs] = useState<Msg[]>(initial);
   const [live, setLive] = useState({ online, lounge });
   const [pulse, setPulse] = useState(false);
@@ -68,7 +68,7 @@ export function LoungeChat({ initial, online, lounge }: { initial: Msg[]; online
   };
 
   return (
-    <div className="rs-lounge" aria-label="Fight Lounge live chat">
+    <div className={`rs-lounge${full ? ' rs-lounge--full' : ''}`} aria-label="Fight Lounge live chat">
       <div className="rs-lounge__bar">
         <span className={`rs-lounge__live${pulse ? ' pulse' : ''}`} aria-hidden />
         <b>Fight Lounge</b>
