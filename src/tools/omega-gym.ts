@@ -112,6 +112,44 @@ const styles: Record<string, Policy> = {
     if (dist <= 42) return { kick: true };
     return { moveX: dist > 60 ? toward : away };
   },
+  // Frame-aware all-rounder — the hardest realistic test: reactive anti-air,
+  // whiff-punish, throw-dodge, block on defence, footsie spacing, throw up close.
+  champion(self, opp, phase) {
+    if (phase !== 'fight') return {};
+    const dx = opp.x - self.x, dist = Math.abs(dx), toward = Math.sign(dx) || self.facing, away = -toward;
+    if (self.stun > 0) return { moveX: away, down: true };
+    if (opp.y > 4) {                                              // perfect anti-air on the descent
+      if ((opp.vy || 0) <= 1 && dist <= 44 && opp.y <= 38) return { kick: true };
+      return dist < 26 ? { moveX: away } : (dist > 46 ? { moveX: toward } : {});
+    }
+    if (opp.attack === 'throw' && dist <= 32) return { moveX: away, jump: true };            // hop the grab
+    if (opp.attack !== 'none' && !opp.active && dist <= 42) return dist <= 28 ? { throw: true } : { kick: true }; // whiff-punish
+    if (opp.attack !== 'none' && dist < 48) return { moveX: away, down: dist < 36 };          // guard live/starting strike
+    if (dist <= 28) { const r = RNG(); return r < 0.4 ? { throw: true } : (r < 0.7 ? { kick: true } : { moveX: away, jump: true }); }
+    if (dist <= 46) return RNG() < 0.4 ? { kick: true } : { moveX: away };                    // footsie / whiff-bait
+    return { moveX: toward };
+  },
+  // Throw-loop grappler — walks in and grabs relentlessly; stresses throw defence.
+  grappler(self, opp, phase) {
+    if (phase !== 'fight') return {};
+    const dx = opp.x - self.x, dist = Math.abs(dx), toward = Math.sign(dx) || self.facing, away = -toward;
+    if (self.stun > 0) return { moveX: away, down: true };
+    if (opp.y > 4 && dist < 44) return { kick: true };
+    if (dist <= 30) return { throw: true };
+    if (opp.active && dist < 44) return { moveX: away, down: true };
+    return { moveX: toward };
+  },
+  // Whiff-bait poker — pokes and retreats to bait a swing, then punishes.
+  hitrun(self, opp, phase) {
+    if (phase !== 'fight') return {};
+    const dx = opp.x - self.x, dist = Math.abs(dx), toward = Math.sign(dx) || self.facing, away = -toward;
+    if (self.stun > 0) return { moveX: away, down: true };
+    if (opp.y > 4 && dist < 44) return { kick: true };
+    if (opp.attack !== 'none' && !opp.active && dist <= 42) return { kick: true };            // punish the whiff
+    if (dist <= 42 && RNG() < 0.5) return { kick: true };                                     // poke
+    if (dist < 48) return { moveX: away };                                                    // retreat / bait
+    return RNG() < 0.4 ? { moveX: toward } : { moveX: away };
+  },
 };
 
 function playMatch(oppPolicy: Policy, oppChar: string): { won: boolean; aWins: number; bWins: number; margin: number } {
