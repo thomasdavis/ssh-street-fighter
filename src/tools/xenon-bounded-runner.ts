@@ -39,7 +39,7 @@ export const EXPECTED_ENGINE_VERSION = 'sf-6';
 export const RUNNER_SCHEMA = 'xenon-bounded-runner/v2';
 export const PINNED_ROSTER = [
   'BYU', 'MEN', 'BLANKO', 'CHONG', 'GYLE', 'ZANG', 'DHAL', 'HONDO',
-  'KIRA', 'MAKO', 'OMEGA', 'CODEX', 'FABLE', 'MNEME', 'AJAX', 'XENON',
+  'KIRA', 'MAKO', 'OMEGA', 'CODEX', 'FABLE', 'MNEME', 'AJAX', 'XENON', 'UNCLOSE',
 ] as const;
 export const PINNED_ROSTER_HASH = sha256(stable(PINNED_ROSTER));
 const XENON_CURSOR = PINNED_ROSTER.indexOf('XENON');
@@ -164,8 +164,7 @@ export function validateHealth(payload: unknown): asserts payload is HealthPaylo
 
 export function validatePinnedRoster(value: unknown): asserts value is string[] {
   if (!Array.isArray(value) || value.length !== PINNED_ROSTER.length
-      || value.some((entry, index) => entry !== PINNED_ROSTER[index])
-      || value.some((entry) => String(entry).toUpperCase() === 'UNCLOSE'))
+      || value.some((entry, index) => entry !== PINNED_ROSTER[index]))
     throw new Error(`deployed roster mismatch: expected exact pinned ${PINNED_ROSTER.length}-fighter roster`);
 }
 
@@ -210,8 +209,8 @@ export function validateRunnerProvenance(actualHash = computeRunnerImplementatio
       || APPROVED_CROSS_COMMIT !== 'ebb0495f0846211bcdbef20a42701295670df266')
     throw new Error('runner extraction/base commit pin drifted');
   if (RUNNER_SOURCE_BASE_COMMIT !== 'd71c67325912bc076ef6d6715a6845ca605ceafe'
-      || TARGET_DEPLOYMENT_PROFILE !== 'sf6-991-pre-unclose-16'
-      || TARGET_ENGINE_COMMIT !== '991acfe56ed096775dca728e2382fe56158d0a79')
+      || TARGET_DEPLOYMENT_PROFILE !== 'sf6-d71-unclose-17'
+      || TARGET_ENGINE_COMMIT !== 'd71c67325912bc076ef6d6715a6845ca605ceafe')
     throw new Error('runner source base or target deployment profile pin drifted');
   if (APPROVED_CROSS_POLICY_SOURCE_HASH !== SHARED_APPROVED_POLICY_SOURCE_HASH)
     throw new Error('approved cross policySourceHash pin drifted');

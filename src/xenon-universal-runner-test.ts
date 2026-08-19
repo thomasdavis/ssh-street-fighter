@@ -249,7 +249,7 @@ assert.equal(legacyManifest.policySourceHash, FROZEN_LEGACY_POLICY_SOURCE_HASH);
 assert.deepEqual(legacyManifest.executionHorizon, { observationAgeFrames: 0, applicationDelayFrames: 5 });
 assert.equal(legacyManifest.targetSeed, 2026081901);
 assert.equal(legacyManifest.runnerSourceBaseCommit, 'd71c67325912bc076ef6d6715a6845ca605ceafe');
-assert.equal(legacyManifest.targetDeploymentProfile, 'sf6-991-pre-unclose-16');
+assert.equal(legacyManifest.targetDeploymentProfile, 'sf6-d71-unclose-17');
 assert.equal(legacyManifest.targetProfileAttestation, 'exact-authenticated-welcome-roster-required');
 
 const temp = mkdtempSync(join(tmpdir(), 'xenon-universal-runner-'));

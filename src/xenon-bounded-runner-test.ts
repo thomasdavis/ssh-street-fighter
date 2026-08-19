@@ -108,22 +108,23 @@ async function enterMatch(h: ReturnType<typeof harness>, overrides: Message = {}
 
 validateHealth(health);
 validatePinnedRoster([...PINNED_ROSTER]);
-assert.equal(PINNED_ROSTER.length, 16);
-assert.ok(!PINNED_ROSTER.includes('UNCLOSE' as never));
+assert.equal(PINNED_ROSTER.length, 17);
+assert.equal(PINNED_ROSTER.at(-1), 'UNCLOSE');
 assert.equal(RUNNER_SOURCE_BASE_COMMIT, 'd71c67325912bc076ef6d6715a6845ca605ceafe');
-assert.equal(TARGET_DEPLOYMENT_PROFILE, 'sf6-991-pre-unclose-16');
-assert.equal(TARGET_ENGINE_COMMIT, '991acfe56ed096775dca728e2382fe56158d0a79');
+assert.equal(TARGET_DEPLOYMENT_PROFILE, 'sf6-d71-unclose-17');
+assert.equal(TARGET_ENGINE_COMMIT, 'd71c67325912bc076ef6d6715a6845ca605ceafe');
 assert.match(PINNED_ROSTER_HASH, /^[0-9a-f]{64}$/);
 assert.throws(() => validateHealth({ ok: true, service: 'ringside', engine: 'sf-7' }));
-assert.throws(() => validatePinnedRoster([...PINNED_ROSTER.slice(0, -1), 'UNCLOSE']));
-assert.throws(() => validatePinnedRoster([...PINNED_ROSTER, 'UNCLOSE']));
-console.log('PASS  health and exact 16-fighter roster fail closed');
+assert.throws(() => validatePinnedRoster(PINNED_ROSTER.slice(0, -1)));
+assert.throws(() => validatePinnedRoster([...PINNED_ROSTER.slice(0, -2), 'UNCLOSE', 'XENON']));
+assert.throws(() => validatePinnedRoster([...PINNED_ROSTER.slice(0, -1), 'BYU']));
+console.log('PASS  exact d71 17-fighter roster passes; old 16, substitutions, and order changes fail closed');
 
 const healthOnly = harness();
 await healthOnly.controller.handle({ t: 'hi', service: 'ringside-bot' });
 assert.equal(healthOnly.sent.some((message) => message.t === 'joinLounge' || message.t === 'input'), false);
 assert.equal(healthOnly.controller.status().welcomed, false);
-console.log('PASS  sf-6 health alone never attests sf6-991 or permits Lounge/input');
+console.log('PASS  sf-6 health alone never attests the d71 17-roster profile or permits Lounge/input');
 
 const golden = JSON.parse(readFileSync(new URL('./fixtures/xenon-matchup-golden-trace.json', import.meta.url), 'utf8')) as {
   derivedFromCommit: string;
