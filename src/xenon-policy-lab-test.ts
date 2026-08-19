@@ -10,7 +10,7 @@ const options = {
   seed: 17,
   trainSeeds: [101],
   heldOutSeeds: [401],
-  inputDelay: 2,
+  inputDelays: [0, 2],
   candidateLimit: 2,
   includeSearchMatches: true,
 };
@@ -22,6 +22,7 @@ check('provenance pins exact engine commit and offline execution',
   first.schema === LAB_SCHEMA && first.engine.expectedBaseCommit === ENGINE_COMMIT
     && first.engine.mechanicsHash === EXPECTED_MECHANICS_HASH && first.engine.mechanicsValidated
     && first.engine.mechanicsFiles.join(',') === 'src/game/engine.ts,src/game/moves.ts,src/game/types.ts'
+    && first.engine.deploymentScope.includes('991acfe') && first.engine.deploymentScope.includes('9fd5609')
     && !first.engine.networkAccess);
 let mechanicsMismatchRejected = false, versionMismatchRejected = false;
 try { validateMechanicsSnapshot('0'.repeat(64)); } catch { mechanicsMismatchRejected = true; }
@@ -37,14 +38,15 @@ check('search is bounded and hashes every configuration',
 const searchedMatches = first.search.matches ?? [];
 const seedTuple = (m: typeof searchedMatches[number]): string =>
   `${m.streamRootSeed}|${m.matchSeed}|${m.targetPolicySeed}|${m.opponentPolicySeed}`;
-check('candidate configs and paired seats share common random-number streams',
-  searchedMatches.length === 16 && ['OMEGA', 'MNEME', 'AJAX', 'FABLE'].every((opponent) => {
+check('candidate configs, delays, and paired seats share common random-number streams',
+  searchedMatches.length === 32 && ['OMEGA', 'MNEME', 'AJAX', 'FABLE'].every((opponent) => {
     const scenario = searchedMatches.filter((m) => m.opponent === opponent && m.scenarioSeed === 101);
-    return scenario.length === 4
+    return scenario.length === 8
       && new Set(scenario.map((m) => m.targetConfigHash)).size === 2
       && new Set(scenario.map(seedTuple)).size === 1
       && new Set(scenario.map((m) => m.executorSide)).size === 2
-      && new Set(scenario.map((m) => m.id)).size === 4;
+      && new Set(scenario.map((m) => m.inputDelay)).size === 2
+      && new Set(scenario.map((m) => m.id)).size === 8;
   }));
 
 const blocks = [first.evaluation.searched, ...first.evaluation.frozenBaselines];
@@ -52,17 +54,19 @@ check('searched policy is compared with two frozen baselines', first.evaluation.
 check('every block evaluates disjoint train/held-out seeds on both sides', blocks.every((block) => {
   const train = block.matches.filter((m) => m.split === 'train');
   const held = block.matches.filter((m) => m.split === 'held-out');
-  return train.length === 8 && held.length === 8
+  return train.length === 16 && held.length === 16
     && new Set(train.map((m) => m.executorSide)).size === 2
     && new Set(held.map((m) => m.executorSide)).size === 2
-    && train.every((m) => m.inputDelay === 2 && m.scenarioSeed === 101 && m.matchSeed !== m.scenarioSeed)
-    && held.every((m) => m.inputDelay === 2 && m.scenarioSeed === 401 && m.matchSeed !== m.scenarioSeed)
+    && new Set(train.map((m) => m.inputDelay)).size === 2
+    && new Set(held.map((m) => m.inputDelay)).size === 2
+    && train.every((m) => m.scenarioSeed === 101 && m.matchSeed !== m.scenarioSeed)
+    && held.every((m) => m.scenarioSeed === 401 && m.matchSeed !== m.scenarioSeed)
     && block.matches.every((m) => m.targetPolicySeed !== m.opponentPolicySeed);
 }));
 check('paired seats and frozen/selected policies preserve the same scenario streams',
   ['train', 'held-out'].every((split) => ['OMEGA', 'MNEME', 'AJAX', 'FABLE'].every((opponent) => {
     const scenario = blocks.flatMap((block) => block.matches).filter((m) => m.split === split && m.opponent === opponent);
-    return scenario.length === 6 && new Set(scenario.map(seedTuple)).size === 1;
+    return scenario.length === 12 && new Set(scenario.map(seedTuple)).size === 1;
   })));
 check('train/held-out and target/opponent streams remain disjoint',
   blocks.every((block) => {
@@ -92,7 +96,11 @@ check('aggregate clean-KO and timeout fields are executor-relative and unambiguo
       && aggregate.koRoundsWon === matches.filter((m) => m.terminal === 'ko').reduce((sum, m) => sum + m.rounds.executor, 0)
       && aggregate.koRoundsLost === matches.filter((m) => m.terminal === 'ko').reduce((sum, m) => sum + m.rounds.opponent, 0);
   })));
-const timeoutFixture = await runPolicyLab({ ...options, inputDelay: 0, candidateLimit: 1, includeSearchMatches: false });
+check('one selected config hash is frozen across every evaluation delay',
+  first.evaluation.searched.byDelay.length === 2
+    && new Set(first.evaluation.searched.matches.map((m) => m.targetConfigHash)).size === 1
+    && first.evaluation.searched.matches.every((m) => m.targetConfigHash === first.search.selectedConfigHash));
+const timeoutFixture = await runPolicyLab({ ...options, inputDelays: [0], candidateLimit: 1, includeSearchMatches: false });
 const timeoutWin = [timeoutFixture.evaluation.searched, ...timeoutFixture.evaluation.frozenBaselines]
   .flatMap((block) => block.matches).find((m) => m.outcome === 'win' && m.terminal === 'time');
 const timeoutOnlyScore = timeoutWin ? score([timeoutWin]) : null;
@@ -101,15 +109,20 @@ check('a timeout win has zero primary and round-margin credit plus one penalty',
     && timeoutOnlyScore?.primaryCleanKoWins === 0
     && timeoutOnlyScore.koRoundMargin === 0
     && timeoutOnlyScore.timeoutPenalty === 1);
-check('reported candidate scoring declares clean-KO-first timeout-penalized ordering',
-  first.search.scoring.ordering.join('|') === 'cleanKoWins descending|timeoutPenalty ascending|KO-terminal round margin descending|configHash ascending'
-    && first.search.candidates.every((candidate) => candidate.score.primaryCleanKoWins === candidate.cleanKoWins
-      && candidate.score.timeoutPenalty === candidate.timeoutWins + candidate.timeoutLosses
-      && candidate.score.koRoundMargin === candidate.koRoundsWon - candidate.koRoundsLost));
+check('reported minimax scoring is delay-robust and internally consistent',
+  first.search.scoring.ordering[0] === 'worst-delay cleanKoWins descending'
+    && first.search.candidates.every((candidate) => candidate.score.byDelay.length === 2
+      && candidate.score.worstDelayCleanKoWins === Math.min(...candidate.score.byDelay.map((row) => row.evidence.primaryCleanKoWins))
+      && candidate.score.totalCleanKoWins === candidate.cleanKoWins
+      && candidate.score.totalTimeoutPenalty === candidate.timeoutWins + candidate.timeoutLosses
+      && candidate.score.totalKoRoundMargin === candidate.koRoundsWon - candidate.koRoundsLost));
 
 let overlapRejected = false;
 try { await runPolicyLab({ trainSeeds: [1], heldOutSeeds: [1], candidateLimit: 1 }); } catch { overlapRejected = true; }
 check('overlapping train/held-out seeds fail fast', overlapRejected);
+let duplicateDelaysRejected = false;
+try { await runPolicyLab({ trainSeeds: [1], heldOutSeeds: [2], inputDelays: [0, 0], candidateLimit: 1 }); } catch { duplicateDelaysRejected = true; }
+check('duplicate delay conditions fail fast', duplicateDelaysRejected);
 
 console.log(pass ? '\nXENON POLICY LAB TEST: PASS' : '\nXENON POLICY LAB TEST: FAIL');
 process.exit(pass ? 0 : 1);

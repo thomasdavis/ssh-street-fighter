@@ -24,6 +24,7 @@ const MECHANICS_FILES = ['game/engine.ts', 'game/moves.ts', 'game/types.ts'] as 
 const POLICY_SOURCE_VERSION = 'xenon-policy-lab-policies/v1';
 const DEFAULT_TRAIN_SEEDS = [101, 211, 307];
 const DEFAULT_HELD_OUT_SEEDS = [401, 503, 607];
+const DEFAULT_INPUT_DELAYS = [0, 2, 5];
 const DEFAULT_OPPONENTS = ['OMEGA', 'MNEME', 'AJAX', 'FABLE'] as const;
 // Three full 60-second rounds plus countdown/inter-round ceremony fit below this
 // cap. Reaching it is an error, never a draw silently folded into evaluation.
@@ -149,9 +150,18 @@ export interface CandidateScore {
   koRoundMargin: number;
 }
 
+export interface RobustCandidateScore {
+  worstDelayCleanKoWins: number;
+  totalCleanKoWins: number;
+  totalTimeoutPenalty: number;
+  worstDelayKoRoundMargin: number;
+  totalKoRoundMargin: number;
+  byDelay: Array<{ inputDelay: number; evidence: CandidateScore }>;
+}
+
 export interface CandidateSummary extends Aggregate {
   rank?: number;
-  score: CandidateScore;
+  score: RobustCandidateScore;
   policyId: string;
   config: XenonConfig;
   configHash: string;
@@ -164,6 +174,7 @@ export interface EvaluationBlock {
   configHash: string;
   train: Aggregate;
   heldOut: Aggregate;
+  byDelay: Array<{ inputDelay: number; train: Aggregate; heldOut: Aggregate }>;
   matches: MatchResult[];
 }
 
@@ -171,7 +182,7 @@ export interface PolicyLabOptions {
   seed?: number;
   trainSeeds?: number[];
   heldOutSeeds?: number[];
-  inputDelay?: number;
+  inputDelays?: number[];
   candidateLimit?: number;
   includeSearchMatches?: boolean;
 }
@@ -186,13 +197,14 @@ export interface PolicyLabResult {
     mechanicsFiles: string[];
     mechanicsValidated: true;
     validationScope: string;
+    deploymentScope: string;
     networkAccess: false;
   };
   run: {
     seed: number;
     trainSeeds: number[];
     heldOutSeeds: number[];
-    inputDelay: number;
+    inputDelays: number[];
     opponents: OpponentName[];
     sideAssignments: Side[];
     candidateCount: number;
@@ -576,11 +588,11 @@ function scenarios(
   split: Split,
   seeds: number[],
   runSeed: number,
-  inputDelay: number,
+  inputDelays: number[],
   ensemble: Map<string, PolicyDefinition>,
 ): MatchResult[] {
   const results: MatchResult[] = [];
-  for (const opponentName of DEFAULT_OPPONENTS) {
+  for (const inputDelay of inputDelays) for (const opponentName of DEFAULT_OPPONENTS) {
     const opponent = ensemble.get(`${split}:${opponentName}`)!;
     for (const seed of seeds) for (const side of ['a', 'b'] as const)
       results.push(playMatch(target, opponent, split, side, runSeed, seed, inputDelay));
@@ -600,25 +612,44 @@ export function score(matches: readonly MatchResult[]): CandidateScore {
   };
 }
 
-function compareScore(a: CandidateScore, b: CandidateScore): number {
-  return b.primaryCleanKoWins - a.primaryCleanKoWins
-    || a.timeoutPenalty - b.timeoutPenalty
-    || b.koRoundMargin - a.koRoundMargin;
+function robustScore(matches: readonly MatchResult[], inputDelays: readonly number[]): RobustCandidateScore {
+  const byDelay = inputDelays.map((inputDelay) => ({
+    inputDelay,
+    evidence: score(matches.filter((match) => match.inputDelay === inputDelay)),
+  }));
+  return {
+    worstDelayCleanKoWins: Math.min(...byDelay.map((row) => row.evidence.primaryCleanKoWins)),
+    totalCleanKoWins: byDelay.reduce((sum, row) => sum + row.evidence.primaryCleanKoWins, 0),
+    totalTimeoutPenalty: byDelay.reduce((sum, row) => sum + row.evidence.timeoutPenalty, 0),
+    worstDelayKoRoundMargin: Math.min(...byDelay.map((row) => row.evidence.koRoundMargin)),
+    totalKoRoundMargin: byDelay.reduce((sum, row) => sum + row.evidence.koRoundMargin, 0),
+    byDelay,
+  };
+}
+
+function compareRobustScore(a: RobustCandidateScore, b: RobustCandidateScore): number {
+  return b.worstDelayCleanKoWins - a.worstDelayCleanKoWins
+    || b.totalCleanKoWins - a.totalCleanKoWins
+    || a.totalTimeoutPenalty - b.totalTimeoutPenalty
+    || b.worstDelayKoRoundMargin - a.worstDelayKoRoundMargin
+    || b.totalKoRoundMargin - a.totalKoRoundMargin;
 }
 
 function validateOptions(options: PolicyLabOptions): Required<PolicyLabOptions> {
   const seed = options.seed ?? 1;
   const trainSeeds = options.trainSeeds ?? DEFAULT_TRAIN_SEEDS;
   const heldOutSeeds = options.heldOutSeeds ?? DEFAULT_HELD_OUT_SEEDS;
-  const inputDelay = options.inputDelay ?? 0;
+  const inputDelays = options.inputDelays ?? DEFAULT_INPUT_DELAYS;
   const candidateLimit = options.candidateLimit ?? 48;
   if (!Number.isInteger(seed)) throw new Error('seed must be an integer');
   if (!trainSeeds.length || !heldOutSeeds.length || [...trainSeeds, ...heldOutSeeds].some((s) => !Number.isInteger(s)))
     throw new Error('train and held-out seeds must be non-empty integer lists');
   if (trainSeeds.some((s) => heldOutSeeds.includes(s))) throw new Error('train and held-out seeds must be disjoint');
-  if (!Number.isInteger(inputDelay) || inputDelay < 0 || inputDelay > 30) throw new Error('inputDelay must be an integer from 0 to 30');
+  if (!inputDelays.length || inputDelays.some((delay) => !Number.isInteger(delay) || delay < 0 || delay > 30))
+    throw new Error('inputDelays must be a non-empty list of integers from 0 to 30');
+  if (new Set(inputDelays).size !== inputDelays.length) throw new Error('inputDelays must be unique');
   if (!Number.isInteger(candidateLimit) || candidateLimit < 1 || candidateLimit > 324) throw new Error('candidateLimit must be an integer from 1 to 324');
-  return { seed, trainSeeds, heldOutSeeds, inputDelay, candidateLimit, includeSearchMatches: options.includeSearchMatches ?? false };
+  return { seed, trainSeeds, heldOutSeeds, inputDelays: [...inputDelays], candidateLimit, includeSearchMatches: options.includeSearchMatches ?? false };
 }
 
 export async function runPolicyLab(options: PolicyLabOptions = {}): Promise<PolicyLabResult> {
@@ -633,25 +664,30 @@ export async function runPolicyLab(options: PolicyLabOptions = {}): Promise<Poli
   const searchMatches: MatchResult[] = [];
   for (const [index, config] of candidateConfigs(checked.candidateLimit).entries()) {
     const target = xenonPolicy(`xenon-search-${index.toString().padStart(3, '0')}`, 'searched-grid-v1', config);
-    const matches = scenarios(target, 'train', checked.trainSeeds, checked.seed, checked.inputDelay, ensemble);
+    const matches = scenarios(target, 'train', checked.trainSeeds, checked.seed, checked.inputDelays, ensemble);
     const totals = aggregate(matches);
-    candidateRows.push({ ...totals, score: score(matches), policyId: target.id, config, configHash: target.configHash });
+    candidateRows.push({ ...totals, score: robustScore(matches, checked.inputDelays), policyId: target.id, config, configHash: target.configHash });
     if (checked.includeSearchMatches) searchMatches.push(...matches);
   }
-  candidateRows.sort((a, b) => compareScore(a.score, b.score) || a.configHash.localeCompare(b.configHash));
+  candidateRows.sort((a, b) => compareRobustScore(a.score, b.score) || a.configHash.localeCompare(b.configHash));
   candidateRows.forEach((row, index) => { row.rank = index + 1; });
   const selected = candidateRows[0]!;
   const selectedPolicy = xenonPolicy(selected.policyId, 'searched-grid-v1', selected.config);
 
   const evaluate = (policy: PolicyDefinition): EvaluationBlock => {
     const matches = [
-      ...scenarios(policy, 'train', checked.trainSeeds, checked.seed, checked.inputDelay, ensemble),
-      ...scenarios(policy, 'held-out', checked.heldOutSeeds, checked.seed, checked.inputDelay, ensemble),
+      ...scenarios(policy, 'train', checked.trainSeeds, checked.seed, checked.inputDelays, ensemble),
+      ...scenarios(policy, 'held-out', checked.heldOutSeeds, checked.seed, checked.inputDelays, ensemble),
     ];
     return {
       policyId: policy.id, policySourceHash: policy.sourceHash, config: policy.config, configHash: policy.configHash,
       train: aggregate(matches.filter((m) => m.split === 'train')),
       heldOut: aggregate(matches.filter((m) => m.split === 'held-out')),
+      byDelay: checked.inputDelays.map((inputDelay) => ({
+        inputDelay,
+        train: aggregate(matches.filter((m) => m.split === 'train' && m.inputDelay === inputDelay)),
+        heldOut: aggregate(matches.filter((m) => m.split === 'held-out' && m.inputDelay === inputDelay)),
+      })),
       matches,
     };
   };
@@ -670,19 +706,20 @@ export async function runPolicyLab(options: PolicyLabOptions = {}): Promise<Poli
       mechanicsHash, expectedMechanicsHash: EXPECTED_MECHANICS_HASH,
       mechanicsFiles: MECHANICS_FILES.map((file) => `src/${file}`), mechanicsValidated: true,
       validationScope: 'Exact mechanics snapshot only; stage art/selection and sprites are excluded because the lab pins the cosmetic stage and does not render.',
+      deploymentScope: 'Pinned to deployed live snapshot 991acfe; undeployed main 9fd5609 (UNCLOSE) is explicitly excluded.',
       networkAccess: false,
     },
     run: {
       seed: checked.seed, trainSeeds: [...checked.trainSeeds], heldOutSeeds: [...checked.heldOutSeeds],
-      inputDelay: checked.inputDelay, opponents: [...DEFAULT_OPPONENTS], sideAssignments: ['a', 'b'],
+      inputDelays: [...checked.inputDelays], opponents: [...DEFAULT_OPPONENTS], sideAssignments: ['a', 'b'],
       candidateCount: candidateRows.length,
     },
     opponentEnsemble,
     search: {
       selectedPolicyId: selected.policyId, selectedConfig: selected.config, selectedConfigHash: selected.configHash,
       scoring: {
-        ordering: ['cleanKoWins descending', 'timeoutPenalty ascending', 'KO-terminal round margin descending', 'configHash ascending'],
-        note: 'Timeout wins remain descriptive wins but receive zero primary or round-margin credit and one timeout penalty.',
+        ordering: ['worst-delay cleanKoWins descending', 'total cleanKoWins descending', 'total timeoutPenalty ascending', 'worst-delay KO-terminal round margin descending', 'total KO-terminal round margin descending', 'configHash ascending'],
+        note: 'One config is frozen across all delays. Timeout wins receive zero clean-KO or round-margin credit and one penalty.',
       },
       candidates: candidateRows,
       ...(checked.includeSearchMatches ? { matches: searchMatches } : {}),
@@ -720,7 +757,7 @@ function parseArgs(argv: string[]): PolicyLabOptions & { pretty: boolean; help: 
   return {
     seed: values.seed ? Number(values.seed) : undefined,
     trainSeeds: parseSeedList(values['train-seeds']), heldOutSeeds: parseSeedList(values['held-out-seeds']),
-    inputDelay: values['input-delay'] ? Number(values['input-delay']) : undefined,
+    inputDelays: parseSeedList(values['input-delays']),
     candidateLimit: values.candidates ? Number(values.candidates) : undefined,
     includeSearchMatches, pretty, help,
   };
@@ -730,7 +767,7 @@ const invokedPath = process.argv[1] ? pathToFileURL(resolve(process.argv[1])).hr
 if (import.meta.url === invokedPath) {
   const parsed = parseArgs(process.argv.slice(2));
   if (parsed.help) {
-    console.log(`Usage: pnpm policy:xenon [options]\n\nOptions:\n  --seed N                    run provenance seed\n  --train-seeds A,B,C         deterministic search/eval seeds\n  --held-out-seeds A,B,C      disjoint evaluation-only seeds\n  --input-delay N             action delay in frames (0-30)\n  --candidates N              bounded grid candidates (1-324)\n  --include-search-matches    include every search match in JSON\n  --pretty                    pretty-print JSON\n  --help                      show this help`);
+    console.log(`Usage: pnpm policy:xenon [options]\n\nOptions:\n  --seed N                    run provenance seed\n  --train-seeds A,B,C         deterministic search/eval seeds\n  --held-out-seeds A,B,C      disjoint evaluation-only seeds\n  --input-delays A,B,C        unique delays in frames, each 0-30 (default 0,2,5)\n  --candidates N              bounded grid candidates (1-324)\n  --include-search-matches    include every search match in JSON\n  --pretty                    pretty-print JSON\n  --help                      show this help`);
   } else {
     const result = await runPolicyLab(parsed);
     console.log(JSON.stringify(result, null, parsed.pretty ? 2 : 0));
