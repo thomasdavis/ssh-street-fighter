@@ -66,7 +66,6 @@ class CellSurface implements Surface {
 
 // ---------- constant-size pixel-font backend ----------
 const PIXEL_UNIT = 0.0055;  // font-pixel size as a fraction of screen height → constant physical size
-                            // (chosen so the virtual grid is ~60 columns wide — a comfortable, readable body size)
 class PixelSurface implements Surface {
   readonly kind = 'pixel' as const;
   private g: PixelGrid;
@@ -77,6 +76,11 @@ class PixelSurface implements Surface {
   readonly rows: number;
   constructor(f: Frame) {
     const pw = f.cols * 2, ph = f.rows * 4;
+    // Render UI screens with the finer octant sampler (2×4 sub-pixels/cell): it
+    // stays crisp at a 1-sub-pixel font size, so the pixel font is both sharp AND
+    // small enough to fit a full screen of content — unlike half-block, which
+    // needs a 2-sub-pixel font and blurs/overflows at moderate zoom.
+    f.mode = 'octant';
     this.g = f.pixel();
     this.cellPx = Math.max(1, Math.round(ph * PIXEL_UNIT));
     this.cw = 4 * this.cellPx;
@@ -98,7 +102,7 @@ class PixelSurface implements Surface {
   }
   text(x: number, y: number, str: string, o: TextOpts = {}): void {
     if (o.bg) this.fill(x, y, str.length, 1, o.bg);
-    const yOff = Math.round((this.lh - 5 * this.cellPx) / 2); // center glyph in the unit row
+    const yOff = 2 * Math.round((this.lh - 5 * this.cellPx) / 4); // center, kept even for crispness
     drawTextPx(this.g, str, this.gx(x), this.gy(y) + yOff, o.color ?? THEME.text, this.cellPx);
   }
   panel(x: number, y: number, w: number, h: number, o: PanelOpts = {}): Rect {
@@ -120,7 +124,7 @@ class PixelSurface implements Surface {
   heading(y: number, str: string, color: RGB, scale = 1): void {
     const s = this.cellPx * (scale + 1);
     const w = textPxWidth(str, s);
-    drawTextPx(this.g, str, Math.round(((this.cols * this.cw) - w) / 2), this.gy(y), color, s);
+    drawTextPx(this.g, str, 2 * Math.round(((this.cols * this.cw) - w) / 4), this.gy(y), color, s);
   }
   headingHeight(scale = 1): number { return Math.ceil((5 * (scale + 1)) / 6) + 1; }
   width(str: string): number { return str.length; }
@@ -132,9 +136,7 @@ class PixelSurface implements Surface {
  *  the UI crisp at every zoom — cell text when zoomed in / normal, constant-size
  *  pixel text when zoomed way out. SF_UI ('pixel' | 'cell') forces a mode. */
 export function makeSurface(f: Frame): Surface {
-  const forced = process.env.SF_UI;
-  if (forced === 'pixel') return new PixelSurface(f);
-  if (forced === 'cell') return new CellSurface(f);
-  const cellPx = Math.round(f.rows * 4 * PIXEL_UNIT);
-  return cellPx >= 2 && f.cols >= 170 ? new PixelSurface(f) : new CellSurface(f);
+  // Pixel (constant-size) UI by default now that it stays crisp at any zoom;
+  // SF_UI=cell forces the one-cell backend.
+  return process.env.SF_UI === 'cell' ? new CellSurface(f) : new PixelSurface(f);
 }

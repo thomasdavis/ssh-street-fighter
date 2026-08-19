@@ -14,7 +14,7 @@ export interface TextCell { ch: string; fg: RGB; bg: RGB; bold: boolean; }
 export class Frame {
   readonly cols: number;
   readonly rows: number;
-  readonly mode: RenderMode;
+  mode: RenderMode;   // settable: UI screens switch to 'octant' for crisper pixel text
   private text: (TextCell | null)[];
   private _pixel: PixelGrid | null = null;
 
