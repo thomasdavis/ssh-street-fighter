@@ -21,6 +21,7 @@ import { drawTooSmall } from '../ui/notice.js';
 import { MATCH_IDS } from './match-ids.js';
 import { regionOf } from './region.js';
 import { makeFighter, makeMatch, stepMatch, predictLocal, TICK_HZ } from '../game/engine.js';
+import { MatchRecorder, ENGINE_VERSION } from '../telemetry/recorder.js';
 import { emptyInputs, type Inputs, type Match } from '../game/types.js';
 import { characterAt } from '../game/roster.js';
 import { specialMovesFor } from '../game/moves.js';
@@ -122,6 +123,7 @@ export class Session {
   peer: Session | null = null;
   isStepper = false;
   practice = false;
+  private practiceRec: MatchRecorder | null = null;   // Ringside capture of the current practice session
   remoteVersus = false;   // cluster: match is simulated by the primary, we render + send input
   remoteMid = '';
   // client-side prediction: our un-acked inputs, replayed on top of authoritative
@@ -362,6 +364,7 @@ export class Session {
   }
 
   startPractice(charIdx: number): void {
+    this.flushPractice();   // save any prior training session before starting a new one
     const you = characterAt(charIdx);
     const dummy = characterAt(charIdx + 1);
     const fa = makeFighter('a', you.name, 'a', you.palette);
@@ -371,17 +374,33 @@ export class Session {
     this.match = m; this.role = 'a'; this.peer = null; this.isStepper = true;
     this.practice = true; this.fightInput = new InputState(this.keyBindings);
     this.lastAttackA = 'none'; this.lastAttackB = 'none';
-    MATCH_IDS.set(m, eventId('practice'));
-    this.trackEvent('practice_started', { fighter: you.name, dummy: dummy.name, stage: m.stage, match_id: MATCH_IDS.get(m) });
+    const mid = eventId('practice');
+    MATCH_IDS.set(m, mid);
+    try {
+      this.practiceRec = new MatchRecorder(mid, {
+        mode: 'practice', stage: m.stage, seed: 0, region: this.region, engineVersion: ENGINE_VERSION,
+        sides: { a: { fp: this.fp, name: this.displayName, char: you.name, isBot: false },
+                 b: { fp: null, name: dummy.name, char: dummy.name, isBot: true } },
+      });
+    } catch { this.practiceRec = null; }
+    this.trackEvent('practice_started', { fighter: you.name, dummy: dummy.name, stage: m.stage, match_id: mid });
     this.screen = 'fight'; this.prevFrame = null; this.forceFull = true;
     this.write(CLEAR_SCREEN + HIDE_CURSOR + NOWRAP);
   }
 
+  /** Flush the current practice recording to the Ringside store (best-effort). */
+  private flushPractice(): void {
+    if (this.practiceRec && this.match) { try { this.practiceRec.finish(this.match); } catch { /* ignore */ } }
+    this.practiceRec = null;
+  }
+
   private stepPractice(): void {
     const m = this.match!;
-    stepMatch(m, this.fightInput.snapshot(), emptyInputs());
+    const inA = this.fightInput.snapshot();
+    stepMatch(m, inA, emptyInputs());
+    this.practiceRec?.frame(m, inA, emptyInputs());   // record before the sandbox hp overrides below
     this.trackSpecialAttacks();
-    if (this.fightInput.quit) { this.goTo('menu'); return; }
+    if (this.fightInput.quit) { this.flushPractice(); this.goTo('menu'); return; }
     // endless sandbox: player invincible, dummy respawns, no rounds/timer
     m.phase = 'fight'; m.phaseTimer = 0; m.message = ''; m.roundTime = 99;
     m.a.hp = 100;
@@ -435,7 +454,7 @@ export class Session {
     quitter.leaveFight();
   }
 
-  private leaveFight(): void { this.match = null; this.peer = null; this.isStepper = false; this.goTo('menu'); }
+  private leaveFight(): void { this.flushPractice(); this.match = null; this.peer = null; this.isStepper = false; this.goTo('menu'); }
 
   joinLobby(): void {
     this.trackEvent('quick_match_queued', { fighter: characterAt(this.cursor).name });
@@ -537,6 +556,7 @@ export class Session {
     this.alive = false;
     this.trackEvent('game_session_ended', { screen: this.screen, duration_seconds: Math.round((Date.now() - this.startedAt) / 1000) });
     if (this.loopTimer) { clearInterval(this.loopTimer); this.loopTimer = null; }
+    if (this.practice) this.flushPractice();   // save an in-progress training session on disconnect
     RENDER_POOL?.free(this.sid);
     if (this.remoteVersus) HUB.leaveMatch(this);
     HUB.cancelQueue(this);

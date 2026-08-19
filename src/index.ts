@@ -7,6 +7,10 @@ import { startServer } from './net/ssh-server.js';
 import { initDb } from './db/db.js';
 import { runCoordinator } from './cluster/coordinator.js';
 import { flushTelemetry, track } from './telemetry/discord.js';
+import { startOpsSampler } from './telemetry/ops.js';
+import { hub } from './net/hub.js';
+import { startApiServer } from './api/server.js';
+import { startBotServer } from './api/bot-server.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, '..');
@@ -31,6 +35,9 @@ function ensureHostKey(): void {
 function runServer(): void {
   ensureHostKey();
   const server = startServer(PORT, HOST, HOST_KEY);
+  // Per-process observability: sessions + CPU/mem. Primary is worker 0; a real
+  // cluster worker uses its id; single-process uses 1.
+  startOpsSampler(cluster.worker?.id ?? 1, () => ({ sessions: hub().sessionCount() }));
   let stopping = false;
   for (const signal of ['SIGTERM', 'SIGINT'] as const) process.once(signal, () => {
     if (stopping) return;
@@ -51,7 +58,12 @@ if (WORKERS > 1 && cluster.isPrimary) {
   track('cluster_started', { workers: WORKERS, pid: process.pid });
   for (let i = 0; i < WORKERS; i++) cluster.fork();
   // the primary owns global matchmaking + runs every versus simulation
-  runCoordinator();
+  const coord = runCoordinator();
+  // Ringside services live in the primary (single instance, next to live state):
+  // the read-only REST API for the homepage, and the bot play server (bots pair
+  // through the coordinator as ordinary players).
+  startApiServer(coord);
+  startBotServer(coord);
 
   let shuttingDown = false;
   cluster.on('exit', (worker, code, signal) => {
@@ -66,5 +78,9 @@ if (WORKERS > 1 && cluster.isPrimary) {
     setTimeout(() => process.exit(0), 3000);
   });
 } else {
+  // This branch runs for BOTH cluster workers and true single-process mode.
   runServer();
+  // Only single-process (not a cluster worker) starts the read API here — in a
+  // cluster the primary owns it. Workers must not try to bind the port.
+  if (!cluster.isWorker) startApiServer(null);
 }

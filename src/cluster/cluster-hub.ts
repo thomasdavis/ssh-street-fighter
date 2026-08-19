@@ -29,6 +29,7 @@ export class ClusterHub implements Hub {
 
   register(s: Session): void { this.sessions.set(s.sid, s); }
   unregister(s: Session): void { this.sessions.delete(s.sid); }
+  sessionCount(): number { return this.sessions.size; }
 
   queue(s: Session): void { this.send({ t: 'queue', sid: s.sid, cid: s.connectionId, name: s.displayName, fp: s.fp, cursor: s.cursor, elo: s.player?.elo ?? 1200, region: s.region }); s.goTo('lobbyWait'); }
   cancelQueue(s: Session): void { this.send({ t: 'dequeue', sid: s.sid }); }

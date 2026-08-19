@@ -27,6 +27,8 @@ export interface ChallengePeer { id: string; name: string; }
 export interface Hub {
   register(s: Session): void;
   unregister(s: Session): void;
+  /** Live sessions on this process (for ops/observability sampling). */
+  sessionCount(): number;
 
   // quick match
   queue(s: Session): void;

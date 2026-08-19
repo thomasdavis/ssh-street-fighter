@@ -8,10 +8,13 @@
 // The logic lives in MatchCoordinator (decoupled from the cluster module so it
 // can be unit-tested with fake workers); runCoordinator() wires it to cluster.
 import cluster from 'cluster';
+import { randomInt } from 'crypto';
 import { makeFighter, makeMatch, stepMatch, TICK_HZ } from '../game/engine.js';
 import { emptyInputs, type Inputs, type Match } from '../game/types.js';
 import { characterAt } from '../game/roster.js';
 import * as db from '../db/db.js';
+import { MatchRecorder, ENGINE_VERSION } from '../telemetry/recorder.js';
+import { startOpsSampler } from '../telemetry/ops.js';
 import { clearEdges, type P2W, type W2P } from './messages.js';
 import type { MatchResult } from '../net/session.js';
 import type { RosterEntry, ChatLine, ChallengePeer } from '../net/hub.js';
@@ -25,9 +28,9 @@ const RELAY_HZ = Math.min(TICK_HZ, Math.max(1, parseInt(process.env.SF_RELAY_HZ 
 /** Minimal shape of a cluster worker the coordinator needs (real Worker fits). */
 export interface WorkerRef { id: number; send: (msg: P2W) => void; }
 
-interface Player { worker: WorkerRef; sid: number; gid: string; name: string; fp: string | null; cursor: number; elo: number; region: string; queuedAt: number; }
+interface Player { worker: WorkerRef; sid: number; gid: string; name: string; fp: string | null; cursor: number; elo: number; region: string; queuedAt: number; isBot: boolean; }
 interface LoungeMember extends Player { cid: string; incoming: string | null; outgoing: string | null; } // incoming/outgoing = peer gid
-interface ActiveMatch { mid: string; a: Player; b: Player; match: Match; pendA: Inputs; pendB: Inputs; relayAccum: number; ackA: number; ackB: number; }
+interface ActiveMatch { mid: string; a: Player; b: Player; match: Match; pendA: Inputs; pendB: Inputs; relayAccum: number; ackA: number; ackB: number; rec: MatchRecorder | null; }
 
 const gidOf = (workerId: number, sid: number) => `${workerId}:${sid}`;
 
@@ -72,7 +75,7 @@ export class MatchCoordinator {
     // in a match. Without this, a re-queued player's own entry is a valid "waiter"
     // and they get paired with themselves.
     if (this.gidToMid.has(gid) || this.waiting.some((w) => w.gid === gid)) return;
-    const p: Player = { worker, sid: m.sid, gid, name: m.name, fp: m.fp, cursor: m.cursor, elo: m.elo, region: m.region, queuedAt: Date.now() };
+    const p: Player = { worker, sid: m.sid, gid, name: m.name, fp: m.fp, cursor: m.cursor, elo: m.elo, region: m.region, queuedAt: Date.now(), isBot: !!m.isBot };
     this.players.set(gid, p);
     const idx = sameRegionWaiter(this.waiting, p.region);   // prefer a same-region opponent
     if (idx >= 0) this.pair(this.waiting.splice(idx, 1)[0]!, p);
@@ -89,8 +92,16 @@ export class MatchCoordinator {
     if (a.gid === b.gid) { this.waiting.push(a); return; }   // never pair a player with themselves
     const ca = characterAt(a.cursor), cb = characterAt(b.cursor);
     const match = makeMatch(makeFighter('a', ca.name, 'a', ca.palette), makeFighter('b', cb.name, 'b', cb.palette));
-    const mid = `m${++this.seq}`;
-    this.matches.set(mid, { mid, a, b, match, pendA: emptyInputs(), pendB: emptyInputs(), relayAccum: 0, ackA: 0, ackB: 0 });
+    const mid = `m${Date.now().toString(36)}${++this.seq}`;
+    // Capture the whole match (replay log + box score). Never lets recording break play.
+    let rec: MatchRecorder | null = null;
+    try {
+      rec = new MatchRecorder(mid, {
+        mode: 'versus', stage: match.stage, seed: randomInt(2 ** 31), region: a.region, engineVersion: ENGINE_VERSION,
+        sides: { a: { fp: a.fp, name: a.name, char: ca.name, isBot: a.isBot }, b: { fp: b.fp, name: b.name, char: cb.name, isBot: b.isBot } },
+      });
+    } catch { rec = null; }
+    this.matches.set(mid, { mid, a, b, match, pendA: emptyInputs(), pendB: emptyInputs(), relayAccum: 0, ackA: 0, ackB: 0, rec });
     this.gidToMid.set(a.gid, mid); this.gidToMid.set(b.gid, mid);
     this.send(a, { t: 'matchStart', sid: a.sid, mid, role: 'a', yourCursor: a.cursor, oppName: cb.name, oppCursor: b.cursor, stage: match.stage });
     this.send(b, { t: 'matchStart', sid: b.sid, mid, role: 'b', yourCursor: b.cursor, oppName: ca.name, oppCursor: a.cursor, stage: match.stage });
@@ -117,6 +128,7 @@ export class MatchCoordinator {
     if (aged) { const [i, j] = aged; const [lo, hi] = i < j ? [i, j] : [j, i]; const b = this.waiting.splice(hi, 1)[0]!; const a = this.waiting.splice(lo, 1)[0]!; this.pair(a, b); }
     for (const am of this.matches.values()) {
       stepMatch(am.match, am.pendA, am.pendB);
+      am.rec?.frame(am.match, am.pendA, am.pendB);   // record BEFORE edges are cleared
       clearEdges(am.pendA); clearEdges(am.pendB);
       am.relayAccum += RELAY_HZ;
       if (am.relayAccum >= TICK_HZ) {
@@ -142,16 +154,28 @@ export class MatchCoordinator {
     });
     this.send(winP, { t: 'matchEnd', sid: winP.sid, mid: am.mid, result: result(true) });
     this.send(loseP, { t: 'matchEnd', sid: loseP.sid, mid: am.mid, result: result(false) });
+    const elo = rating ? {
+      aBefore: aWon ? rating.winnerBefore : rating.loserBefore, aAfter: aWon ? rating.winnerAfter : rating.loserAfter,
+      bBefore: aWon ? rating.loserBefore : rating.winnerBefore, bAfter: aWon ? rating.loserAfter : rating.winnerAfter,
+    } : undefined;
+    am.rec?.finish(m, { winner: aWon ? 'a' : 'b', elo });
     this.cleanup(am);
   }
 
   private forfeit(leaverGid: string): void {
     const mid = this.gidToMid.get(leaverGid); if (!mid) return;
     const am = this.matches.get(mid); if (!am) { this.gidToMid.delete(leaverGid); return; }
-    const leaver = am.a.gid === leaverGid ? am.a : am.b;
-    const other = am.a.gid === leaverGid ? am.b : am.a;
-    const otherF = am.a.gid === leaverGid ? am.match.b : am.match.a;
+    const leaverIsA = am.a.gid === leaverGid;
+    const leaver = leaverIsA ? am.a : am.b;
+    const other = leaverIsA ? am.b : am.a;
+    const otherF = leaverIsA ? am.match.b : am.match.a;
     const rating = db.recordMatch(other.fp, leaver.fp, other.name, leaver.name, 'n/a', 'n/a', 2);
+    const winnerSide = leaverIsA ? 'b' : 'a';
+    const elo = rating ? {
+      aBefore: leaverIsA ? rating.loserBefore : rating.winnerBefore, aAfter: leaverIsA ? rating.loserAfter : rating.winnerAfter,
+      bBefore: leaverIsA ? rating.winnerBefore : rating.loserBefore, bAfter: leaverIsA ? rating.winnerAfter : rating.loserAfter,
+    } : undefined;
+    am.rec?.finish(am.match, { winner: winnerSide, endReason: 'forfeit', elo });
     this.send(other, {
       t: 'matchEnd', sid: other.sid, mid,
       result: { winner: other.name, loser: leaver.name, youWon: true, winnerChar: otherF.name,
@@ -183,7 +207,7 @@ export class MatchCoordinator {
 
   private onLoungeJoin(worker: WorkerRef, m: Extract<W2P, { t: 'loungeJoin' }>): void {
     const gid = gidOf(worker.id, m.sid);
-    const mem: LoungeMember = { worker, sid: m.sid, gid, cid: m.cid, name: m.name, fp: m.fp, cursor: m.cursor, elo: m.elo, region: 'XX', queuedAt: 0, incoming: null, outgoing: null };
+    const mem: LoungeMember = { worker, sid: m.sid, gid, cid: m.cid, name: m.name, fp: m.fp, cursor: m.cursor, elo: m.elo, region: 'XX', queuedAt: 0, isBot: false, incoming: null, outgoing: null };
     this.lounge.set(gid, mem); this.cidToGid.set(m.cid, gid);
     this.notice(mem, 'TAB SWITCHES BETWEEN CHAT AND PLAYERS');
     this.broadcastLounge();
@@ -243,10 +267,21 @@ export class MatchCoordinator {
   get activeMatches(): number { return this.matches.size; }
   get queued(): number { return this.waiting.length; }
   get loungeSize(): number { return this.lounge.size; }
+  get playerCount(): number { return this.players.size; }
+
+  /** Lightweight snapshot of every live versus match for the Ringside API. */
+  liveMatchList(): Array<{ mid: string; stage: string; round: number; phase: string; a: { name: string; char: string; hp: number; wins: number; bot: boolean }; b: { name: string; char: string; hp: number; wins: number; bot: boolean } }> {
+    return [...this.matches.values()].map((am) => ({
+      mid: am.mid, stage: am.match.stage, round: am.match.round, phase: am.match.phase,
+      a: { name: am.a.name, char: am.match.a.name, hp: am.match.a.hp, wins: am.match.a.wins, bot: am.a.isBot },
+      b: { name: am.b.name, char: am.match.b.name, hp: am.match.b.hp, wins: am.match.b.wins, bot: am.b.isBot },
+    }));
+  }
 }
 
-/** Wire a MatchCoordinator to the live cluster (primary only). */
-export function runCoordinator(): void {
+/** Wire a MatchCoordinator to the live cluster (primary only). Returns it so the
+ *  primary can also expose it to the Ringside API (read) and bot server (play). */
+export function runCoordinator(): MatchCoordinator {
   const coord = new MatchCoordinator();
   // Attach EXACTLY ONCE per worker. The workers are forked before this runs, so
   // they're already in cluster.workers AND their deferred 'fork' events still
@@ -263,4 +298,7 @@ export function runCoordinator(): void {
   for (const id in cluster.workers) attach(cluster.workers[id]!);
   cluster.on('fork', attach);
   setInterval(() => coord.tick(), Math.round(1000 / TICK_HZ));
+  // Primary observability: matchmaking + match load, plus hourly retention prune.
+  startOpsSampler(0, () => ({ matches: coord.activeMatches, queued: coord.queued, lounge: coord.loungeSize, players: coord.playerCount }), true);
+  return coord;
 }

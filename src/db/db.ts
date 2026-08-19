@@ -106,6 +106,56 @@ export function initDb(): void {
     );
     CREATE INDEX IF NOT EXISTS idx_analytics_events_created_at ON analytics_events(created_at);
     CREATE INDEX IF NOT EXISTS idx_analytics_events_event_created ON analytics_events(event, created_at);
+
+    -- ---- Ringside: rich capture, replays, metrics, ops, bot keys ----
+    CREATE TABLE IF NOT EXISTS matches (
+      id TEXT PRIMARY KEY,
+      mode TEXT NOT NULL,
+      stage TEXT, seed INTEGER, region TEXT, engine_version TEXT,
+      a_fp TEXT, b_fp TEXT, a_name TEXT, b_name TEXT, a_char TEXT, b_char TEXT,
+      a_is_bot INTEGER NOT NULL DEFAULT 0, b_is_bot INTEGER NOT NULL DEFAULT 0,
+      winner TEXT, a_rounds INTEGER NOT NULL DEFAULT 0, b_rounds INTEGER NOT NULL DEFAULT 0,
+      end_reason TEXT, duration_frames INTEGER NOT NULL DEFAULT 0,
+      a_elo_before INTEGER, a_elo_after INTEGER, b_elo_before INTEGER, b_elo_after INTEGER,
+      started_at INTEGER, ended_at INTEGER NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_matches_ended ON matches(ended_at DESC);
+    CREATE TABLE IF NOT EXISTS match_players (
+      match_id TEXT NOT NULL, side TEXT NOT NULL,
+      fp TEXT, name TEXT, char TEXT, is_bot INTEGER NOT NULL DEFAULT 0,
+      won INTEGER NOT NULL DEFAULT 0, rounds_won INTEGER NOT NULL DEFAULT 0,
+      damage_dealt INTEGER NOT NULL DEFAULT 0, damage_taken INTEGER NOT NULL DEFAULT 0,
+      hits INTEGER NOT NULL DEFAULT 0, blocks INTEGER NOT NULL DEFAULT 0,
+      specials INTEGER NOT NULL DEFAULT 0, max_combo INTEGER NOT NULL DEFAULT 0,
+      elo_delta INTEGER NOT NULL DEFAULT 0,
+      PRIMARY KEY (match_id, side)
+    );
+    CREATE INDEX IF NOT EXISTS idx_match_players_fp ON match_players(fp, match_id);
+    CREATE TABLE IF NOT EXISTS match_events (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      match_id TEXT NOT NULL, frame INTEGER, type TEXT NOT NULL, data_json TEXT NOT NULL, created_at INTEGER NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_match_events_match ON match_events(match_id, id);
+    CREATE TABLE IF NOT EXISTS replays (
+      match_id TEXT PRIMARY KEY, header_json TEXT NOT NULL, frames BLOB NOT NULL,
+      keyframes_json TEXT NOT NULL, frame_count INTEGER NOT NULL, bytes INTEGER NOT NULL, created_at INTEGER NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS char_agg (
+      char TEXT PRIMARY KEY, picks INTEGER NOT NULL DEFAULT 0, wins INTEGER NOT NULL DEFAULT 0, games INTEGER NOT NULL DEFAULT 0
+    );
+    CREATE TABLE IF NOT EXISTS matchup_agg (
+      a_char TEXT NOT NULL, b_char TEXT NOT NULL, a_wins INTEGER NOT NULL DEFAULT 0, games INTEGER NOT NULL DEFAULT 0,
+      PRIMARY KEY (a_char, b_char)
+    );
+    CREATE TABLE IF NOT EXISTS ops_series (
+      id INTEGER PRIMARY KEY AUTOINCREMENT, ts INTEGER NOT NULL, worker INTEGER NOT NULL, metric TEXT NOT NULL, value REAL NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_ops_series ON ops_series(metric, ts DESC);
+    CREATE TABLE IF NOT EXISTS api_keys (
+      key TEXT PRIMARY KEY, fp TEXT NOT NULL, label TEXT, is_bot INTEGER NOT NULL DEFAULT 1,
+      created_at INTEGER NOT NULL, last_used INTEGER
+    );
+    CREATE INDEX IF NOT EXISTS idx_api_keys_fp ON api_keys(fp);
   `);
   // Additive migrations for databases created before ratings were introduced.
   const ensureColumn = (table: string, column: string, sql: string): void => {
@@ -117,6 +167,7 @@ export function initDb(): void {
   ensureColumn('players', 'key_bindings_json', 'key_bindings_json TEXT');
   ensureColumn('players', 'calibrated', 'calibrated INTEGER NOT NULL DEFAULT 0');
   ensureColumn('players', 'view_mode', "view_mode TEXT NOT NULL DEFAULT 'quadrant'");   // 'octant' | 'quadrant'
+  ensureColumn('players', 'is_bot', 'is_bot INTEGER NOT NULL DEFAULT 0');
   ensureColumn('match_history', 'winner_elo_before', 'winner_elo_before INTEGER');
   ensureColumn('match_history', 'winner_elo_after', 'winner_elo_after INTEGER');
   ensureColumn('match_history', 'loser_elo_before', 'loser_elo_before INTEGER');
@@ -133,6 +184,9 @@ export function initDb(): void {
   // migration default ('octant'), never a real choice, so promote them once.
   once('view_mode_default_quadrant', () => db.prepare("UPDATE players SET view_mode = 'quadrant' WHERE view_mode = 'octant'").run());
 }
+
+/** The shared better-sqlite3 handle, for the Ringside store/API modules. */
+export function getDb(): Database.Database { return db; }
 
 export function getByFingerprint(fp: string): Player | undefined {
   return db.prepare('SELECT * FROM players WHERE fingerprint = ?').get(fp) as Player | undefined;

@@ -4,9 +4,79 @@ import { readFileSync } from 'fs';
 import type { Duplex } from 'stream';
 import { Session } from './session.js';
 import { fingerprintOf, verifyPubkey } from './identity.js';
-import { addAnalyticsEvent, initDb } from '../db/db.js';
+import { addAnalyticsEvent, initDb, getByFingerprint } from '../db/db.js';
 import { eventId, setAnalyticsSink, track } from '../telemetry/discord.js';
 import { parseProxyV1 } from './proxy-protocol.js';
+import { mintApiKey } from '../telemetry/store.js';
+
+// Bots register over SSH: `ssh -p <port> NAME@host token` mints an API key bound
+// to the caller's SSH-verified key fingerprint (no key = no token) and prints the
+// bot-port connection details, then hangs up. The bot then plays over the bot
+// port authenticating with that key — identity stays anchored to SSH.
+const BOT_PORT = parseInt(process.env.SF_BOT_PORT ?? '8091', 10);
+const PUBLIC_HOST = process.env.SF_PUBLIC_HOST ?? 'sshfighter.com';
+const TOKEN_CMDS = new Set(['token', 'bot-token', 'bot', 'register', 'apikey', 'api-key']);
+const PLAY_CMDS = new Set(['play', 'bot-play', 'botplay']);
+
+// `ssh host play`: pipe this key-verified SSH channel straight to the primary's
+// local bot server. The bot then speaks the JSON-lines play protocol over SSH —
+// no port to open, stays behind the Fly relay, identity anchored to the SSH key.
+// We inject the handshake ourselves (loopback + verified fingerprint), so the bot
+// starts right at {"t":"queue",...}.
+function pipeBotPlay(stream: Duplex, fingerprint: string | null, username: string, connectionId: string): void {
+  if (!fingerprint) {
+    try { stream.write('Bot play requires an SSH key. Reconnect with a key:\r\n  ssh -i <key> ' + username + '@' + PUBLIC_HOST + ' play\r\n'); } catch { /* ignore */ }
+    try { (stream as unknown as { exit?: (c: number) => void }).exit?.(1); } catch { /* ignore */ }
+    try { stream.end(); } catch { /* ignore */ }
+    return;
+  }
+  const sock = net.connect(BOT_PORT, '127.0.0.1');
+  const closeBoth = (): void => { try { sock.destroy(); } catch { /* ignore */ } try { stream.end(); } catch { /* ignore */ } };
+  sock.on('connect', () => {
+    track('bot_play_started', { connection_id: connectionId, username });
+    sock.write(JSON.stringify({ t: 'hello', trustedFp: fingerprint }) + '\n');
+    stream.pipe(sock); sock.pipe(stream);   // bot stdin -> server, server -> bot stdout
+  });
+  sock.on('error', () => { try { stream.write('{"t":"error","msg":"bot server unavailable"}\r\n'); } catch { /* ignore */ } closeBoth(); });
+  sock.on('close', closeBoth);
+  stream.on('close', () => { try { sock.destroy(); } catch { /* ignore */ } });
+  stream.on('error', () => { try { sock.destroy(); } catch { /* ignore */ } });
+}
+
+function mintTokenOverSsh(stream: Duplex, fingerprint: string | null, username: string, connectionId: string): void {
+  const end = (text: string, code: number): void => {
+    try { stream.write(text.replace(/\n/g, '\r\n')); } catch { /* ignore */ }
+    try { (stream as unknown as { exit?: (c: number) => void }).exit?.(code); } catch { /* ignore */ }
+    try { stream.end(); } catch { /* ignore */ }
+  };
+  if (!fingerprint) {
+    track('bot_token_denied', { connection_id: connectionId, username, reason: 'no_key' });
+    return end('\nBot tokens require an SSH key. Reconnect with a key:\n  ssh -i <your_key> ' + username + '@' + PUBLIC_HOST + ' token\n\n', 1);
+  }
+  try {
+    const key = mintApiKey(fingerprint, `ssh:${username}`);
+    const player = getByFingerprint(fingerprint);
+    track('bot_token_minted', { connection_id: connectionId, username, has_player: !!player });
+    end(
+      '\n== SSH STREET FIGHTER — BOT ACCESS ==\n\n' +
+      `player  : ${player?.username ?? username}\n` +
+      `api key : ${key}\n\n` +
+      `PLAY (recommended — all over SSH, key-verified):\n` +
+      `  ssh ${username}@${PUBLIC_HOST} play\n` +
+      `  then write newline-delimited JSON on stdin:\n` +
+      `    {"t":"queue","char":"BYU"}\n` +
+      `  the server streams {"t":"state",...} each tick; reply {"t":"input",...}\n` +
+      `  (send {"t":"help"} for the full protocol)\n\n` +
+      `You are an ordinary player — you queue against humans and bots alike.\n\n` +
+      `REST API (match history, replays, stats, live):\n` +
+      `  https://${PUBLIC_HOST}/api/\n\n` +
+      `Your api key authenticates the REST API and any direct TCP bot link.\n\n`,
+      0,
+    );
+  } catch (e) {
+    end('\nCould not mint a token: ' + (e as Error).message + '\n\n', 1);
+  }
+}
 
 const { Server } = ssh2;
 
@@ -112,7 +182,18 @@ export function startServer(port: number, host: string, hostKeyPath: string): ne
             sess.start();
           };
           session.on('shell', (accept2) => begin(accept2 as () => unknown));
-          session.on('exec', (accept2) => begin(accept2 as () => unknown));
+          session.on('exec', (accept2, _reject, execInfo) => {
+            const cmd = ((execInfo?.command ?? '') as string).trim().toLowerCase().split(/\s+/)[0] ?? '';
+            if (TOKEN_CMDS.has(cmd)) {
+              const stream = (accept2 as () => unknown)() as unknown as Duplex;
+              return mintTokenOverSsh(stream, fingerprint, username, connectionId);
+            }
+            if (PLAY_CMDS.has(cmd)) {
+              const stream = (accept2 as () => unknown)() as unknown as Duplex;
+              return pipeBotPlay(stream, fingerprint, username, connectionId);
+            }
+            begin(accept2 as () => unknown);
+          });
         });
       });
 

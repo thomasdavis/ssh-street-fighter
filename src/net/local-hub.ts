@@ -16,11 +16,13 @@ interface Waiting { s: Session; region: string; queuedAt: number; }
 export class LocalHub implements Hub {
   private waiting: Waiting[] = [];
   private members = new Set<Session>();
+  private all = new Set<Session>();   // every live session (for ops sampling)
 
   constructor() { setInterval(() => this.sweepQueue(), 2000); } // region-fallback sweep
 
-  register(): void { /* nothing to do in-process */ }
-  unregister(s: Session): void { this.cancelQueue(s); if (this.members.has(s) || s.incoming || s.outgoing) this.leaveLounge(s); }
+  register(s: Session): void { this.all.add(s); }
+  unregister(s: Session): void { this.all.delete(s); this.cancelQueue(s); if (this.members.has(s) || s.incoming || s.outgoing) this.leaveLounge(s); }
+  sessionCount(): number { return this.all.size; }
 
   // ---- quick match (prefer same region, fall back across regions after a wait) ----
   queue(s: Session): void {
