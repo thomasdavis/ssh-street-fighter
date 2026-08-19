@@ -11,10 +11,11 @@ const COMMON = [
   'idle_1', 'idle_2', 'walk_1', 'walk_2', 'crouch', 'jump', 'fall',
   'block', 'crouchblock', 'hit', 'ko', 'punch_1', 'punch_2', 'kick_1',
   'kick_2', 'crouchpunch_1', 'crouchpunch_2', 'crouchkick_1', 'crouchkick_2',
+  'jumpkick',
 ] as const;
 
 const errors: string[] = [];
-if (ROSTER.length !== 13) errors.push(`expected 13 roster fighters, found ${ROSTER.length}`);
+if (ROSTER.length !== 16) errors.push(`expected 16 roster fighters, found ${ROSTER.length}`);
 
 for (const fighter of ROSTER) {
   const moves = specialMovesFor(fighter.name);

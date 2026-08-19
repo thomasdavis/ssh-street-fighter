@@ -6,12 +6,14 @@ export type Pose = 'idle' | 'walk' | 'crouch' | 'jump' | 'fall' | 'punch' | 'kic
   | 'electric' | 'rolling' | 'verticalroll'
   | 'testimony' | 'nullstep' | 'entropy'
   | 'context' | 'branchwalk' | 'mergecomet'
-  | 'storyarc' | 'plottwist' | 'inktempest';
+  | 'storyarc' | 'plottwist' | 'inktempest'
+  | 'construct' | 'nova' | 'volley' | 'boomerang' | 'armor' | 'phase' | 'jumpkick';
 export type AttackKind = 'none' | 'punch' | 'kick' | 'throw' | 'hadouken' | 'shoryuken' | 'hurricane'
   | 'electric' | 'rolling' | 'verticalroll'
   | 'testimony' | 'nullstep' | 'entropy'
   | 'context' | 'branchwalk' | 'mergecomet'
-  | 'storyarc' | 'plottwist' | 'inktempest';
+  | 'storyarc' | 'plottwist' | 'inktempest'
+  | 'construct' | 'nova' | 'volley' | 'boomerang' | 'armor' | 'phase' | 'jumpkick';
 
 export interface FighterPalette {
   skin: RGB; gi: RGB; giDark: RGB; hair: RGB; belt: RGB;
@@ -38,6 +40,8 @@ export interface Fighter {
   attackCrouch: boolean; // attack was started while crouching (low attack)
   stun: number;          // hit/block stun frames remaining
   thrownT: number;       // frames remaining being thrown (tumbling to the other side)
+  phaseT: number;        // intangibility frames (phase dash / nova reversal) — attacks pass through
+  armorT: number;        // super-armor frames (armored strike) — hits land but never flinch
   crouching: boolean;    // derived: holding down
   blocking: boolean;     // derived: holding back (away from opponent)
 
@@ -69,7 +73,10 @@ export interface Projectile {
   hit: boolean;           // already connected
   frame: number;          // animation timer
   facing: 1 | -1;
-  style: 'blue' | 'fire' | 'sonic';
+  style: 'blue' | 'fire' | 'sonic' | 'boomerang' | 'construct' | 'mote';
+  life?: number;          // frames remaining (construct turret; motes)
+  fireT?: number;         // construct: frames until it spits the next mote
+  returning?: boolean;    // boomerang: currently arcing back to its owner
 }
 
 export type MatchPhase = 'countdown' | 'fight' | 'round-over' | 'match-over';

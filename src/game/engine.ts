@@ -1,4 +1,4 @@
-import type { AttackKind, Fighter, FighterPalette, Inputs, Match } from './types.js';
+import type { AttackKind, Fighter, FighterPalette, Inputs, Match, Projectile } from './types.js';
 import { RED_PALETTE, BLUE_PALETTE } from './sprites.js';
 import { STAGES } from './stage-set.js';
 import { matchingSpecialMove, specialMoveForAttack, type SpecialAttack } from './moves.js';
@@ -44,6 +44,13 @@ function attackTotal(k: AttackKind): number {
   if (k === 'storyarc') return STORY_ARC.total;
   if (k === 'plottwist') return PLOT_TWIST.total;
   if (k === 'inktempest') return INK_TEMPEST.total;
+  if (k === 'construct') return CONSTRUCT.total;
+  if (k === 'nova') return NOVA.total;
+  if (k === 'volley') return VOLLEY.total;
+  if (k === 'boomerang') return BOOMERANG.total;
+  if (k === 'armor') return ARMOR.total;
+  if (k === 'phase') return PHASE.total;
+  if (k === 'jumpkick') return JUMPKICK.total;
   if (k === 'punch' || k === 'kick') { const a = ATTACKS[k]; return a.startup + a.active + a.recovery; }
   return 0;
 }
@@ -64,7 +71,11 @@ export function attackActive(f: Fighter): boolean {
   if (f.attack === 'storyarc') return f.attackFrame >= STORY_ARC.startup && f.attackFrame < STORY_ARC.startup + STORY_ARC.active;
   if (f.attack === 'plottwist') return f.attackFrame >= PLOT_TWIST.startup && f.attackFrame < PLOT_TWIST.startup + PLOT_TWIST.active;
   if (f.attack === 'inktempest') return f.attackFrame >= INK_TEMPEST.startup && f.attackFrame < INK_TEMPEST.startup + INK_TEMPEST.active;
-  return false; // hadouken has no melee hitbox
+  if (f.attack === 'nova') return f.attackFrame >= NOVA.startup && f.attackFrame < NOVA.startup + NOVA.active;
+  if (f.attack === 'armor') return f.attackFrame >= ARMOR.startup && f.attackFrame < ARMOR.startup + ARMOR.active;
+  if (f.attack === 'phase') return f.attackFrame >= PHASE.startup && f.attackFrame < PHASE.startup + PHASE.active;
+  if (f.attack === 'jumpkick') return f.attackFrame >= JUMPKICK.startup && f.attackFrame < JUMPKICK.startup + JUMPKICK.active;
+  return false; // construct / volley / boomerang have no melee hitbox — they spawn projectiles
 }
 
 // --- special moves ---
@@ -84,6 +95,24 @@ export const THROW = { startup: 3, active: 3, recovery: 14, total: 20, dmg: 14, 
 export const STORY_ARC = { startup: 6, active: 10, recovery: 26, total: 42, dmg: 10, range: 28, kb: 2.6, chip: 2, vert: 46, jumpV: 9.8, vx: 1.7 }; // soaring evasive flight arc
 export const PLOT_TWIST = { startup: 9, active: 5, recovery: 16, total: 30, dmg: 12, range: 30, kb: 3.4, chip: 2, vert: 40, backVx: 2.2, lungeVx: 5.2 }; // backstep feint into a lunge
 export const INK_TEMPEST = { startup: 5, active: 18, recovery: 10, total: 33, dmg: 4, range: 34, kb: 1.0, chip: 1, vert: 50, hitEvery: 6 }; // close forward flurry, three pulses
+
+// ---- NEW-WAVE mechanics (MNEME / AJAX / XENON + universal jump-in) ----------
+// FLYING KICK — an aerial normal on kick: long active window and a tall vertical
+// hitbox so it stays a real jump-in, and it never touches the jump arc.
+export const JUMPKICK = { startup: 4, active: 12, recovery: 5, total: 21, dmg: 12, range: 42, kb: 3.2, chip: 3, vert: 46 };
+// MNEME — SENTINEL: an autonomous construct that persists and spits homing motes.
+export const CONSTRUCT = { startup: 9, spawn: 12, recovery: 18, total: 32, life: 80, fireEvery: 16, maxActive: 2 };
+export const MOTE = { speed: 3.2, dmg: 5, chip: 1, life: 96, r: 5 };
+// MNEME — MEGAWATT NOVA: a self-centred radial burst with brief i-frames (reversal).
+export const NOVA = { startup: 6, active: 8, recovery: 16, total: 30, dmg: 13, range: 46, kb: 5.0, chip: 3, vert: 54, iframe: 12 };
+// shared — VOLLEY: a spread of projectiles loosed on one frame (memory motes / agent swarm).
+export const VOLLEY = { startup: 8, spawn: 11, recovery: 15, total: 34, dmg: 6, chip: 2, count: 3, speed: 3.6, r: 5 };
+// AJAX — BOOMERANG: an out-and-back projectile that can catch on the throw and the return.
+export const BOOMERANG = { startup: 7, spawn: 9, recovery: 16, total: 33, speed: 4.4, decel: 0.16, minV: 0.5, dmg: 9, chip: 3, r: 6 };
+// shared — ARMORED STRIKE: eats one hit without flinching during the wind-up, then a heavy blow.
+export const ARMOR = { startup: 11, active: 6, recovery: 15, total: 32, dmg: 15, range: 40, kb: 5.6, chip: 4, vert: 42, armor: 17 };
+// XENON — PHASE STEP: an intangible dash that passes through attacks AND the rival.
+export const PHASE = { startup: 5, active: 8, recovery: 14, total: 27, dmg: 12, range: 34, kb: 4.0, chip: 3, vert: 46, vx: 6.4, iframe: 15, shift: 8 };
 const FIRE_SPEED = 3.4, FIRE_R = 11, FIGHTER_WORLD_H = 56, FIRE_DMG = 12, FIRE_CHIP = 3;
 const EARLY_UP_GRACE_Y = 26;
 
@@ -153,6 +182,10 @@ function meleeSpec(f: Fighter): MeleeSpec | null {
   if (k === 'storyarc') return { dmg: STORY_ARC.dmg, range: STORY_ARC.range, kb: STORY_ARC.kb, chip: STORY_ARC.chip, vert: STORY_ARC.vert };
   if (k === 'plottwist') return { dmg: PLOT_TWIST.dmg, range: PLOT_TWIST.range, kb: PLOT_TWIST.kb, chip: PLOT_TWIST.chip, vert: PLOT_TWIST.vert };
   if (k === 'inktempest') return { dmg: INK_TEMPEST.dmg, range: INK_TEMPEST.range, kb: INK_TEMPEST.kb, chip: INK_TEMPEST.chip, vert: INK_TEMPEST.vert };
+  if (k === 'nova') return { dmg: NOVA.dmg, range: NOVA.range, kb: NOVA.kb, chip: NOVA.chip, vert: NOVA.vert, omni: true }; // radial burst hits both sides
+  if (k === 'armor') return { dmg: ARMOR.dmg, range: ARMOR.range, kb: ARMOR.kb, chip: ARMOR.chip, vert: ARMOR.vert };
+  if (k === 'phase') return { dmg: PHASE.dmg, range: PHASE.range, kb: PHASE.kb, chip: PHASE.chip, vert: PHASE.vert, omni: true }; // dash strikes through either side
+  if (k === 'jumpkick') return { dmg: JUMPKICK.dmg, range: JUMPKICK.range, kb: JUMPKICK.kb, chip: JUMPKICK.chip, vert: JUMPKICK.vert };
   return null;
 }
 
@@ -178,6 +211,14 @@ export function attackExtension(f: Fighter): number {
   if (f.attack === 'storyarc') return Math.min(1, f.attackFrame / STORY_ARC.startup);
   if (f.attack === 'plottwist') return f.attackFrame < PLOT_TWIST.startup ? 0.3 * (f.attackFrame / PLOT_TWIST.startup) : 1;
   if (f.attack === 'inktempest') return (Math.sin(f.attackFrame * 1.5) + 1) / 2;
+  if (f.attack === 'construct') return Math.min(1, f.attackFrame / CONSTRUCT.spawn);
+  if (f.attack === 'volley') return Math.min(1, f.attackFrame / VOLLEY.spawn);
+  if (f.attack === 'boomerang') return Math.min(1, f.attackFrame / BOOMERANG.spawn);
+  if (f.attack === 'nova') return (Math.sin(f.attackFrame * 0.9) + 1) / 2;
+  if (f.attack === 'armor') return Math.min(1, f.attackFrame / ARMOR.startup);
+  if (f.attack === 'phase') return Math.min(1, f.attackFrame / PHASE.startup);
+  if (f.attack === 'jumpkick') return Math.min(1, f.attackFrame / JUMPKICK.startup);
+  if (f.attack !== 'punch' && f.attack !== 'kick') return 1;
   const a = ATTACKS[f.attack];
   if (f.attackFrame < a.startup) return 0.35 * (f.attackFrame / Math.max(1, a.startup));
   if (f.attackFrame < a.startup + a.active) return 1;
@@ -201,7 +242,7 @@ export function makeFighter(id: string, name: string, side: 'a' | 'b', palette?:
     facing: isA ? 1 : -1,
     hp: 100, wins: 0,
     attack: 'none', attackFrame: 0, attackHit: false, attackCrouch: false,
-    stun: 0, thrownT: 0, crouching: false, blocking: false,
+    stun: 0, thrownT: 0, phaseT: 0, armorT: 0, crouching: false, blocking: false,
     animT: 0, walkPhase: 0, pose: 'idle',
   };
 }
@@ -213,7 +254,7 @@ export function makeMatch(a: Fighter, b: Fighter): Match {
 function resetRound(m: Match): void {
   for (const [f, side] of [[m.a, 'a'], [m.b, 'b']] as const) {
     f.hp = 100; f.y = 0; f.vx = 0; f.vy = 0; f.attack = 'none'; f.attackFrame = 0; f.attackCrouch = false;
-    f.stun = 0; f.thrownT = 0; f.crouching = false; f.blocking = false; f.pose = 'idle';
+    f.stun = 0; f.thrownT = 0; f.phaseT = 0; f.armorT = 0; f.crouching = false; f.blocking = false; f.pose = 'idle';
     f.x = side === 'a' ? WORLD_W * 0.34 : WORLD_W * 0.66;
     f.facing = side === 'a' ? 1 : -1;
   }
@@ -248,6 +289,13 @@ function derivePose(f: Fighter): void {
   if (f.attack === 'storyarc') { f.pose = 'storyarc'; return; }
   if (f.attack === 'plottwist') { f.pose = 'plottwist'; return; }
   if (f.attack === 'inktempest') { f.pose = 'inktempest'; return; }
+  if (f.attack === 'construct') { f.pose = 'construct'; return; }
+  if (f.attack === 'nova') { f.pose = 'nova'; return; }
+  if (f.attack === 'volley') { f.pose = 'volley'; return; }
+  if (f.attack === 'boomerang') { f.pose = 'boomerang'; return; }
+  if (f.attack === 'armor') { f.pose = 'armor'; return; }
+  if (f.attack === 'phase') { f.pose = 'phase'; return; }
+  if (f.attack === 'jumpkick') { f.pose = 'jumpkick'; return; }
   if (f.attack === 'punch') { f.pose = f.attackCrouch ? 'crouchpunch' : 'punch'; return; }
   if (f.attack === 'kick') { f.pose = f.attackCrouch ? 'crouchkick' : 'kick'; return; }
   const airborne = f.y > 0.5;
@@ -265,6 +313,8 @@ function stepFighter(f: Fighter, other: Fighter, inp: Inputs, live: boolean): vo
   // advance timers
   if (f.stun > 0) f.stun--;
   if (f.thrownT > 0) f.thrownT--;
+  if (f.phaseT > 0) f.phaseT--;
+  if (f.armorT > 0) f.armorT--;
   if (f.attack !== 'none') {
     f.attackFrame++;
     if (f.attackFrame >= attackTotal(f.attack)) { f.attack = 'none'; f.attackFrame = 0; }
@@ -303,7 +353,7 @@ function stepFighter(f: Fighter, other: Fighter, inp: Inputs, live: boolean): vo
     if (special && (grounded || earlyAirStart)) { startAttack(f, special.attack); }
     else if (inp.throw && grounded) { startAttack(f, 'throw'); }
     else if (inp.punch) { startAttack(f, 'punch'); }
-    else if (inp.kick) { startAttack(f, 'kick'); }
+    else if (inp.kick) { startAttack(f, grounded ? 'kick' : 'jumpkick'); }  // airborne kick = flying kick
     else if (inp.jump && grounded && !inp.down) {
       f.vy = JUMP_V; f.y = Math.max(f.y, 0.001);
       if (inp.moveX !== 0) f.vx = inp.moveX * WALK_SPEED; // diagonal leap
@@ -344,6 +394,17 @@ function stepFighter(f: Fighter, other: Fighter, inp: Inputs, live: boolean): vo
   if (f.attack === 'plottwist') {
     if (f.attackFrame < PLOT_TWIST.startup) f.vx = -f.facing * PLOT_TWIST.backVx;
     else if (f.attackFrame === PLOT_TWIST.startup) f.vx = f.facing * PLOT_TWIST.lungeVx;
+  }
+  // Phase Step: an intangible dash that drives through the rival, then rematerialises
+  // on the far side facing back for a cross-up (i-frames are set at startAttack).
+  if (f.attack === 'phase') {
+    if (f.attackFrame < PHASE.shift) f.vx = f.facing * PHASE.vx;
+    else if (f.attackFrame === PHASE.shift) {
+      const oldFacing = f.facing;
+      f.x = Math.max(STAGE_LEFT, Math.min(STAGE_RIGHT, other.x + oldFacing * 18));
+      f.facing = (oldFacing * -1) as 1 | -1;
+      f.vx = 0; f.attackHit = false;                 // may strike again from behind
+    }
   }
 
   // horizontal movement — allowed while blocking (walk-back) but not crouching
@@ -395,11 +456,21 @@ function startAttack(f: Fighter, kind: AttackKind, contextDescent = false): void
   }
   if (kind === 'storyarc') { f.vy = STORY_ARC.jumpV; f.y = Math.max(f.y, 0.001); f.vx = f.facing * STORY_ARC.vx; f.crouching = false; }
   if (kind === 'plottwist' || kind === 'inktempest') { f.y = 0; f.vy = 0; f.vx = 0; f.crouching = false; }
+  // NEW-WAVE grounded casts (construct / volley loose projectiles later; keep planted)
+  if (kind === 'construct' || kind === 'volley' || kind === 'boomerang') { f.y = 0; f.vy = 0; f.vx = 0; f.crouching = false; }
+  // MEGAWATT NOVA — plant and become briefly intangible (reversal)
+  if (kind === 'nova') { f.y = 0; f.vy = 0; f.vx = 0; f.crouching = false; f.phaseT = NOVA.iframe; }
+  // ARMORED STRIKE — brace with super-armor through the wind-up
+  if (kind === 'armor') { f.y = 0; f.vy = 0; f.vx = 0; f.crouching = false; f.armorT = ARMOR.armor; }
+  // PHASE STEP — intangible dash that passes through attacks and the rival
+  if (kind === 'phase') { f.y = 0; f.vy = 0; f.vx = f.facing * PHASE.vx; f.crouching = false; f.phaseT = PHASE.iframe; }
+  // jumpkick keeps the jump arc — no velocity change
 }
 
-/** Push grounded, overlapping fighters apart. Airborne fighters pass over. */
+/** Push grounded, overlapping fighters apart. Airborne / phasing fighters pass through. */
 function separate(a: Fighter, b: Fighter): void {
   if (a.y > JUMP_CLEAR || b.y > JUMP_CLEAR) return; // let jumpers cross
+  if (a.phaseT > 0 || b.phaseT > 0) return;         // intangible dash phases through
   const dx = b.x - a.x;
   const overlap = 2 * BODY_HALF - Math.abs(dx);
   if (overlap <= 0) return;
@@ -414,6 +485,7 @@ interface HitFx { x: number; y: number; heavy: boolean; blocked: boolean; }
 
 function resolveHit(att: Fighter, def: Fighter): HitFx | null {
   if (!attackActive(att) || att.attackHit) return null;
+  if (def.phaseT > 0) return null;                 // intangible defender — the blow passes through
   const spec = meleeSpec(att);
   if (!spec) return null;
   const dx = def.x - att.x;
@@ -442,6 +514,11 @@ function resolveHit(att: Fighter, def: Fighter): HitFx | null {
     def.hp = Math.max(0, def.hp - spec.chip);
     def.stun = Math.max(def.stun, BLOCK_STUN);
     def.vx += att.facing * 1.4;
+  } else if (def.armorT > 0) {
+    // super-armor: the hit registers but never flinches or interrupts the armored move
+    def.hp = Math.max(0, def.hp - Math.round(spec.dmg * 0.5));
+    def.vx += att.facing * 1.0;
+    return { x: (att.x + def.x) / 2, y: Math.max(att.y, def.y) + 18, heavy: false, blocked: true };
   } else {
     def.hp = Math.max(0, def.hp - spec.dmg);
     def.stun = HIT_STUN;
@@ -478,25 +555,77 @@ function spawnFireball(m: Match, f: Fighter, owner: 'a' | 'b'): void {
   const style = specialMoveForAttack(f.name, 'hadouken')?.projectile ?? 'blue';
   m.projectiles.push({ owner, x: f.x + f.facing * 16, y: 30, vx: f.facing * FIRE_SPEED, active: true, hit: false, frame: 0, facing: f.facing, style });
 }
+// AJAX — a boomerang thrown flat that decelerates, reverses, and homes back.
+function spawnBoomerang(m: Match, f: Fighter, owner: 'a' | 'b'): void {
+  m.projectiles.push({ owner, x: f.x + f.facing * 16, y: 34, vx: f.facing * BOOMERANG.speed, active: true, hit: false, frame: 0, facing: f.facing, style: 'boomerang', returning: false });
+}
+// MNEME — a SENTINEL construct: stationary, capped, spits homing motes on a timer.
+function spawnConstruct(m: Match, f: Fighter, owner: 'a' | 'b'): void {
+  const mine = m.projectiles.filter((p) => p.active && p.owner === owner && p.style === 'construct').length;
+  if (mine >= CONSTRUCT.maxActive) return;
+  const x = Math.max(STAGE_LEFT + 8, Math.min(STAGE_RIGHT - 8, f.x + f.facing * 22));
+  m.projectiles.push({ owner, x, y: 26, vx: 0, active: true, hit: false, frame: 0, facing: f.facing, style: 'construct', life: CONSTRUCT.life, fireT: CONSTRUCT.fireEvery });
+}
+// shared — a VOLLEY: three motes loosed in a low/mid/high spread.
+function spawnVolley(m: Match, f: Fighter, owner: 'a' | 'b'): void {
+  const ys = [18, 32, 46];
+  for (let i = 0; i < VOLLEY.count; i++)
+    m.projectiles.push({ owner, x: f.x + f.facing * 16, y: ys[i] ?? 32, vx: f.facing * (VOLLEY.speed - i * 0.25), active: true, hit: false, frame: 0, facing: f.facing, style: 'mote', life: 120 });
+}
+// a construct's outgoing mote, aimed at whichever side the rival is on.
+function fireMote(m: Match, c: Projectile): void {
+  const def = c.owner === 'a' ? m.b : m.a;
+  const dir = (def.x >= c.x ? 1 : -1) as 1 | -1;
+  m.projectiles.push({ owner: c.owner, x: c.x + dir * 6, y: c.y, vx: dir * MOTE.speed, active: true, hit: false, frame: 0, facing: dir, style: 'mote', life: MOTE.life });
+}
 
 function stepProjectiles(m: Match): void {
   for (const p of m.projectiles) {
     if (!p.active) continue;
-    p.frame++; p.x += p.vx;
-    if (p.x < STAGE_LEFT - 24 || p.x > STAGE_RIGHT + 24) { p.active = false; continue; }
+    p.frame++;
     const def = p.owner === 'a' ? m.b : m.a;
-    if (p.hit || def.hp <= 0) continue;
-    const withinX = Math.abs(def.x - p.x) < FIRE_R + BODY_HALF;
-    const withinY = p.y >= def.y - 6 && p.y <= def.y + FIGHTER_WORLD_H; // jump over it
+
+    if (p.style === 'construct') {                        // autonomous sentinel: no travel, no direct hit
+      if (p.life !== undefined) p.life--;
+      if (p.fireT !== undefined) p.fireT--;
+      if ((p.fireT ?? 1) <= 0 && (p.life ?? 0) > 6) { fireMote(m, p); p.fireT = CONSTRUCT.fireEvery; }
+      if ((p.life ?? 0) <= 0) p.active = false;
+      continue;
+    }
+
+    if (p.style === 'boomerang') {
+      if (!p.returning) {
+        p.vx *= 1 - BOOMERANG.decel;
+        if (Math.abs(p.vx) <= BOOMERANG.minV) { p.returning = true; p.hit = false; }   // reverse — can catch again
+      } else {
+        const owner = p.owner === 'a' ? m.a : m.b;
+        p.vx = (owner.x >= p.x ? 1 : -1) * BOOMERANG.speed * 0.85;
+        if (Math.abs(owner.x - p.x) < 10) { p.active = false; continue; }               // caught
+      }
+      p.x += p.vx;
+    } else {
+      p.x += p.vx;
+      if (p.style === 'mote' && p.life !== undefined) { p.life--; if (p.life <= 0) { p.active = false; continue; } }
+      if (p.x < STAGE_LEFT - 24 || p.x > STAGE_RIGHT + 24) { p.active = false; continue; }
+    }
+
+    if (p.hit || def.hp <= 0 || def.phaseT > 0) continue;
+    const r = p.style === 'mote' ? MOTE.r : p.style === 'boomerang' ? BOOMERANG.r : FIRE_R;
+    const dmg = p.style === 'mote' ? MOTE.dmg : p.style === 'boomerang' ? BOOMERANG.dmg : FIRE_DMG;
+    const chip = p.style === 'mote' ? MOTE.chip : p.style === 'boomerang' ? BOOMERANG.chip : FIRE_CHIP;
+    const withinX = Math.abs(def.x - p.x) < r + BODY_HALF;
+    const withinY = p.y >= def.y - 6 && p.y <= def.y + FIGHTER_WORLD_H; // can be jumped
     if (withinX && withinY) {
-      p.hit = true; p.active = false;
+      p.hit = true;
+      if (p.style !== 'boomerang') p.active = false;                                    // boomerang flies on
       const guarding = def.blocking && def.stun <= 0 && def.facing === -p.facing && def.y <= JUMP_CLEAR;
-      if (guarding) { def.hp = Math.max(0, def.hp - FIRE_CHIP); def.stun = Math.max(def.stun, BLOCK_STUN); def.vx += p.facing * 1.4; }
-      else { def.hp = Math.max(0, def.hp - FIRE_DMG); def.stun = HIT_STUN; def.attack = 'none'; def.attackFrame = 0; def.vx = p.facing * 3.4; }
+      if (guarding) { def.hp = Math.max(0, def.hp - chip); def.stun = Math.max(def.stun, BLOCK_STUN); def.vx += p.facing * 1.2; }
+      else if (def.armorT > 0) { def.hp = Math.max(0, def.hp - Math.round(dmg * 0.5)); }  // armor eats projectiles too
+      else { def.hp = Math.max(0, def.hp - dmg); def.stun = HIT_STUN; def.attack = 'none'; def.attackFrame = 0; def.vx = p.facing * 3.0; }
     }
   }
-  // opposing fireballs meeting cancel out
-  const act = m.projectiles.filter((p) => p.active);
+  // opposing straight projectiles meeting cancel out (constructs / boomerangs excluded)
+  const act = m.projectiles.filter((p) => p.active && p.style !== 'construct' && p.style !== 'boomerang');
   for (let i = 0; i < act.length; i++) for (let j = i + 1; j < act.length; j++) {
     if (act[i]!.owner !== act[j]!.owner && Math.abs(act[i]!.x - act[j]!.x) < FIRE_R * 2) { act[i]!.active = false; act[j]!.active = false; }
   }
@@ -541,6 +670,12 @@ export function stepMatch(m: Match, inA: Inputs, inB: Inputs): void {
   // spawn hadouken fireballs on the throw frame, then advance projectiles
   if (m.a.attack === 'hadouken' && m.a.attackFrame === HAD.spawn) spawnFireball(m, m.a, 'a');
   if (m.b.attack === 'hadouken' && m.b.attackFrame === HAD.spawn) spawnFireball(m, m.b, 'b');
+  // NEW-WAVE projectile casts fire on their spawn frame
+  for (const [f, side] of [[m.a, 'a'], [m.b, 'b']] as const) {
+    if (f.attack === 'boomerang' && f.attackFrame === BOOMERANG.spawn) spawnBoomerang(m, f, side);
+    if (f.attack === 'construct' && f.attackFrame === CONSTRUCT.spawn) spawnConstruct(m, f, side);
+    if (f.attack === 'volley' && f.attackFrame === VOLLEY.spawn) spawnVolley(m, f, side);
+  }
   stepProjectiles(m);
 
   if (m.frame % TICK_HZ === 0 && m.roundTime > 0) m.roundTime--;

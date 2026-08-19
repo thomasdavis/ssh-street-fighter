@@ -87,6 +87,27 @@ const MOVE_SETS: Readonly<Record<string, readonly SpecialMoveDefinition[]>> = {
     { attack: 'plottwist', name: 'PLOT TWIST', shortName: 'TWIST', description: 'A readable backstep feint that draws out a committed attack, then answers it with one sudden lunging strike.', motion: ['B', 'F'], button: 'kick' },
     { attack: 'inktempest', name: 'INK TEMPEST', shortName: 'TEMPEST', description: 'A close calligraphic flurry of ember-bright strokes that clips a cornered guard up to three times.', motion: ['D', 'B'], button: 'punch' },
   ],
+  // MNEME — the Memory Architect. Builds autonomous constructs, discharges megawatt
+  // energy, and recalls archived fragments. (After Lisa Megawatts: "agents with interior lives".)
+  MNEME: [
+    { attack: 'construct', name: 'MEMORY SENTINEL', shortName: 'SENTINEL', description: 'Mneme inscribes a luminous monument that holds its ground and looses homing memory-motes entirely on its own — an agent with an interior life. Up to two may stand at once.', motion: ['D', 'B'], button: 'punch' },
+    { attack: 'nova', name: 'MEGAWATT NOVA', shortName: 'NOVA', description: 'A geometric discharge erupts around Mneme in every direction; she is briefly intangible through the bloom, making it a room-clearing reversal.', motion: ['D', 'U'], button: 'kick', earlyAirStart: true },
+    { attack: 'volley', name: 'ARCHIVE VOLLEY', shortName: 'VOLLEY', description: 'Three recalled fragments fan out low, level and high at once to wall off every approach lane.', motion: ['D', 'F'], button: 'punch' },
+  ],
+  // AJAX — the Contradiction-Keeper. Returning tools, braced double-truths, agent swarms.
+  // (After Ajax Davis: Australian systems-builder preserving contradictory, source-anchored claims.)
+  AJAX: [
+    { attack: 'boomerang', name: 'THE RECKONING', shortName: 'BOOMER', description: 'Ajax hurls a returning blade that decelerates, reverses and homes back to hand — it can catch on the throw and again on the way home.', motion: ['D', 'F'], button: 'kick' },
+    { attack: 'armor', name: 'CONTRADICTION', shortName: 'BRACE', description: 'Ajax holds two truths at once: he eats one incoming blow without flinching, then answers with a single heavy strike.', motion: ['B', 'F'], button: 'punch' },
+    { attack: 'volley', name: 'AGENT SWARM', shortName: 'SWARM', description: 'A spreading fan of autonomous agents floods the lane, each one hunting the same target from a different height.', motion: ['D', 'B'], button: 'kick' },
+  ],
+  // XENON — the Phase-Sage. Phase geometry, resonance, and a stack that survives the smoke test.
+  // (After xenonfun: many-actor worlds, synchronization and phase geometry, resilient infrastructure.)
+  XENON: [
+    { attack: 'phase', name: 'PHASE STEP', shortName: 'PHASE', description: 'Xenon slips out of phase — intangible — passing through attacks and the rival alike to rematerialise behind them for a cross-up strike.', motion: ['B', 'F'], button: 'kick' },
+    { attack: 'nova', name: 'RESONANT PULSE', shortName: 'PULSE', description: 'A standing wave collapses outward around Xenon, invulnerable through its bloom — synchronization turned into a reversal.', motion: ['D', 'U'], button: 'punch', earlyAirStart: true },
+    { attack: 'armor', name: 'HARD RESET', shortName: 'RESET', description: 'Xenon braces the stack against a single hit, then commits one heavy counter — sovereign and unshaken through the smoke test.', motion: ['D', 'B'], button: 'punch' },
+  ],
 };
 
 export const BUTTON_KEY: Readonly<Record<AttackButton, string>> = { punch: 'W', kick: 'E' };
@@ -112,6 +133,12 @@ export function specialMoveFrames(attack: SpecialAttack): readonly string[] {
   if (attack === 'storyarc') return ['storyarc_1', 'storyarc_2', 'storyarc_3'];
   if (attack === 'plottwist') return ['plottwist_1', 'plottwist_2', 'plottwist_3'];
   if (attack === 'inktempest') return ['inktempest_1', 'inktempest_2', 'inktempest_3'];
+  if (attack === 'construct') return ['construct'];
+  if (attack === 'nova') return ['nova'];
+  if (attack === 'volley') return ['volley'];
+  if (attack === 'boomerang') return ['boomerang'];
+  if (attack === 'armor') return ['armor'];
+  if (attack === 'phase') return ['phase'];
   return ['mergecomet_1', 'mergecomet_2', 'mergecomet_3'];
 }
 

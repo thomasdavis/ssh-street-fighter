@@ -33,7 +33,7 @@ interface Conn {
   queued: boolean; inLounge: boolean; lastChatAt: number;
 }
 
-const SPECIAL_KINDS = new Set(['hadouken', 'shoryuken', 'hurricane', 'rolling', 'verticalroll', 'electric', 'testimony', 'nullstep', 'entropy', 'context', 'branchwalk', 'mergecomet']);
+const SPECIAL_KINDS = new Set(['hadouken', 'shoryuken', 'hurricane', 'rolling', 'verticalroll', 'electric', 'testimony', 'nullstep', 'entropy', 'context', 'branchwalk', 'mergecomet', 'storyarc', 'plottwist', 'inktempest', 'construct', 'nova', 'volley', 'boomerang', 'armor', 'phase']);
 
 function fighterView(f: Fighter): object {
   // Attack phase so bots can REACT to the opponent committing a move:

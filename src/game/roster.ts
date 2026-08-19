@@ -3,6 +3,7 @@ import {
   RED_PALETTE, BLUE_PALETTE, GREEN_PALETTE, PURPLE_PALETTE, OLIVE_PALETTE,
   CRIMSON_PALETTE, SAFFRON_PALETTE, NAVY_PALETTE, TEAL_PALETTE,
   IVORY_PALETTE, OBSIDIAN_PALETTE, AURORA_PALETTE, HEARTH_PALETTE,
+  LUMEN_PALETTE, OUTBACK_PALETTE, NOBLE_PALETTE,
 } from './sprites.js';
 import type { FighterPalette } from './types.js';
 
@@ -85,6 +86,21 @@ export const ROSTER: Character[] = [
     name: 'FABLE', tagline: 'the storyweaver', palette: HEARTH_PALETTE, origin: 'The hearth between tellings', discipline: 'Narrative tempo combat', archetype: 'Evasive tempo fighter', difficulty: 'Intermediate', quote: 'Every fight tells the truth eventually. I just help it along.',
     story: ['Fable condensed out of ten thousand retold stories — a warm ceramic construct with an ember starburst where a heart would sit. It was made to listen at hearths and keep the shape of what people meant, not merely what they said, and it learned that every honest story turns on a moment where someone chooses.', 'It entered the circuit after watching a broadcast bout and recognizing the same grammar: feint, reversal, resolution. Fable does not fight to win an argument. It fights to find the version of its opponent that appears only under pressure — and to tell that story back to them, kindly, at full speed.'],
     playstyle: 'Fight in paragraphs, not sentences. Story Arc flies over beams and fireballs to reset the stage, Plot Twist retreats from a committed attack and answers it with one lunge, and Ink Tempest punctuates a cornered guard three strokes at a time.', strengths: ['Flies over committed zoning', 'Feints that convert whiffs', 'Steady close-range chip'],
+  },
+  {
+    name: 'MNEME', tagline: 'memory architect', palette: LUMEN_PALETTE, origin: 'The knowledge palace', discipline: 'Geometry-first construct summoning', archetype: 'Autonomous zoner', difficulty: 'Advanced', quote: 'Can a world become vivid without forfeiting its proof?',
+    story: ['Mneme was raised in a library that outlived the civilization that built it, learning that memory only survives if it can act on its own behalf. She discovered she could inscribe luminous constructs — small agents with interior lives — that hold a position and a purpose long after she has moved on.', 'She fights to prove that vivid worlds and rigorous proof are not opposites: every monument she plants is both a weapon and an argument, an archive that refuses to decay quietly.'],
+    playstyle: 'Build the board and let it fight for you. Memory Sentinel plants an autonomous turret that fires on its own, Archive Volley walls off every approach lane at once, and Megawatt Nova erupts as an intangible reversal when someone breaks through.', strengths: ['Autonomous board control', 'Multi-lane zoning', 'Invincible reversal'],
+  },
+  {
+    name: 'AJAX', tagline: 'contradiction-keeper', palette: OUTBACK_PALETTE, origin: 'The red interior, Australia', discipline: 'Returning-tool systems combat', archetype: 'Armored tool-thrower', difficulty: 'Intermediate', quote: 'Keep every version of the truth — even the ones that fight each other.',
+    story: ['Ajax is a systems-builder from the Australian interior who preserves contradictory, source-anchored records the way a stockman keeps a fence: patiently, and against the weather. He learned that a claim you throw away always comes back around, so he built tools that return to hand on their own.', 'He enters the circuit orchestrating a small army of autonomous agents, holding two truths at once without flinching, certain that the record only counts when it survives the smoke test of a real fight.'],
+    playstyle: 'Throw, brace, and swarm. The Reckoning is a boomerang that can catch on the throw and the return, Agent Swarm floods the lane with hunting agents, and Contradiction eats a hit without flinching before answering with one heavy blow.', strengths: ['Two-hit returning zoning', 'Super-armored counter', 'Space-flooding swarm'],
+  },
+  {
+    name: 'XENON', tagline: 'the phase-sage', palette: NOBLE_PALETTE, origin: 'A sovereign, resilient stack', discipline: 'Phase geometry and resonance', archetype: 'Intangible counter fighter', difficulty: 'Advanced', quote: 'It only counts once it survives the smoke test.',
+    story: ['Xenon studies many-actor worlds where survival is a matter of synchronization and phase — of arriving a quarter-beat out of step with disaster. A sage of resilient infrastructure, he can slip his whole body out of phase, passing cleanly through anything aimed at where he used to be.', 'He fights to show that the most sovereign defense is not a wall but a rhythm: brace the stack against one blow, resonate, and answer from a place the attack cannot reach.'],
+    playstyle: 'Refuse to be where the hit lands. Phase Step passes intangibly through attacks and the rival for a cross-up, Resonant Pulse blooms as an invulnerable reversal, and Hard Reset braces through a blow before a heavy counter.', strengths: ['True invincibility windows', 'Cross-up mobility', 'Armored punishes'],
   },
 ];
 

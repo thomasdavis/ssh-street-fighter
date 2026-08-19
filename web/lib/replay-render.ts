@@ -22,7 +22,7 @@ export const CW = 960, CH = 640;
 export const spriteUrl = (char: string, name: string, ver?: number) =>
   `/api/sprite/${encodeURIComponent(char)}/${name}${ver ? `?v=${ver}` : ''}`;
 export const stageUrl = (stage: string) => `/api/stage/${encodeURIComponent(stage)}`;
-const projColor = (s: string) => (s === 'fire' ? '#ff7a3c' : s === 'sonic' ? '#8fe0ff' : '#6fa8ff');
+const projColor = (s: string) => (s === 'fire' ? '#ff7a3c' : s === 'sonic' ? '#8fe0ff' : s === 'mote' ? '#c49bff' : s === 'boomerang' ? '#e0a84a' : '#6fa8ff');
 const imgOk = (i?: HTMLImageElement | null) => !!i && i.complete && i.naturalWidth > 0;
 
 /** Ensure an Image is loading for every sprite frame both characters can use. */
@@ -141,9 +141,23 @@ export function drawFrame(ctx: CanvasRenderingContext2D, meta: RenderMeta, f: Fr
   if (f.ba === 'testimony' && f.bAct) drawBeam(ctx, meta, f.b, ws, ox, oy);
   for (const [px, py, , style] of f.pr) {
     const cx = ox + px * ws, cy = oy + (meta.groundY - py) * ws;
+    if (style === 'construct') {                          // MNEME sentinel — a standing luminous monument
+      const h = (14 + 3 * Math.sin(t / 26)) * ws;
+      ctx.globalAlpha = 0.45; ctx.fillStyle = '#5a3c96'; ctx.beginPath(); ctx.arc(cx, cy, h * 1.1, 0, 7); ctx.fill(); ctx.globalAlpha = 1;
+      ctx.fillStyle = '#966ee8'; ctx.beginPath(); ctx.moveTo(cx, cy - h); ctx.lineTo(cx + h * 0.7, cy); ctx.lineTo(cx, cy + h); ctx.lineTo(cx - h * 0.7, cy); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = '#efe6ff'; ctx.fillRect(cx - 2 * ws, cy - h, 4 * ws, h * 2);
+      continue;
+    }
+    if (style === 'boomerang') {                          // AJAX — spinning blade
+      const a = t * 0.5; ctx.strokeStyle = '#e0a84a'; ctx.lineWidth = 3 * ws; ctx.beginPath();
+      for (let s = 0; s < 2; s++) { const ang = a + s * Math.PI / 2, dx = Math.cos(ang) * 9 * ws, dy = Math.sin(ang) * 9 * ws; ctx.moveTo(cx - dx, cy - dy); ctx.lineTo(cx + dx, cy + dy); }
+      ctx.stroke(); ctx.fillStyle = '#ffe096'; ctx.beginPath(); ctx.arc(cx, cy, 3 * ws, 0, 7); ctx.fill();
+      continue;
+    }
+    const r = style === 'mote' ? 4 : 5;
     ctx.fillStyle = projColor(style);
-    ctx.beginPath(); ctx.arc(cx, cy, 5 * ws, 0, 7); ctx.fill();
-    ctx.globalAlpha = 0.4; ctx.beginPath(); ctx.arc(cx, cy, 8.5 * ws, 0, 7); ctx.fill(); ctx.globalAlpha = 1;
+    ctx.beginPath(); ctx.arc(cx, cy, r * ws, 0, 7); ctx.fill();
+    ctx.globalAlpha = 0.4; ctx.beginPath(); ctx.arc(cx, cy, (r + 3.5) * ws, 0, 7); ctx.fill(); ctx.globalAlpha = 1;
   }
   drawHud(ctx, meta, f);
 }

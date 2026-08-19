@@ -571,6 +571,31 @@ function drawProjectiles(g: PixelGrid, v: View, m: Match): void {
       fillCircle(g, v, cx, cy, r + 1, rgb(100, 224, 236));
       fillCircle(g, v, cx + p.facing * 2, cy, r - 3, rgb(214, 255, 248));
       wrect(g, v, cx - p.facing * 7, cy - 1, 11, 2, rgb(238, 255, 250));
+    } else if (p.style === 'mote') {
+      // small homing energy fragment with a short comet trail
+      for (let t = 3; t >= 1; t--) fillCircle(g, v, cx - Math.sign(p.vx || 1) * t * 4, cy, Math.max(1, 4 - t), rgb(150, 120, 236));
+      fillCircle(g, v, cx, cy, 5, rgb(196, 150, 255));
+      fillCircle(g, v, cx, cy, 2.5, rgb(244, 236, 255));
+    } else if (p.style === 'construct') {
+      // a standing luminous monument (diamond) that pulses while it lives
+      const pulse = 1 + Math.sin(p.frame * 0.35) * 0.18;
+      const fade = Math.min(1, (p.life ?? 0) / 12);
+      const h = 16 * pulse;
+      for (let k = 3; k >= 1; k--) fillCircle(g, v, cx, cy - 4, (h + k * 3) * 0.55, rgb(90, 60, 150));
+      // outer diamond
+      for (let i = -h; i <= h; i++) { const w = (h - Math.abs(i)) * 0.75; wrect(g, v, cx - w, cy - 4 + i, w * 2, 1, rgb(150, 110, 232)); }
+      // bright core column
+      wrect(g, v, cx - 2, cy - 4 - h * 0.6, 4, h * 1.2, rgb(226, 208, 255));
+      fillCircle(g, v, cx, cy - 4, 3 * fade + 1, rgb(255, 250, 220));
+    } else if (p.style === 'boomerang') {
+      // a spinning blade — rotate a cross by the animation frame
+      const a = p.frame * 0.5;
+      for (let s = 0; s < 2; s++) {
+        const ang = a + s * Math.PI / 2;
+        const dx = Math.cos(ang) * 9, dy = Math.sin(ang) * 9;
+        wrect(g, v, cx - dx, cy - dy, Math.max(2, Math.abs(dx) + 3), Math.max(2, Math.abs(dy) + 3), rgb(210, 150, 70));
+      }
+      fillCircle(g, v, cx, cy, 4, rgb(255, 224, 150));
     } else {
       for (let t = 3; t >= 1; t--) fillCircle(g, v, cx - p.facing * t * 5, cy, Math.max(1, r - t * 2.4), rgb(66, 118, 236));
       fillCircle(g, v, cx, cy, r, rgb(74, 132, 255));

@@ -59,6 +59,21 @@ export const HEARTH_PALETTE: FighterPalette = {
   skin: { r: 236, g: 226, b: 210 }, gi: { r: 218, g: 119, b: 86 }, giDark: { r: 126, g: 56, b: 38 },
   hair: { r: 52, g: 58, b: 70 }, belt: { r: 242, g: 200, b: 120 },
 };
+// MNEME — luminous violet architect lit by megawatt energy.
+export const LUMEN_PALETTE: FighterPalette = {
+  skin: { r: 224, g: 214, b: 236 }, gi: { r: 138, g: 92, b: 220 }, giDark: { r: 58, g: 34, b: 108 },
+  hair: { r: 244, g: 214, b: 120 }, belt: { r: 214, g: 196, b: 255 },
+};
+// AJAX — ochre-and-copper Australian systems-builder.
+export const OUTBACK_PALETTE: FighterPalette = {
+  skin: { r: 214, g: 168, b: 128 }, gi: { r: 190, g: 120, b: 54 }, giDark: { r: 96, g: 56, b: 28 },
+  hair: { r: 44, g: 38, b: 34 }, belt: { r: 212, g: 150, b: 70 },
+};
+// XENON — cool cyan phase-sage, noble-gas glow.
+export const NOBLE_PALETTE: FighterPalette = {
+  skin: { r: 200, g: 216, b: 224 }, gi: { r: 46, g: 200, b: 206 }, giDark: { r: 18, g: 84, b: 104 },
+  hair: { r: 230, g: 244, b: 248 }, belt: { r: 150, g: 240, b: 244 },
+};
 
 const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
 const shade = (c: RGB): RGB => ({ r: c.r >> 1, g: c.g >> 1, b: c.b >> 1 });
