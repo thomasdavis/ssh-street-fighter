@@ -2,15 +2,15 @@ import Link from 'next/link';
 import { charColor } from '@/lib/chars';
 
 const LINKS: [string, string][] = [
-  ['/', 'Home'], ['/leaderboard', 'Leaderboard'], ['/characters', 'Characters'],
-  ['/matches', 'Matches'], ['/roster', 'Fighters'], ['/status', 'Server'], ['/bots', 'Bots'],
+  ['/', 'Home'], ['/leaderboard', 'Leaderboard'], ['/characters', 'Stats'],
+  ['/matches', 'Matches'], ['/fighters', 'Fighters'], ['/status', 'Server'], ['/bots', 'Bots'],
 ];
 
 export function SiteNav({ active, online }: { active?: string; online?: number }) {
   return (
     <nav className="rs-nav">
       <div className="rs-nav__in">
-        <Link href="/" className="rs-brand"><b />SSH STREET FIGHTER</Link>
+        <Link href="/" className="rs-brand"><b />SSH FIGHTER</Link>
         <div className="rs-navlinks">
           {LINKS.map(([href, label]) => (
             <Link key={href} href={href} data-active={active === href ? '1' : undefined}>{label}</Link>
@@ -29,7 +29,8 @@ export function Footer() {
     <footer className="rs-footer">
       <div className="rs-wrap">
         <div className="row">
-          <span className="rs-brand" style={{ textShadow: 'none' }}><b />RINGSIDE</span>
+          <span className="rs-brand" style={{ textShadow: 'none' }}><b />SSH FIGHTER</span>
+          <Link href="/fighters">Fighters</Link>
           <Link href="/bots">Build a bot</Link>
           <Link href="/status">Server status</Link>
           <a href="https://github.com/thomasdavis/ssh-street-fighter" target="_blank" rel="noreferrer">GitHub</a>

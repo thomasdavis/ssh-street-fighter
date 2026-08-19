@@ -1,15 +1,16 @@
 import Link from 'next/link';
-import { SiteNav, Footer, CharChip, Sprite, Bars } from '@/components/ui';
+import { SiteNav, Footer, CharChip, Bars } from '@/components/ui';
+import { SpriteLoop } from '@/components/SpriteLoop';
 import { summary, topPlayers, recentMatches, characterStats } from '@/lib/ringside';
 import { getLive } from '@/lib/live';
-import { charColor, rosterNames } from '@/lib/chars';
+import { charColor, rosterNames, rosterCards } from '@/lib/chars';
 import { timeAgo, frames, num } from '@/lib/format';
 import { LiveMatches } from './LiveMatches';
 
 export const dynamic = 'force-dynamic';
 export const metadata = {
-  title: 'SSH Street Fighter',
-  description: 'A Street Fighter–style arcade game you play entirely over SSH. Live ladder, replays, and a bot API.',
+  title: 'SSH Fighter',
+  description: 'An arcade fighting game you play entirely over SSH. Live ladder, replays, character stats, and a bot API.',
 };
 
 export default async function Home() {
@@ -19,6 +20,7 @@ export default async function Home() {
   const recent = recentMatches(6);
   const chars = characterStats();
   const names = rosterNames();
+  const cards = rosterCards();
   const [heroL, heroR] = [names[0] ?? 'BYU', names[1] ?? 'MEN'];
   const topByGames = [...chars].filter((c) => c.games > 0).sort((a, b) => b.games - a.games).slice(0, 6);
 
@@ -31,9 +33,9 @@ export default async function Home() {
         <section className="rs-hero">
           <div>
             <p className="rs-hero__eyebrow">Fight in your terminal</p>
-            <h1>SSH Street<br />Fighter</h1>
-            <p className="rs-lede">A full arcade fighting game that runs entirely over SSH — pixel sprites, ranked
-              matches, replays and a bot API. No install, no download. Just connect and fight.</p>
+            <h1>SSH<br />Fighter</h1>
+            <p className="rs-lede">An arcade fighting game that runs entirely over SSH — hand-drawn pixel sprites,
+              ranked matches, replays and a bot API. No install, no download. Just connect and fight.</p>
             <div className="rs-cta">
               <div className="rs-cmd">
                 <span className="p">$</span>
@@ -41,15 +43,15 @@ export default async function Home() {
                 <span className="hint">↵ to play</span>
               </div>
               <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-                <Link className="rs-btn" href="/leaderboard">View the ladder →</Link>
-                <Link className="rs-btn ghost" href="/bots">Bring a bot</Link>
+                <Link className="rs-btn" href="/fighters">Choose a fighter →</Link>
+                <Link className="rs-btn ghost" href="/leaderboard">The ladder</Link>
               </div>
             </div>
           </div>
           <div className="rs-hero__art" aria-hidden>
-            <Sprite char={heroL} pose="idle_1" className="l" />
+            <SpriteLoop char={heroL} poses={['idle_1', 'idle_2']} className="l" />
             <span className="vs">VS</span>
-            <Sprite char={heroR} pose="idle_1" className="r" />
+            <SpriteLoop char={heroR} poses={['idle_1', 'idle_2']} className="r" />
           </div>
         </section>
 
@@ -61,6 +63,20 @@ export default async function Home() {
           <div className="rs-stat"><b>{num(s.matches)}</b><span>Matches played</span></div>
           <div className="rs-stat"><b>{num(s.matches24h)}</b><span>Last 24 hours</span></div>
           <div className="rs-stat"><b>{num(s.replays)}</b><span>Replays saved</span></div>
+        </section>
+
+        {/* roster showcase */}
+        <section className="rs-section">
+          <div className="rs-section__head"><h2>◈ {cards.length} fighters</h2><Link href="/fighters">Meet them all →</Link></div>
+          <div className="rs-ribbon">
+            {cards.map((c) => (
+              <Link key={c.name} href={`/fighters/${c.name.toLowerCase()}`} className="rs-fchip" style={{ ['--fc' as string]: c.color }}>
+                <div className="rs-fchip__art"><SpriteLoop char={c.name} poses={['idle_1', 'idle_2']} /></div>
+                <div className="rs-fchip__name">{c.name}</div>
+                <div className="rs-fchip__tag">{c.archetype}</div>
+              </Link>
+            ))}
+          </div>
         </section>
 
         {/* live now */}

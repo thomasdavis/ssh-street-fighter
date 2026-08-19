@@ -40,9 +40,9 @@ export default function Gallery({ chars, adminEnabled }: { chars: Char[]; adminE
   return (
     <div className="wrap">
       <header className="hero">
-        <h1>SSH STREET FIGHTER</h1>
-        <p className="sub">Play it in your terminal:&nbsp; <code>ssh -p 2223 streetfighter.blah.dev</code></p>
-        <p className="sub">{chars.length} fighters · character dossiers · sprite gallery</p>
+        <h1>SSH FIGHTER — SPRITE LAB</h1>
+        <p className="sub">Play it in your terminal:&nbsp; <code>ssh sshfighter.com</code></p>
+        <p className="sub">{chars.length} fighters · admin sprite regeneration</p>
       </header>
 
       <nav className="roster-directory" aria-label="Character profiles">

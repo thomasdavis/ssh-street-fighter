@@ -3,6 +3,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { fighterSlugs, getFighterProfile } from '@/lib/fighters';
+import { listPoses, spriteMtime } from '@/lib/sprites';
 import AnimatedSprite from './AnimatedSprite';
 
 interface PageProps {
@@ -18,9 +19,9 @@ export function generateStaticParams() {
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { id } = await params;
   const profile = getFighterProfile(id);
-  if (!profile) return { title: 'Fighter not found — SSH Street Fighter' };
+  if (!profile) return { title: 'Fighter not found — SSH Fighter' };
   return {
-    title: `${profile.character.name} — ${profile.character.tagline} | SSH Street Fighter`,
+    title: `${profile.character.name} — ${profile.character.tagline} | SSH Fighter`,
     description: `${profile.character.name} fighter guide: background story, animated sprites, special-move inputs, damage, frame data, and tactics.`,
   };
 }
@@ -31,12 +32,13 @@ export default async function FighterPage({ params }: PageProps) {
   if (!profile) notFound();
   const { character } = profile;
   const style = { '--fighter-accent': profile.accent } as CSSProperties;
+  const poses = listPoses(character.name);
 
   return (
     <main className="fighter-page" style={style}>
       <nav className="site-nav" aria-label="Site navigation">
-        <Link className="site-mark" href="/">SSH STREET FIGHTER</Link>
-        <span>Fighter dossier {String(profile.number).padStart(2, '0')} / {String(fighterSlugs().length).padStart(2, '0')}</span>
+        <Link className="site-mark" href="/">SSH FIGHTER</Link>
+        <span><Link href="/fighters" style={{ color: 'inherit', textDecoration: 'none' }}>← Roster</Link> · Fighter {String(profile.number).padStart(2, '0')} / {String(fighterSlugs().length).padStart(2, '0')}</span>
       </nav>
 
       <section className="fighter-hero" aria-labelledby="fighter-name">
@@ -105,9 +107,30 @@ export default async function FighterPage({ params }: PageProps) {
         ))}
       </section>
 
+      {poses.length > 0 && (
+        <section className="move-list" aria-labelledby="sprites-title" style={{ paddingTop: 40 }}>
+          <div className="section-heading">
+            <div>
+              <p className="section-index">03 / SPRITE SHEET</p>
+              <h2 id="sprites-title">Every frame of {character.name}</h2>
+            </div>
+            <p>{poses.length} hand-drawn poses — the same sprites the terminal renders.</p>
+          </div>
+          <div className="pose-gallery">
+            {poses.map((pose) => (
+              // eslint-disable-next-line @next/next/no-img-element
+              <div className="pose-cell" key={pose}>
+                <img src={`/api/sprite/${encodeURIComponent(character.name)}/${pose}?v=${spriteMtime(character.name, pose)}`} alt={`${character.name} ${pose}`} loading="lazy" />
+                <span>{pose.replace(/_/g, ' ')}</span>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
       <nav className="fighter-switcher" aria-label="Browse fighters">
         <Link href={`/fighters/${profile.previous.slug}`}><span>Previous fighter</span>← {profile.previous.name}</Link>
-        <Link href="/">All fighters &amp; sprites</Link>
+        <Link href="/fighters">All fighters</Link>
         <Link href={`/fighters/${profile.next.slug}`}><span>Next fighter</span>{profile.next.name} →</Link>
       </nav>
     </main>

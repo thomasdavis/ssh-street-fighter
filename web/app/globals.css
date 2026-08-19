@@ -385,3 +385,42 @@ button.regen:disabled { opacity: 0.4; cursor: not-allowed; }
 .rs-speed { display: flex; gap: 4px; }
 .rs-speed button { padding: 5px 9px; font-size: 12px; }
 .rs-speed button.on { background: var(--gold); color: #17131f; border-color: var(--gold); }
+
+/* ============================================================================
+   Roster — homepage ribbon + arcade "select your fighter" grid
+   ============================================================================ */
+.rs-ribbon { display: grid; grid-auto-flow: column; grid-auto-columns: 134px; gap: 12px; overflow-x: auto; padding: 4px 2px 14px; scroll-snap-type: x proximity; }
+.rs-fchip { scroll-snap-align: start; text-decoration: none; display: flex; flex-direction: column; align-items: center;
+  background: var(--panel); border: 1px solid var(--edge); border-radius: 12px; padding: 10px; transition: transform .12s ease, border-color .12s, box-shadow .12s; }
+.rs-fchip:hover { transform: translateY(-3px); border-color: var(--fc, var(--gold)); box-shadow: 0 0 24px -8px var(--fc, var(--gold)); }
+.rs-fchip__art { width: 100%; height: 112px; border-radius: 8px; overflow: hidden; display: flex; align-items: flex-end; justify-content: center;
+  background: radial-gradient(120% 90% at 50% 10%, color-mix(in srgb, var(--fc, #6fe0f0) 24%, #160f22) 0%, #130d1f 72%); border: 1px solid #2a2138; }
+.rs-fchip__art img { max-height: 96%; max-width: 90%; image-rendering: pixelated; filter: drop-shadow(0 4px 6px rgba(0,0,0,.5)); }
+.rs-fchip__name { margin-top: 8px; color: var(--fc, var(--gold)); font-weight: 800; letter-spacing: 1px; font-size: 15px; }
+.rs-fchip__tag { color: var(--dim); font-size: 10px; text-transform: uppercase; letter-spacing: .08em; text-align: center; margin-top: 2px; }
+
+.select-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(216px, 1fr)); gap: 18px; margin: 30px 0 44px; }
+.fcard { text-decoration: none; display: flex; flex-direction: column; background: var(--panel); border: 1px solid var(--edge);
+  border-radius: 14px; overflow: hidden; position: relative; transition: transform .14s ease, border-color .14s, box-shadow .14s; }
+.fcard:hover { transform: translateY(-5px); border-color: var(--fc, var(--gold)); box-shadow: 0 12px 36px -16px var(--fc, var(--gold)); }
+.fcard__stage { position: relative; height: 262px; display: flex; align-items: flex-end; justify-content: center; overflow: hidden;
+  background: radial-gradient(135% 100% at 50% 6%, color-mix(in srgb, var(--fc, #6fe0f0) 28%, #17101f) 0%, #110b1b 74%); border-bottom: 1px solid var(--edge); }
+.fcard__stage::before { content: ''; position: absolute; inset: 0; pointer-events: none; background: repeating-linear-gradient(0deg, transparent 0 3px, rgba(255,255,255,.025) 3px 4px); }
+.fcard__stage::after { content: ''; position: absolute; left: 12%; right: 12%; bottom: 15%; height: 2px; background: color-mix(in srgb, var(--fc, #6fe0f0) 55%, transparent); filter: blur(1px); }
+.fcard__sprite { max-height: 90%; max-width: 84%; image-rendering: pixelated; position: relative; z-index: 1; filter: drop-shadow(0 8px 12px rgba(0,0,0,.6)); transition: transform .18s ease; }
+.fcard:hover .fcard__sprite { transform: scale(1.05); }
+.fcard__diff { position: absolute; top: 10px; right: 12px; z-index: 2; font-size: 12px; letter-spacing: 2px; }
+.fcard__diff.beg { color: var(--green); } .fcard__diff.int { color: var(--gold); } .fcard__diff.adv { color: var(--red); }
+.fcard__wr { position: absolute; top: 10px; left: 12px; z-index: 2; font-size: 10px; color: var(--text); background: rgba(11,8,18,.72);
+  border: 1px solid var(--edge); border-radius: 999px; padding: 2px 8px; letter-spacing: .05em; }
+.fcard__foot { padding: 14px 16px 16px; }
+.fcard__name { color: var(--fc, var(--gold)); font-size: 25px; font-weight: 800; letter-spacing: 1px; text-shadow: 2px 2px 0 rgba(0,0,0,.45); }
+.fcard__arch { color: var(--text); font-size: 11px; text-transform: uppercase; letter-spacing: .12em; margin-top: 3px; }
+.fcard__tag { color: var(--dim); font-size: 12px; margin-top: 6px; font-style: italic; }
+
+/* sprite pose gallery on the fighter detail page */
+.pose-gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(116px, 1fr)); gap: 12px; margin: 20px 0 60px; }
+.pose-cell { background: repeating-conic-gradient(#160f22 0 25%, #1d1530 0 50%) 0/18px 18px; border: 1px solid var(--edge);
+  border-radius: 10px; height: 132px; display: flex; align-items: flex-end; justify-content: center; overflow: hidden; position: relative; }
+.pose-cell img { max-height: 92%; max-width: 92%; image-rendering: pixelated; }
+.pose-cell span { position: absolute; bottom: 4px; left: 6px; color: var(--dim); font-size: 9px; letter-spacing: .06em; text-transform: uppercase; background: rgba(11,8,18,.6); padding: 1px 5px; border-radius: 4px; }
