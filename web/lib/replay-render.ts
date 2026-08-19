@@ -11,7 +11,7 @@ export interface Frame {
   pr: [number, number, number, string][]; // x, y, owner(0/1), style
   ph: string; rd: number; msg: string;
 }
-export interface CharMeta { idleH: number; frames: Record<string, Quad> }
+export interface CharMeta { idleH: number; ver?: number; frames: Record<string, Quad> }
 export interface RenderMeta {
   stage: string; aChar: string; bChar: string; aName: string; bName: string;
   worldW: number; worldH: number; groundY: number; fighterH: number; stageLeft: number; stageRight: number;
@@ -19,7 +19,8 @@ export interface RenderMeta {
 }
 
 export const CW = 960, CH = 640;
-export const spriteUrl = (char: string, name: string) => `/api/sprite/${encodeURIComponent(char)}/${name}`;
+export const spriteUrl = (char: string, name: string, ver?: number) =>
+  `/api/sprite/${encodeURIComponent(char)}/${name}${ver ? `?v=${ver}` : ''}`;
 export const stageUrl = (stage: string) => `/api/stage/${encodeURIComponent(stage)}`;
 const projColor = (s: string) => (s === 'fire' ? '#ff7a3c' : s === 'sonic' ? '#8fe0ff' : '#6fa8ff');
 const imgOk = (i?: HTMLImageElement | null) => !!i && i.complete && i.naturalWidth > 0;
@@ -30,7 +31,7 @@ export function ensureImages(meta: RenderMeta, imgs: Map<string, HTMLImageElemen
     for (const name of Object.keys(cm.frames)) {
       const key = `${char}/${name}`;
       if (imgs.has(key)) continue;
-      const im = new Image(); im.src = spriteUrl(char, name); imgs.set(key, im);
+      const im = new Image(); im.src = spriteUrl(char, name, cm.ver); imgs.set(key, im);
     }
   }
 }

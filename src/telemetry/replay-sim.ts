@@ -2,7 +2,7 @@
 // position track the web replay viewer plays back on canvas. Because the sim is
 // deterministic given inputs, this reproduces the match exactly (only cosmetic
 // spark RNG differs). Runs in the game process, which already has the engine.
-import { readFileSync, readdirSync, existsSync } from 'fs';
+import { readFileSync, readdirSync, existsSync, statSync } from 'fs';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { makeFighter, makeMatch, stepMatch, attackActive, attackExtension, WORLD_W, WORLD_H, GROUND_Y, STAGE_LEFT, STAGE_RIGHT, TESTIMONY, THROW, CONTEXT, BRANCHWALK, MERGE_COMET, STORY_ARC, PLOT_TWIST, INK_TEMPEST } from '../game/engine.js';
@@ -15,24 +15,29 @@ const SPRITE_BASE = resolve(dirname(fileURLToPath(import.meta.url)), '../../asse
 // Per-character sprite placement metadata ([w, h, anchorX, anchorY] per frame),
 // read once per character. Poses scale relative to idle_1's height, matching the
 // game renderer, so the web viewer places feet exactly.
-export interface CharSpriteMeta { idleH: number; frames: Record<string, [number, number, number, number]>; }
+// `ver` is the newest sprite-file mtime for the character — appended to the web
+// sprite URLs as a cache-buster so regenerated art (e.g. FABLE placeholders ->
+// real) is refetched instead of served from the browser's immutable cache.
+export interface CharSpriteMeta { idleH: number; ver: number; frames: Record<string, [number, number, number, number]>; }
 const spriteMetaCache = new Map<string, CharSpriteMeta>();
 function charSpriteMeta(char: string): CharSpriteMeta {
   const cached = spriteMetaCache.get(char);
   if (cached) return cached;
   const dir = resolve(SPRITE_BASE, char);
   const frames: Record<string, [number, number, number, number]> = {};
-  let idleH = 256;
+  let idleH = 256, ver = 0;
   if (existsSync(dir)) for (const file of readdirSync(dir)) {
     if (!file.endsWith('.json')) continue;
     try {
-      const s = JSON.parse(readFileSync(resolve(dir, file), 'utf8')) as { w: number; h: number; anchorX: number; anchorY: number };
+      const full = resolve(dir, file);
+      const s = JSON.parse(readFileSync(full, 'utf8')) as { w: number; h: number; anchorX: number; anchorY: number };
       const name = file.replace('.json', '');
       frames[name] = [s.w, s.h, s.anchorX, s.anchorY];
       if (name === 'idle_1') idleH = s.h;
+      ver = Math.max(ver, Math.floor(statSync(full).mtimeMs));
     } catch { /* skip */ }
   }
-  const meta: CharSpriteMeta = { idleH, frames };
+  const meta: CharSpriteMeta = { idleH, ver, frames };
   spriteMetaCache.set(char, meta);
   return meta;
 }
