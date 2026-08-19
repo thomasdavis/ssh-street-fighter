@@ -4,7 +4,7 @@ import { topPlayers, onlineNow, summary } from '@/lib/ringside';
 import { winRate } from '@/lib/format';
 
 export const dynamic = 'force-dynamic';
-export const metadata = { title: 'Leaderboard — SSH Street Fighter', description: 'The ranked Elo ladder.' };
+export const metadata = { title: 'Leaderboard — SSH Fighter', description: 'The ranked Elo ladder.' };
 
 export default function LeaderboardPage() {
   const players = topPlayers(200);

@@ -3,7 +3,7 @@ import { onlineNow } from '@/lib/ringside';
 import LiveViewer from './LiveViewer';
 
 export const dynamic = 'force-dynamic';
-export const metadata = { title: 'Watch live — SSH Street Fighter', description: 'Spectate a match in real time.' };
+export const metadata = { title: 'Watch live — SSH Fighter', description: 'Spectate a match in real time.' };
 
 export default async function WatchPage({ params }: { params: Promise<{ mid: string }> }) {
   const { mid } = await params;

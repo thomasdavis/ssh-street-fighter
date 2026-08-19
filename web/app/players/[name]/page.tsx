@@ -9,7 +9,7 @@ export const dynamic = 'force-dynamic';
 
 export async function generateMetadata({ params }: { params: Promise<{ name: string }> }) {
   const { name } = await params;
-  return { title: `${decodeURIComponent(name)} — SSH Street Fighter` };
+  return { title: `${decodeURIComponent(name)} — SSH Fighter` };
 }
 
 export default async function PlayerPage({ params }: { params: Promise<{ name: string }> }) {

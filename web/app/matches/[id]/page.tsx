@@ -10,7 +10,7 @@ export const dynamic = 'force-dynamic';
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const m = getMatch(id);
-  return { title: m ? `${m.a_name} vs ${m.b_name} — Replay` : 'Match — SSH Street Fighter' };
+  return { title: m ? `${m.a_name} vs ${m.b_name} — Replay` : 'Match — SSH Fighter' };
 }
 
 const STAT_ROWS: [string, keyof import('@/lib/ringside').MatchPlayerRow][] = [

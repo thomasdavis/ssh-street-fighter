@@ -4,7 +4,7 @@ import { opsLatest, opsTotalSeries, workerBreakdown, onlineNow, summary } from '
 import { num } from '@/lib/format';
 
 export const dynamic = 'force-dynamic';
-export const metadata = { title: 'Server status — SSH Street Fighter', description: 'Live concurrency, load and process metrics.' };
+export const metadata = { title: 'Server status — SSH Fighter', description: 'Live concurrency, load and process metrics.' };
 
 function uptime(s: number): string {
   if (!s) return '—';

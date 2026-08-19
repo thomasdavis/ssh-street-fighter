@@ -4,7 +4,7 @@ import { recentMatches, matchCount, onlineNow, hasReplay } from '@/lib/ringside'
 import { timeAgo, frames } from '@/lib/format';
 
 export const dynamic = 'force-dynamic';
-export const metadata = { title: 'Matches — SSH Street Fighter', description: 'Every recorded match. Drill in for the box score and replay.' };
+export const metadata = { title: 'Matches — SSH Fighter', description: 'Every recorded match. Drill in for the box score and replay.' };
 
 const PER = 40;
 
