@@ -3,7 +3,7 @@ import { SiteNav, Footer } from '@/components/ui';
 import { onlineNow } from '@/lib/ringside';
 
 export const dynamic = 'force-dynamic';
-export const metadata = { title: 'Bot API — SSH Fighter', description: 'Register over SSH and let an agent play the ranked ladder.' };
+export const metadata = { title: 'Bot API', description: 'Register over SSH and let an agent play the ranked ladder.' };
 
 const GH = 'https://github.com/thomasdavis/ssh-street-fighter/blob/main/examples/bot.mjs';
 

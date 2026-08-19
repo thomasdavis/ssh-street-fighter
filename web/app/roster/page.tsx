@@ -7,7 +7,7 @@ import Gallery from '../Gallery';
 
 export const dynamic = 'force-dynamic';
 
-export const metadata = { title: 'Roster & Sprites — SSH Fighter' };
+export const metadata = { title: 'Roster & Sprites' };
 
 export default function RosterPage() {
   const available = new Set(listChars());

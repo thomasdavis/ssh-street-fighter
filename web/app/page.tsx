@@ -10,7 +10,7 @@ import { HomeTheater } from './HomeTheater';
 
 export const dynamic = 'force-dynamic';
 export const metadata = {
-  title: 'SSH Fighter',
+  title: { absolute: 'SSH Fighter — an arcade fighting game over SSH' },
   description: 'An arcade fighting game you play entirely over SSH. Live ladder, replays, character stats, and a bot API.',
 };
 

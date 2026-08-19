@@ -3,7 +3,7 @@ import { characterStats, matchupGrid, onlineNow } from '@/lib/ringside';
 import { charColor, rosterNames } from '@/lib/chars';
 
 export const dynamic = 'force-dynamic';
-export const metadata = { title: 'Character stats — SSH Fighter', description: 'Pick rates, win rates and the matchup grid.' };
+export const metadata = { title: 'Character stats', description: 'Pick rates, win rates and the matchup grid.' };
 
 function winColor(pct: number): string {
   // red (low) → amber (even) → green (high)

@@ -5,7 +5,7 @@ import { rosterCards } from '@/lib/chars';
 import { characterStats, onlineNow } from '@/lib/ringside';
 
 export const dynamic = 'force-dynamic';
-export const metadata = { title: 'Fighters — SSH Fighter', description: 'The roster. Pick your fighter.' };
+export const metadata = { title: 'Fighters', description: 'The roster. Pick your fighter.' };
 
 const DIFF: Record<string, { pips: number; cls: string }> = {
   Beginner: { pips: 1, cls: 'beg' }, Intermediate: { pips: 2, cls: 'int' }, Advanced: { pips: 3, cls: 'adv' },
