@@ -202,6 +202,23 @@ function drawCodexTrails(g: PixelGrid, v: View, f: Fighter): void {
     return;
   }
   const active = attackActive(f);
+  if (f.attack === 'mergecomet') {
+    const sealX = f.x + f.facing * (active ? 10 : 22);
+    const sealY = GROUND_Y - 4;
+    const fullWeightGain = Math.abs(MERGE_COMET.fullWeightV) - Math.abs(MERGE_COMET.diveV);
+    const weight = Math.min(1, Math.max(0, (-f.vy - Math.abs(MERGE_COMET.diveV)) / fullWeightGain));
+    const radius = 7 + Math.round(weight * 6) + (f.attackFrame % 2);
+    ringPixels(g, v, sealX, sealY, radius + 3, copper);
+    ringPixels(g, v, sealX, sealY, radius, active ? pale : teal);
+    wrect(g, v, sealX - radius, sealY, radius * 2, 1, teal);
+    wrect(g, v, sealX, sealY - 4, 1, 8, copper);
+    // A dotted proof-line makes the cast read downward even before impact.
+    const castX = f.x + f.facing * 5, castY = cy + 18;
+    for (let i = 1; i <= 6; i++) {
+      const t = i / 7;
+      wrect(g, v, castX + (sealX - castX) * t, castY + (sealY - castY) * t, 2, 2, i % 2 ? teal : copper);
+    }
+  }
   const count = active ? 7 : 4;
   for (let i = 1; i <= count; i++) {
     const x = f.x - f.facing * (8 + i * 6);

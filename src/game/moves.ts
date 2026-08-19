@@ -80,7 +80,7 @@ const MOVE_SETS: Readonly<Record<string, readonly SpecialMoveDefinition[]>> = {
   CODEX: [
     { attack: 'context', name: 'CONTEXT ASCENT', shortName: 'ASCENT', description: 'Codex commits to an ultra-high rising arc that clears horizontal threats but stays punishable through the long descent.', motion: ['D', 'U'], button: 'punch', earlyAirStart: true },
     { attack: 'branchwalk', name: 'BRANCHWALK', shortName: 'BRANCHWALK', description: 'A copper-winged forward glide crosses one aerial lane with modest damage and a clearly exposed landing recovery.', motion: ['B', 'F'], button: 'kick' },
-    { attack: 'mergecomet', name: 'MERGE COMET', shortName: 'COMET', description: 'Codex rises just long enough to telegraph a diagonal teal dive, trading a strong downward angle for punishable recovery.', motion: ['D', 'F'], button: 'kick' },
+    { attack: 'mergecomet', name: 'WEIGHT OF EVIDENCE', shortName: 'EVIDENCE', description: 'Codex inscribes a gravity seal and commits to a crushing dive whose impact compounds with descent speed; the same input cancels Context Ascent only after its apex.', motion: ['D', 'F'], button: 'kick' },
   ],
 };
 

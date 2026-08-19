@@ -77,6 +77,23 @@ function drawWell(ctx: CanvasRenderingContext2D, meta: RenderMeta, st: Quad, t: 
   ctx.fillStyle = '#ffe0b8'; ctx.beginPath(); ctx.arc(cx, cy, 2 * ws, 0, 7); ctx.fill();
 }
 
+// WEIGHT OF EVIDENCE (CODEX) — a compact seal whose pulse grows as the dive commits.
+function drawEvidence(ctx: CanvasRenderingContext2D, meta: RenderMeta, st: Quad, active: boolean, t: number, ws: number, ox: number, oy: number) {
+  const facing = st[2], sealXw = st[0] + facing * (active ? 10 : 22);
+  const cx = ox + sealXw * ws, cy = oy + (meta.groundY - 4) * ws;
+  const r = (active ? 13 : 8 + 2 * Math.sin(t / 55)) * ws;
+  const castX = ox + (st[0] + facing * 5) * ws, castY = oy + (meta.groundY - st[1] - 10) * ws;
+  ctx.save();
+  ctx.strokeStyle = active ? '#e0fff2' : '#3ee2d2'; ctx.lineWidth = Math.max(2, 1.5 * ws);
+  ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.stroke();
+  ctx.strokeStyle = '#f48e3a'; ctx.lineWidth = Math.max(1, ws);
+  ctx.beginPath(); ctx.arc(cx, cy, r + 4 * ws, 0, Math.PI * 2); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(cx - r, cy); ctx.lineTo(cx + r, cy); ctx.moveTo(cx, cy - 5 * ws); ctx.lineTo(cx, cy + 5 * ws); ctx.stroke();
+  ctx.setLineDash([2 * ws, 3 * ws]); ctx.strokeStyle = '#3ee2d2';
+  ctx.beginPath(); ctx.moveTo(castX, castY); ctx.lineTo(cx, cy); ctx.stroke();
+  ctx.restore();
+}
+
 function drawHud(ctx: CanvasRenderingContext2D, meta: RenderMeta, f: Frame) {
   const pad = 26, barH = 15, barY = 20, half = CW / 2 - pad - 34;
   const bar = (x: number, hp: number, right: boolean) => {
@@ -112,9 +129,11 @@ export function drawFrame(ctx: CanvasRenderingContext2D, meta: RenderMeta, f: Fr
     ctx.fillStyle = 'rgba(0,0,0,.35)';
     ctx.beginPath(); ctx.ellipse(ox + st[0] * ws, oy + (meta.groundY + 1) * ws, 13 * ws, 4 * ws, 0, 0, 7); ctx.fill();
   }
-  // well behind fighters, beam + projectiles in front
+  // wells and evidence seals behind fighters; beams + projectiles in front
   if (f.aa === 'entropy' && f.aAct) drawWell(ctx, meta, f.a, t, ws, ox, oy);
   if (f.ba === 'entropy' && f.bAct) drawWell(ctx, meta, f.b, t, ws, ox, oy);
+  if (f.aa === 'mergecomet') drawEvidence(ctx, meta, f.a, f.aAct, t, ws, ox, oy);
+  if (f.ba === 'mergecomet') drawEvidence(ctx, meta, f.b, f.bAct, t, ws, ox, oy);
   drawFighter(ctx, meta, 'a', f, imgs, ws, ox, oy);
   drawFighter(ctx, meta, 'b', f, imgs, ws, ox, oy);
   if (f.aa === 'testimony' && f.aAct) drawBeam(ctx, meta, f.a, ws, ox, oy);

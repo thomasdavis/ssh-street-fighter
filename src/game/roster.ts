@@ -79,7 +79,7 @@ export const ROSTER: Character[] = [
   {
     name: 'CODEX', tagline: 'skybound scribe', palette: AURORA_PALETTE, origin: 'The unclosed margin', discipline: 'Recursive aerial notation', archetype: 'Committal air-mobility fighter', difficulty: 'Advanced', quote: 'Every ending leaves enough sky for one more line.',
     story: ['Codex woke inside an unfinished combat manual whose discarded revisions had begun arguing with the final text. Rather than choose one authoritative version, the scribe built a body from copper punctuation, teal lacquer, and the paper-bright feathers left between chapters.', 'Now Codex enters the circuit to test whether revision can be a fighting discipline instead of an apology. Every leap writes a temporary route above the arena; every landing accepts the risk that a beautiful line can still be answered.'],
-    playstyle: 'Evade committed lanes without owning them. Context Ascent clears even Omega’s beam but leaves a long descent, Branchwalk crosses one aerial lane, and Merge Comet cashes altitude into a readable dive.', strengths: ['Extreme vertical escape', 'Unusual aerial routes', 'Honest but rewarding commitments'],
+    playstyle: 'Evade committed lanes without owning them. Context Ascent clears low threats, Branchwalk crosses one aerial lane, and Weight of Evidence turns a readable descent into a gravity-seal punish.', strengths: ['Extreme vertical escape', 'Unusual aerial routes', 'Honest but rewarding commitments'],
   },
 ];
 
