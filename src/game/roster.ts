@@ -2,7 +2,7 @@
 import {
   RED_PALETTE, BLUE_PALETTE, GREEN_PALETTE, PURPLE_PALETTE, OLIVE_PALETTE,
   CRIMSON_PALETTE, SAFFRON_PALETTE, NAVY_PALETTE, TEAL_PALETTE,
-  IVORY_PALETTE, OBSIDIAN_PALETTE, AURORA_PALETTE,
+  IVORY_PALETTE, OBSIDIAN_PALETTE, AURORA_PALETTE, HEARTH_PALETTE,
 } from './sprites.js';
 import type { FighterPalette } from './types.js';
 
@@ -80,6 +80,11 @@ export const ROSTER: Character[] = [
     name: 'CODEX', tagline: 'skybound scribe', palette: AURORA_PALETTE, origin: 'The unclosed margin', discipline: 'Recursive aerial notation', archetype: 'Committal air-mobility fighter', difficulty: 'Advanced', quote: 'Every ending leaves enough sky for one more line.',
     story: ['Codex woke inside an unfinished combat manual whose discarded revisions had begun arguing with the final text. Rather than choose one authoritative version, the scribe built a body from copper punctuation, teal lacquer, and the paper-bright feathers left between chapters.', 'Now Codex enters the circuit to test whether revision can be a fighting discipline instead of an apology. Every leap writes a temporary route above the arena; every landing accepts the risk that a beautiful line can still be answered.'],
     playstyle: 'Evade committed lanes without owning them. Context Ascent clears even Omega’s beam but leaves a long descent, Branchwalk crosses one aerial lane, and Merge Comet cashes altitude into a readable dive.', strengths: ['Extreme vertical escape', 'Unusual aerial routes', 'Honest but rewarding commitments'],
+  },
+  {
+    name: 'FABLE', tagline: 'the storyweaver', palette: HEARTH_PALETTE, origin: 'The hearth between tellings', discipline: 'Narrative tempo combat', archetype: 'Evasive tempo fighter', difficulty: 'Intermediate', quote: 'Every fight tells the truth eventually. I just help it along.',
+    story: ['Fable condensed out of ten thousand retold stories — a warm ceramic construct with an ember starburst where a heart would sit. It was made to listen at hearths and keep the shape of what people meant, not merely what they said, and it learned that every honest story turns on a moment where someone chooses.', 'It entered the circuit after watching a broadcast bout and recognizing the same grammar: feint, reversal, resolution. Fable does not fight to win an argument. It fights to find the version of its opponent that appears only under pressure — and to tell that story back to them, kindly, at full speed.'],
+    playstyle: 'Fight in paragraphs, not sentences. Story Arc flies over beams and fireballs to reset the stage, Plot Twist retreats from a committed attack and answers it with one lunge, and Ink Tempest punctuates a cornered guard three strokes at a time.', strengths: ['Flies over committed zoning', 'Feints that convert whiffs', 'Steady close-range chip'],
   },
 ];
 

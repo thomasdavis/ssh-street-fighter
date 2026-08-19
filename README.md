@@ -25,7 +25,7 @@ ssh -p 2223 streetfighter.blah.dev
 
 SSH Street Fighter is a full two-player fighting game rendered with 24-bit ANSI color and Unicode half-block pixels. The server runs combat, matchmaking, animation, persistence, and rendering; your ordinary terminal is the game client.
 
-- **Twelve complete fighters**, each with three character-specific special moves
+- **Thirteen complete fighters**, each with three character-specific special moves
 - **Six animated arenas** with rain, surf, mist, steam, petals, runway lights, and other stage-bound motifs
 - **Real motion inputs** with a packet-safe input buffer for split SSH escape sequences
 - **Best-of-three online fights**, solo practice, direct challenges, and a quick-match queue
@@ -93,7 +93,7 @@ Choose **Controls** on the main menu to rebind every combat direction, both jump
 The terminal has no diagonal key events, so specials use compact four-direction motions. Inputs are relative to the direction your fighter is facing.
 
 <details>
-<summary><strong>All 36 special moves</strong></summary>
+<summary><strong>All 39 special moves</strong></summary>
 
 | Fighter | Special moves |
 |---|---|
@@ -109,6 +109,7 @@ The terminal has no diagonal key events, so specials use compact four-direction 
 | **MAKO** | `↓ → + W` Moon Tide · `↓ → + E` Ginga Rush · `↓ ← + E` Axé Wheel |
 | **OMEGA** | `↓ → + W` Final Testimony · `← → + E` Null Step · `↓ ← + W` Entropy Well |
 | **CODEX** | `↓ ↑ + W` Context Ascent · `← → + E` Branchwalk · `↓ → + E` Merge Comet |
+| **FABLE** | `↓ ↑ + W` Story Arc · `← → + E` Plot Twist · `↓ ← + W` Ink Tempest |
 
 </details>
 
@@ -180,7 +181,7 @@ pnpm test:e2e             # lounge, challenge, matchmaking, and practice over re
 pnpm exec tsx src/dump-png.ts fight 112 36
 ```
 
-The asset contract verifies all twelve complete dossiers, all 36 explained special-move definitions, every required fighter pose, and all six stage payloads. CI also rebuilds the authoritative fighter catalog and the Next.js site.
+The asset contract verifies all thirteen complete dossiers, all 39 explained special-move definitions, every required fighter pose, and all six stage payloads. CI also rebuilds the authoritative fighter catalog and the Next.js site.
 
 ## Project map
 

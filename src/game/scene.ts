@@ -5,7 +5,7 @@
 // and sprites are downscaled from their high-res source to the on-screen size.
 import { createGrid, fillRect, blit, resizeGridH, rgb, type PixelGrid, type RGB } from '../render/pixel.js';
 import { drawFighter } from './sprites.js';
-import { WORLD_W, WORLD_H, GROUND_Y, STAGE_LEFT, STAGE_RIGHT, ENTROPY, TESTIMONY, CONTEXT, BRANCHWALK, MERGE_COMET, attackActive, attackExtension } from './engine.js';
+import { WORLD_W, WORLD_H, GROUND_Y, STAGE_LEFT, STAGE_RIGHT, ENTROPY, TESTIMONY, CONTEXT, BRANCHWALK, MERGE_COMET, STORY_ARC, PLOT_TWIST, INK_TEMPEST, attackActive, attackExtension } from './engine.js';
 import { SPRITES } from './sprite-set.js';
 import { STAGES } from './stage-set.js';
 import { specialMoveForAttack } from './moves.js';
@@ -34,6 +34,9 @@ function frameName(f: Fighter): string {
     case 'context': return `context_${f.attackFrame < CONTEXT.startup ? 1 : (f.attackFrame < CONTEXT.startup + CONTEXT.active ? 2 : 3)}`;
     case 'branchwalk': return `branchwalk_${f.attackFrame < BRANCHWALK.startup ? 1 : (f.attackFrame < BRANCHWALK.startup + BRANCHWALK.active ? 2 : 3)}`;
     case 'mergecomet': return `mergecomet_${f.attackFrame < MERGE_COMET.startup ? 1 : (f.attackFrame < MERGE_COMET.startup + MERGE_COMET.active ? 2 : 3)}`;
+    case 'storyarc': return `storyarc_${f.attackFrame < STORY_ARC.startup ? 1 : (f.attackFrame < STORY_ARC.startup + STORY_ARC.active ? 2 : 3)}`;
+    case 'plottwist': return `plottwist_${f.attackFrame < PLOT_TWIST.startup ? 1 : (f.attackFrame < PLOT_TWIST.startup + PLOT_TWIST.active ? 2 : 3)}`;
+    case 'inktempest': return `inktempest_${f.attackFrame < INK_TEMPEST.startup ? 1 : (f.attackFrame < INK_TEMPEST.startup + INK_TEMPEST.active ? 2 : 3)}`;
     default: return f.pose;
   }
 }
@@ -207,6 +210,38 @@ function drawCodexTrails(g: PixelGrid, v: View, f: Fighter): void {
     const x = f.x - f.facing * (8 + i * 6);
     const y = cy + (f.attack === 'mergecomet' ? -i * 3 : i % 2 ? -4 : 5);
     wrect(g, v, f.facing === 1 ? x : x - (4 + i), y, 4 + i, 1, i % 3 === 0 ? pale : (i % 2 ? teal : copper));
+  }
+}
+
+/** Fable's ember-script trails keep each move readable at heavy downscale. */
+function drawFableEmbers(g: PixelGrid, v: View, f: Fighter): void {
+  if (f.attack !== 'storyarc' && f.attack !== 'plottwist' && f.attack !== 'inktempest') return;
+  const ember = rgb(224, 122, 88), gold = rgb(244, 202, 118), ivory = rgb(242, 232, 214);
+  const cy = GROUND_Y - f.y - 28;
+  if (f.attack === 'storyarc') {
+    // a falling trail of sparks under the flight arc
+    for (let i = 0; i < 6; i++) {
+      const x = f.x - f.facing * (5 + i * 5);
+      const y = cy + 14 + i * 6 + (f.attackFrame % 3);
+      wrect(g, v, x, y, 1 + (i % 2), 3, i % 3 === 0 ? gold : ember);
+    }
+    return;
+  }
+  if (f.attack === 'plottwist') {
+    // feint afterimages behind during the backstep, ahead of the lunge
+    const lunging = f.attackFrame >= PLOT_TWIST.startup;
+    for (let i = 1; i <= (lunging ? 6 : 3); i++) {
+      const x = f.x - (lunging ? 1 : -1) * f.facing * (6 + i * 5);
+      wrect(g, v, x, cy + (i % 2 ? -3 : 4), 4 + (i % 2), 1, i % 3 === 0 ? ivory : (i % 2 ? ember : gold));
+    }
+    return;
+  }
+  // ink tempest: a swirl of calligraphic flecks in front while the flurry is live
+  const active = attackActive(f);
+  for (let i = 0; i < (active ? 8 : 4); i++) {
+    const x = f.x + f.facing * (10 + ((i * 7 + f.attackFrame * 3) % 22));
+    const y = cy - 14 + ((i * 11 + f.attackFrame * 5) % 34);
+    wrect(g, v, x, y, i % 2 ? 2 : 1, i % 3 ? 1 : 2, i % 3 === 0 ? ivory : (i % 2 ? ember : gold));
   }
 }
 
@@ -539,7 +574,7 @@ export function composeScene(m: Match, pw = WORLD_W, ph = WORLD_H, practice = fa
   else drawBackground(g, v);
   if (MOTIFS_ON) drawMotifs(g, v, m.frame, m.stage);
   const order = m.a.x <= m.b.x ? [m.a, m.b] : [m.b, m.a];
-  for (const f of order) { drawFighterOnStage(g, v, f); drawSpecialAura(g, v, f); drawOmegaTech(g, v, f); drawCodexTrails(g, v, f); }
+  for (const f of order) { drawFighterOnStage(g, v, f); drawSpecialAura(g, v, f); drawOmegaTech(g, v, f); drawCodexTrails(g, v, f); drawFableEmbers(g, v, f); }
   drawProjectiles(g, v, m);
   drawSparks(g, v, m);
   if (MOTIFS_ON) drawMotifsFg(g, v, m.frame, m.stage);   // parallax foreground weather
