@@ -2,12 +2,17 @@
 // text character (crisp — the terminal's own font) or, where no text is set,
 // an octant pixel block sampled from an optional pixel layer. HUD/menus use
 // text cells (sharp at any size); the game viewport uses the pixel layer.
-import { createGrid, octantCell, halfCell, halfCellInto, quantize, rgbTo256, rgb, type PixelGrid, type RGB } from './pixel.js';
+import { createGrid, octantCell, halfCell, halfCellInto, quadrantCell, quantize, rgbTo256, rgb, type PixelGrid, type RGB } from './pixel.js';
 
 const ESC = '\x1b';
 const DEFAULT_BG: RGB = rgb(10, 9, 18);
 
-export type RenderMode = 'octant' | 'half';
+// 'octant'  — 2x4 sub-cells (Unicode 16; crispest, needs a modern terminal/font)
+// 'quadrant'— 2x2 sub-cells (Unicode 3.2; universal, exact metrics, no drift)
+// 'half'    — ▀ only (1x2; the most compatible, coarsest)
+export type RenderMode = 'octant' | 'half' | 'quadrant';
+type CellFn = (g: PixelGrid, x: number, y: number) => { char: string; fg: RGB; bg: RGB };
+const sampler = (mode: RenderMode): CellFn => mode === 'half' ? halfCell : mode === 'quadrant' ? quadrantCell : octantCell;
 
 export interface TextCell { ch: string; fg: RGB; bg: RGB; bold: boolean; }
 
@@ -101,7 +106,7 @@ export class Frame {
       const t = this.text[this.idx(x, y)];
       let ch: string, fg: RGB, bg: RGB, bold: boolean;
       if (t) { ch = t.ch; fg = t.fg; bg = t.bg; bold = t.bold; }
-      else if (this._pixel) { const c = (this.mode === 'half' ? halfCell : octantCell)(this._pixel, x * 2, y * 4); ch = c.char; fg = c.fg; bg = c.bg; bold = false; }
+      else if (this._pixel) { const c = sampler(this.mode)(this._pixel, x * 2, y * 4); ch = c.char; fg = c.fg; bg = c.bg; bold = false; }
       else { ch = ' '; fg = DEFAULT_BG; bg = DEFAULT_BG; bold = false; }
       if (!lf || !lb || lbold === null || lf.r !== fg.r || lf.g !== fg.g || lf.b !== fg.b || lb.r !== bg.r || lb.g !== bg.g || lb.b !== bg.b || lbold !== bold) {
         out += `${ESC}[0${bold ? ';1' : ''};38;2;${fg.r};${fg.g};${fg.b};48;2;${bg.r};${bg.g};${bg.b}m`;
@@ -142,7 +147,7 @@ export class Frame {
           const t = this.text[i];
           const q = (c: RGB) => step ? quantize(c, step) : { r: c.r, g: c.g, b: c.b };
           if (t) { out[i] = { ch: t.ch, fg: q(t.fg), bg: q(t.bg), bold: t.bold }; continue; }
-          if (this._pixel) { const c = (this.mode === 'half' ? halfCell : octantCell)(this._pixel, x * 2, y * 4); out[i] = { ch: c.char, fg: q(c.fg), bg: q(c.bg), bold: false }; continue; }
+          if (this._pixel) { const c = sampler(this.mode)(this._pixel, x * 2, y * 4); out[i] = { ch: c.char, fg: q(c.fg), bg: q(c.bg), bold: false }; continue; }
           out[i] = { ch: ' ', fg: { ...DEFAULT_BG }, bg: { ...DEFAULT_BG }, bold: false };
           continue;
         }
@@ -153,7 +158,7 @@ export class Frame {
         if (this._pixel) {
           cell.bold = false;
           if (this.mode === 'half') { cell.ch = halfCellInto(this._pixel, x * 2, y * 4, cell.fg, cell.bg); if (step) { qc(cell.fg, cell.fg); qc(cell.bg, cell.bg); } }
-          else { const c = octantCell(this._pixel, x * 2, y * 4); cell.ch = c.char; qc(cell.fg, c.fg); qc(cell.bg, c.bg); }
+          else { const c = sampler(this.mode)(this._pixel, x * 2, y * 4); cell.ch = c.char; qc(cell.fg, c.fg); qc(cell.bg, c.bg); }
           continue;
         }
         cell.ch = ' '; cell.bold = false; qc(cell.fg, DEFAULT_BG); qc(cell.bg, DEFAULT_BG);

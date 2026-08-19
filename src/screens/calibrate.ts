@@ -105,7 +105,7 @@ export const calibrate = {
     line('ZOOM OUT   CTRL -  /  CMD -        SMOOTHER FIGHTERS', THEME.accent2);
     line('ZOOM IN    CTRL SHIFT +  /  CMD +  BIGGER HUD TEXT', THEME.accent2);
     r += SP.gap;
-    line('PRESS  V  TO SWITCH VIEW IF TEXT LOOKS WRONG', THEME.accent);
+    line('PRESS  V  IF THE ART LOOKS GARBLED OR SHIFTED', THEME.accent);
     r += SP.gap;
 
     // live resolution + quality meter (fidelity tracks the TERMINAL resolution)
@@ -120,7 +120,7 @@ export const calibrate = {
       if (q < QMAX) ui.text(mx + QUALITY[q]!.length + 1, r, '(ZOOM OUT FOR MORE)', { color: THEME.textDim });
     }
 
-    const viewName = s.renderMode === 'octant' ? 'SHARP' : 'TEXT';
+    const viewName = s.renderMode === 'octant' ? 'SHARP' : 'COMPAT';
     hints(ui, ui.rows - 1, [['V', `VIEW:${viewName}`], ['?', 'MOVES'], ['ENTER', 'READY - LETS FIGHT']]);
   },
 

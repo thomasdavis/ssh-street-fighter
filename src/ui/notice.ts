@@ -16,8 +16,8 @@ export function drawTooSmall(f: Frame): void {
     [`your size:  ${f.cols} x ${f.rows}`, THEME.text, false],
     [`need about: ${need.cols} x ${need.rows} or larger`, THEME.good, true],
     ['', THEME.text, false],
-    ['ZOOM OUT (smaller font) or enlarge the window,', THEME.textDim, false],
-    ['or press  V  for a compatible text view.', THEME.accent2, false],
+    ['ZOOM OUT (make the font smaller) or', THEME.textDim, false],
+    ['enlarge the window until this clears.', THEME.textDim, false],
   ];
   const top = Math.max(0, Math.floor((f.rows - lines.length) / 2));
   for (let i = 0; i < lines.length; i++) {

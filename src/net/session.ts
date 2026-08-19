@@ -145,7 +145,7 @@ export class Session {
     if (fp) {
       this.player = db.touchOrCreate(fp);
       this.keyBindings = parseKeyBindings(this.player.key_bindings_json);
-      if (this.player.view_mode === 'half') this.renderMode = 'half';   // remembered view preference
+      if (this.player.view_mode === 'quadrant') this.renderMode = 'quadrant';   // remembered view preference
       if (this.player.username) { this.username = this.player.username; landing = 'menu'; this.cursor = this.player.main_char; }
       else landing = 'username'; // registered key without a handle yet
     } else {
@@ -226,7 +226,7 @@ export class Session {
     // so players whose terminal can't render octant can switch to something legible
     // (and it's remembered). Not while typing a name or in the lounge chat.
     if (this.screen !== 'username' && this.screen !== 'lounge' && /[vV]/.test(data.toString('latin1'))) {
-      this.setViewMode(this.renderMode === 'octant' ? 'half' : 'octant');
+      this.setViewMode(this.renderMode === 'octant' ? 'quadrant' : 'octant');
       data = Buffer.from(data.toString('latin1').replace(/[vV]/g, ''), 'latin1');
       if (data.length === 0) return;
     }
@@ -305,7 +305,7 @@ export class Session {
     const rows = clamp(this.rows || 40, 12, MAX_ROWS);
     // Pixel-only UI: if the terminal is too small for it to fit, show a "make
     // your terminal bigger" notice instead of a squashed screen.
-    if (SF_UI_CELL === false && this.renderMode === 'octant' && !pixelReady(cols, rows)) {
+    if (SF_UI_CELL === false && !pixelReady(cols, rows)) {
       const f = new Frame(cols, rows, this.renderMode);
       drawTooSmall(f);
       if (DEBUG_ON) drawDebugOverlay(f);
@@ -510,7 +510,8 @@ export class Session {
     this.trackEvent('key_binding_changed', { action, binding });
   }
 
-  /** Switch (and persist) the display mode: 'octant' sharp pixels or 'half' cell text. */
+  /** Switch (and persist) the view mode: 'octant' (sharp, Unicode-16) or 'quadrant'
+   *  (compatible 2x2 blocks that render on any terminal without drift). */
   setViewMode(mode: RenderMode): void {
     if (mode === this.renderMode) return;
     this.renderMode = mode;

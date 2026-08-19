@@ -168,13 +168,11 @@ export function minTerminal(): { cols: number; rows: number } {
 }
 
 export function makeSurface(f: Frame): Surface {
-  // Backend follows the frame's render mode (the player's view preference):
-  //   octant → constant-size pixel UI (crisp, needs a modern Unicode-16 terminal)
-  //   half   → crisp one-cell terminal text (works on ANY terminal)
-  // SF_UI ('pixel' | 'cell') is a dev-only override.
-  const forced = process.env.SF_UI;
-  const cell = forced === 'cell' ? true : forced === 'pixel' ? false : f.mode !== 'octant';
-  const s = cell ? new CellSurface(f) : new PixelSurface(f);
+  // The pixel UI is used in EVERY view mode — the frame's render mode only changes
+  // which block glyphs the pixel layer is sampled to (octant / quadrant / half),
+  // so the constant-size pixel look is identical; only the tiling glyphs differ.
+  // SF_UI=cell is a dev-only escape hatch to the one-cell terminal-text backend.
+  const s = process.env.SF_UI === 'cell' ? new CellSurface(f) : new PixelSurface(f);
   lastSurfaceInfo = { kind: s.kind, cols: s.cols, rows: s.rows, cellPx: (s as unknown as { cellPx?: number }).cellPx ?? 0, mode: f.mode };
   return s;
 }

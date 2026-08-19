@@ -144,6 +144,37 @@ export function halfCellInto(grid: PixelGrid, x: number, y: number, outFg: RGB, 
   return HALF_BLOCK_TOP;
 }
 
+// ---- quadrant fit (2x2 blocks) ----
+// Uses ONLY the Unicode 3.2 (2002) quarter-block elements U+2596–259F + half/full
+// blocks, which every terminal + font renders with exact cell metrics. Crisper
+// than the half-block ▀ (2 vertical AND 2 horizontal sub-cells vs 1x2), with none
+// of the drift/fallback problems of the brand-new Unicode-16 octants.
+const QUADRANT_CHARS = [' ', '▘', '▝', '▀', '▖', '▌', '▞', '▛', '▗', '▚', '▐', '▜', '▄', '▙', '▟', '█'];
+const QUAD_SUB: readonly [number, number][] = [[0, 2], [1, 3], [4, 6], [5, 7]]; // UL,UR,LL,LR sub-pixel indices (i = dy*2+dx)
+
+export function quadrantCell(grid: PixelGrid, x: number, y: number): Fit {
+  const px: Pixel[] = new Array(8);
+  let min = Infinity, max = -Infinity;
+  for (let dy = 0; dy < 4; dy++) {
+    const row = grid[y + dy];
+    for (let dx = 0; dx < 2; dx++) {
+      const p = row ? row[x + dx] ?? null : null;
+      px[dy * 2 + dx] = p;
+      const b = bright(p);
+      if (b < min) min = b;
+      if (b > max) max = b;
+    }
+  }
+  if (max - min <= 10) { const avg = mean(px, 0xff); return { char: '█', fg: avg, bg: avg }; }
+  const threshold = (min + max) / 2;
+  let pattern = 0, subOn = 0;
+  for (let q = 0; q < 4; q++) {
+    const [a, b] = QUAD_SUB[q]!;
+    if ((bright(px[a]!) + bright(px[b]!)) / 2 >= threshold) { pattern |= 1 << q; subOn |= (1 << a) | (1 << b); }
+  }
+  return { char: QUADRANT_CHARS[pattern]!, fg: mean(px, subOn), bg: mean(px, (~subOn) & 0xff) };
+}
+
 function fitCell(grid: PixelGrid, x: number, y: number): Fit {
   // gather the 2x4 sub-pixels; bit index = dy*2 + dx
   const px: Pixel[] = new Array(8);
