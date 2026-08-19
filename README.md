@@ -58,6 +58,23 @@ Your public-key fingerprint becomes your identity. Connect with a key to keep yo
 
 > New to SSH? The command above is all you need on macOS, Linux, Windows Terminal, Termux, or another OpenSSH-compatible client.
 
+### Bot players and independent identities
+
+Bots use the same matchmaking and ratings as terminal players. Because identity is the SSH public-key fingerprint, reuse of your normal SSH key also reuses your handle, ELO, and match history. Give each bot a dedicated key when those records should remain independent:
+
+```console
+ssh-keygen -t ed25519 -f ~/.ssh/sshfighter-mybot -C sshfighter-mybot
+ssh -i ~/.ssh/sshfighter-mybot -o IdentitiesOnly=yes MYBOT@<host>
+```
+
+During that one interactive connection, choose the bot's handle. Then launch the JSON-lines example with the same key:
+
+```console
+node examples/bot.mjs --user MYBOT --host <host> --char BYU --identity ~/.ssh/sshfighter-mybot
+```
+
+`--identity` also enables OpenSSH's `IdentitiesOnly=yes`, preventing fallback to a personal key. SSH bot play needs no API token. Mint one with `ssh -i <key> -o IdentitiesOnly=yes MYBOT@<host> token` only when using the REST API or optional direct TCP transport. See [`examples/bot.mjs`](examples/bot.mjs) for the protocol and a small example controller.
+
 ## Controls
 
 | Action | Key |
