@@ -5,7 +5,7 @@
 import { readFileSync, readdirSync, existsSync } from 'fs';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
-import { makeFighter, makeMatch, stepMatch, attackActive, attackExtension, WORLD_W, WORLD_H, GROUND_Y, STAGE_LEFT, STAGE_RIGHT, TESTIMONY, CONTEXT, BRANCHWALK, MERGE_COMET } from '../game/engine.js';
+import { makeFighter, makeMatch, stepMatch, attackActive, attackExtension, WORLD_W, WORLD_H, GROUND_Y, STAGE_LEFT, STAGE_RIGHT, TESTIMONY, THROW, CONTEXT, BRANCHWALK, MERGE_COMET, STORY_ARC, PLOT_TWIST, INK_TEMPEST } from '../game/engine.js';
 import { ROSTER } from '../game/roster.js';
 import { emptyInputs, type Inputs, type Fighter, type Match } from '../game/types.js';
 import { getReplay, getMatch } from './store.js';
@@ -81,6 +81,11 @@ function spriteFrame(f: Fighter): string {
     case 'context': return `context_${f.attackFrame < CONTEXT.startup ? 1 : (f.attackFrame < CONTEXT.startup + CONTEXT.active ? 2 : 3)}`;
     case 'branchwalk': return `branchwalk_${f.attackFrame < BRANCHWALK.startup ? 1 : (f.attackFrame < BRANCHWALK.startup + BRANCHWALK.active ? 2 : 3)}`;
     case 'mergecomet': return `mergecomet_${f.attackFrame < MERGE_COMET.startup ? 1 : (f.attackFrame < MERGE_COMET.startup + MERGE_COMET.active ? 2 : 3)}`;
+    case 'storyarc': return `storyarc_${f.attackFrame < STORY_ARC.startup ? 1 : (f.attackFrame < STORY_ARC.startup + STORY_ARC.active ? 2 : 3)}`;
+    case 'plottwist': return `plottwist_${f.attackFrame < PLOT_TWIST.startup ? 1 : (f.attackFrame < PLOT_TWIST.startup + PLOT_TWIST.active ? 2 : 3)}`;
+    case 'inktempest': return `inktempest_${f.attackFrame < INK_TEMPEST.startup ? 1 : (f.attackFrame < INK_TEMPEST.startup + INK_TEMPEST.active ? 2 : 3)}`;
+    case 'throw': return `throw_${f.attackFrame < THROW.startup ? 1 : (f.attackFrame < THROW.startup + THROW.active ? 2 : 3)}`;
+    case 'thrown': return f.vy > 0 ? 'thrown_1' : 'thrown_2';
     default: return f.pose;
   }
 }

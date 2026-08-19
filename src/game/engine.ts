@@ -76,7 +76,7 @@ const ROLLING = { startup: 4, active: 18, recovery: 9, total: 31, dmg: 14, range
 const VERTICAL_ROLL = { startup: 4, active: 16, recovery: 15, total: 35, dmg: 14, range: 28, kb: 3.6, chip: 3, vert: 68, jumpV: 10.2, vx: 0.7 }; // Vertical Roll (↓↑ + kick)
 export const TESTIMONY = { startup: 10, active: 5, recovery: 26, total: 41, dmg: 13, range: 176, kb: 5.2, chip: 4, vert: 26 }; // screen-length beam (low: jump it; punishable on whiff)
 export const NULL_STEP = { startup: 6, shift: 6, active: 4, recovery: 17, total: 27, dmg: 13, range: 31, kb: 3.2, chip: 2, vert: 48 }; // phase-through cross-up
-export const ENTROPY = { startup: 8, active: 18, recovery: 12, total: 38, dmg: 4, range: 96, kb: 0.8, chip: 1, vert: 56, hitEvery: 6, wellOffset: 42, pull: 1.2 }; // pull + three pulses
+export const ENTROPY = { startup: 8, active: 18, recovery: 12, total: 38, dmg: 4, range: 96, kb: 0.8, chip: 1, vert: 30, hitEvery: 6, wellOffset: 42, pull: 1.2 }; // pull + three pulses (low: jump-able, vert < jump apex)
 export const CONTEXT = { startup: 5, active: 9, recovery: 30, total: 44, dmg: 9, range: 27, kb: 2.4, chip: 2, vert: 44, jumpV: 10.8, vx: 0.8 }; // ultra-high evasive rise
 export const BRANCHWALK = { startup: 7, active: 8, recovery: 18, total: 33, dmg: 10, range: 29, kb: 2.8, chip: 2, vert: 48, jumpV: 5.4, vx: 3.7 }; // committing forward glide
 export const MERGE_COMET = { startup: 10, active: 7, recovery: 15, total: 32, dmg: 9, maxDmg: 12, range: 32, maxRange: 38, kb: 3.2, maxKb: 4.4, chip: 2, maxChip: 3, vert: 54, jumpV: 7.2, riseVx: 0.8, diveV: -6.4, fullWeightV: -9.5, diveVx: 3.5 }; // Weight of Evidence: velocity-compounding gravity dive
@@ -201,7 +201,7 @@ export function makeFighter(id: string, name: string, side: 'a' | 'b', palette?:
     facing: isA ? 1 : -1,
     hp: 100, wins: 0,
     attack: 'none', attackFrame: 0, attackHit: false, attackCrouch: false,
-    stun: 0, crouching: false, blocking: false,
+    stun: 0, thrownT: 0, crouching: false, blocking: false,
     animT: 0, walkPhase: 0, pose: 'idle',
   };
 }
@@ -213,7 +213,7 @@ export function makeMatch(a: Fighter, b: Fighter): Match {
 function resetRound(m: Match): void {
   for (const [f, side] of [[m.a, 'a'], [m.b, 'b']] as const) {
     f.hp = 100; f.y = 0; f.vx = 0; f.vy = 0; f.attack = 'none'; f.attackFrame = 0; f.attackCrouch = false;
-    f.stun = 0; f.crouching = false; f.blocking = false; f.pose = 'idle';
+    f.stun = 0; f.thrownT = 0; f.crouching = false; f.blocking = false; f.pose = 'idle';
     f.x = side === 'a' ? WORLD_W * 0.34 : WORLD_W * 0.66;
     f.facing = side === 'a' ? 1 : -1;
   }
@@ -230,6 +230,7 @@ const approach = (v: number, target: number, rate: number): number => {
 
 function derivePose(f: Fighter): void {
   if (f.hp <= 0) { f.pose = 'ko'; return; }
+  if (f.thrownT > 0) { f.pose = 'thrown'; return; }
   if (f.stun > 0) { f.pose = 'hit'; return; }
   if (f.attack === 'hadouken') { f.pose = 'hadouken'; return; }
   if (f.attack === 'shoryuken') { f.pose = 'shoryuken'; return; }
@@ -263,6 +264,7 @@ function stepFighter(f: Fighter, other: Fighter, inp: Inputs, live: boolean): vo
 
   // advance timers
   if (f.stun > 0) f.stun--;
+  if (f.thrownT > 0) f.thrownT--;
   if (f.attack !== 'none') {
     f.attackFrame++;
     if (f.attackFrame >= attackTotal(f.attack)) { f.attack = 'none'; f.attackFrame = 0; }
@@ -422,13 +424,17 @@ function resolveHit(att: Fighter, def: Fighter): HitFx | null {
   att.attackHit = true;
 
   if (att.attack === 'throw') {
-    // UNBLOCKABLE grab: ignores guard, tosses a grounded target away in a short arc
+    // UNBLOCKABLE grab: ignores guard, hurls a grounded target up and OVER to land
+    // on the thrower's OTHER side (a cross-over toss). Lift above JUMP_CLEAR at once
+    // so they arc over instead of colliding.
+    const THROW_STUN = 24;
     def.hp = Math.max(0, def.hp - spec.dmg);
-    def.stun = HIT_STUN + 6;
-    def.attack = 'none'; def.attackFrame = 0;
-    def.vx = att.facing * spec.kb; def.vy = 3.4; def.y = Math.max(def.y, 0.001);
-    att.vx = -att.facing * 1.0; // thrower recoils slightly
-    return { x: (att.x + def.x) / 2, y: Math.max(att.y, def.y) + 16, heavy: true, blocked: false };
+    def.stun = THROW_STUN; def.thrownT = THROW_STUN;
+    def.attack = 'none'; def.attackFrame = 0; def.attackHit = false;
+    def.vx = -att.facing * 3.0;                 // travel behind the thrower
+    def.vy = 5.4; def.y = Math.max(def.y, JUMP_CLEAR + 3);
+    att.vx = 0;                                  // thrower plants for the toss
+    return { x: att.x, y: att.y + 24, heavy: true, blocked: false };
   }
 
   const guarding = def.blocking && def.stun <= 0 && def.facing === -att.facing && def.y <= JUMP_CLEAR;

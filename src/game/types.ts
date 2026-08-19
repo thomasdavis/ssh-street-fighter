@@ -1,7 +1,7 @@
 import type { RGB } from '../render/pixel.js';
 
 export type Pose = 'idle' | 'walk' | 'crouch' | 'jump' | 'fall' | 'punch' | 'kick'
-  | 'crouchpunch' | 'crouchkick' | 'hit' | 'ko' | 'block' | 'crouchblock' | 'throw'
+  | 'crouchpunch' | 'crouchkick' | 'hit' | 'ko' | 'block' | 'crouchblock' | 'throw' | 'thrown'
   | 'hadouken' | 'shoryuken' | 'hurricane'
   | 'electric' | 'rolling' | 'verticalroll'
   | 'testimony' | 'nullstep' | 'entropy'
@@ -37,6 +37,7 @@ export interface Fighter {
   attackHit: boolean;    // current attack already connected
   attackCrouch: boolean; // attack was started while crouching (low attack)
   stun: number;          // hit/block stun frames remaining
+  thrownT: number;       // frames remaining being thrown (tumbling to the other side)
   crouching: boolean;    // derived: holding down
   blocking: boolean;     // derived: holding back (away from opponent)
 
