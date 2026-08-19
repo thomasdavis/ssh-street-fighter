@@ -7,6 +7,7 @@ import { PassThrough } from 'node:stream';
 import { makeFighter, makeMatch, stepMatch } from './game/engine.js';
 import { emptyInputs, type Inputs } from './game/types.js';
 import { clearEdges } from './cluster/messages.js';
+import { mergeCoordinatorInput } from './cluster/coordinator.js';
 import {
   computeGoldenTraceHash, computeRunnerImplementationHash, createRunnerController, createSshTransport,
   executeRunner, LOUNGE_PING_INTERVAL_MS, LOUNGE_PONG_TIMEOUT_MS, mintApiToken, parseArgs,
@@ -437,7 +438,10 @@ console.log('PASS  bounded retry exhaustion aborts safely');
 const ackTimeout = harness();
 await enterMatch(ackTimeout);
 await ackTimeout.controller.handle(state({ frame: 30 }));
+const sentBeforeAckTimeout = ackTimeout.sent.length;
 await ackTimeout.controller.handle(state({ frame: 61, ack: 0 }));
+assert.equal(ackTimeout.sent.length, sentBeforeAckTimeout + 1, 'timeout may add leave but no combat input');
+assert.equal(ackTimeout.sent.filter((message) => message.t === 'input').length, 1);
 assert.equal(ackTimeout.controller.status().stopped, true);
 assert.match(JSON.stringify(ackTimeout.audit.rows), /input ack timeout/);
 console.log('PASS  unacknowledged edge timeout aborts safely');
@@ -496,15 +500,7 @@ for (const negative of officialNegativeCases) {
 }
 console.log('PASS  official result fails closed on mode, engine, winner, rounds, or matchEnd inconsistency');
 
-const mergeLikeCoordinator = (destination: Inputs, incoming: Inputs): void => {
-  destination.moveX = incoming.moveX;
-  destination.down = incoming.down;
-  destination.motion = incoming.motion || destination.motion;
-  destination.jump ||= incoming.jump;
-  destination.punch ||= incoming.punch;
-  destination.kick ||= incoming.kick;
-  destination.throw ||= incoming.throw;
-};
+const mergeLikeCoordinator = mergeCoordinatorInput;
 const messageInputs = (message: Message): Inputs => ({
   moveX: Number(message.moveX), down: Boolean(message.down), jump: Boolean(message.jump),
   punch: Boolean(message.punch), kick: Boolean(message.kick), throw: Boolean(message.throw),
@@ -529,6 +525,62 @@ for (const opponent of ['OMEGA', 'MNEME', 'AJAX', 'FABLE'] as const) {
   assert.equal(wireGolden.controller.status().safetyProfile, 'frozen', opponent);
 }
 console.log('PASS  default runner emits frozen new-wave wire traces, including immediate FABLE Phase');
+
+for (const runnerSide of ['a', 'b'] as const) {
+  const coalescing = harness(baseOptions({ opponent: 'FABLE', target: 'TARGET_FABLE' }));
+  await enterMatch(coalescing, { role: runnerSide });
+  await coalescing.controller.handle(state({ frame: 584, ack: 0 }));
+  const phase = messageInputs(coalescing.sent.at(-1)!);
+  assert.equal(phase.motion, 'LR', runnerSide);
+  assert.equal(phase.kick, true, runnerSide);
+  const sentAfterEdge = coalescing.sent.length;
+
+  // These are the two pre-ack state opportunities that previously emitted N
+  // and overwrote LR before the coordinator tick.
+  await coalescing.controller.handle(state({ frame: 585, ack: 0 }));
+  await coalescing.controller.handle(state({ frame: 586, ack: 0 }));
+  assert.equal(coalescing.sent.length, sentAfterEdge, `${runnerSide}: no input may follow an unacked edge`);
+  assert.equal(coalescing.controller.status().localSeq, 1, runnerSide);
+
+  const pending = emptyInputs();
+  mergeCoordinatorInput(pending, phase);
+  const match = runnerSide === 'a'
+    ? makeMatch(makeFighter('a', 'XENON', 'a'), makeFighter('b', 'FABLE', 'b'))
+    : makeMatch(makeFighter('a', 'FABLE', 'a'), makeFighter('b', 'XENON', 'b'));
+  match.phase = 'fight';
+  const self = runnerSide === 'a' ? match.a : match.b;
+  const opponent = runnerSide === 'a' ? match.b : match.a;
+  self.x = 80; opponent.x = 130;
+  stepMatch(match, runnerSide === 'a' ? pending : emptyInputs(), runnerSide === 'b' ? pending : emptyInputs());
+  assert.equal(self.attack, 'phase', `${runnerSide}: coalesced edge must retain Phase motion`);
+
+  await coalescing.controller.handle(state({
+    frame: 587, ack: 1, you: fighter({ attack: 'phase', attackFrame: 1 }),
+  }));
+  assert.equal(coalescing.controller.status().pending, null, runnerSide);
+  assert.equal(coalescing.controller.status().stopped, false, runnerSide);
+
+  // Sensitivity check: the exact former N emission would reproduce the bad
+  // normal kick under the same real merge and engine path.
+  const overwritten = emptyInputs();
+  mergeCoordinatorInput(overwritten, phase);
+  mergeCoordinatorInput(overwritten, { ...emptyInputs(), motion: 'N' });
+  const counterfactual = runnerSide === 'a'
+    ? makeMatch(makeFighter('a', 'XENON', 'a'), makeFighter('b', 'FABLE', 'b'))
+    : makeMatch(makeFighter('a', 'FABLE', 'a'), makeFighter('b', 'XENON', 'b'));
+  counterfactual.phase = 'fight';
+  const counterSelf = runnerSide === 'a' ? counterfactual.a : counterfactual.b;
+  const counterOpponent = runnerSide === 'a' ? counterfactual.b : counterfactual.a;
+  counterSelf.x = 80; counterOpponent.x = 130;
+  stepMatch(
+    counterfactual,
+    runnerSide === 'a' ? overwritten : emptyInputs(),
+    runnerSide === 'b' ? overwritten : emptyInputs(),
+  );
+  assert.equal(counterSelf.attack, 'kick', `${runnerSide}: fixture must reproduce former LR overwrite`);
+}
+console.log('PASS  unacked Phase emits nothing; actual coordinator merge and engine preserve Phase on both seats');
+
 const sticky = emptyInputs();
 const phaseEdge = {
   ...emptyInputs(), motion: String(canonical.motion), kick: true,

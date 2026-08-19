@@ -22,4 +22,4 @@ export const RUNNER_IMPLEMENTATION_FILES = [
 
 // Updated only after independent review of all files above. Runtime validation
 // recomputes the digest from disk and fails closed before health/network access.
-export const EXPECTED_RUNNER_IMPLEMENTATION_HASH = '189ff93e503de55e1a0b1abe9408f27b46dbc440faa9184e55379884ca1b5485';
+export const EXPECTED_RUNNER_IMPLEMENTATION_HASH = '01dca8a30175f7612d29af4eaa38ef480a08ede361946322fb6c6e98676a6c5e';

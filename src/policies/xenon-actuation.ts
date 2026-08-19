@@ -294,6 +294,12 @@ export function createXenonActuator(
     if (legacySafety && pending && frame - pending.firstSentFrame >= PENDING_HARD_TIMEOUT_FRAMES)
       return { audits, failure: `hard pending timeout at frame ${frame}` };
 
+    // The coordinator coalesces all inputs received before its next tick. An
+    // edge followed by an edge-free `motion: 'N'` can therefore preserve the
+    // sticky kick while overwriting the special motion, degrading Phase into a
+    // normal kick. Until the edge is authoritative in ack, emit nothing at all.
+    if (pending && ack < pending.sentSeq) return { audits };
+
     const intent = decide();
     if (legacySafety && pending && pending.attempt >= MAX_EDGE_ATTEMPTS
         && pending.ackedHitstunFrame !== null

@@ -29,6 +29,17 @@ const RELAY_HZ = Math.min(TICK_HZ, Math.max(1, parseInt(process.env.SF_RELAY_HZ 
 /** Minimal shape of a cluster worker the coordinator needs (real Worker fits). */
 export interface WorkerRef { id: number; send: (msg: P2W) => void; }
 
+/** Exact coordinator coalescing semantics for inputs received before a tick. */
+export function mergeCoordinatorInput(destination: Inputs, incoming: Inputs): void {
+  destination.moveX = incoming.moveX;
+  destination.down = incoming.down;
+  destination.motion = incoming.motion || destination.motion;
+  destination.jump ||= incoming.jump;
+  destination.punch ||= incoming.punch;
+  destination.kick ||= incoming.kick;
+  destination.throw ||= incoming.throw;
+}
+
 interface Player { worker: WorkerRef; sid: number; gid: string; name: string; fp: string | null; cursor: number; elo: number; region: string; queuedAt: number; isBot: boolean; }
 interface LoungeMember extends Player { cid: string; incoming: string | null; outgoing: string | null; } // incoming/outgoing = peer gid
 interface ActiveMatch { mid: string; a: Player; b: Player; match: Match; pendA: Inputs; pendB: Inputs; relayAccum: number; ackA: number; ackB: number; rec: MatchRecorder | null; }
@@ -116,8 +127,7 @@ export class MatchCoordinator {
     const am = this.matches.get(m.mid); if (!am) return;
     const side = this.sideOf(am, gidOf(worker.id, m.sid)); if (!side) return;
     const dst = side === 'a' ? am.pendA : am.pendB;
-    dst.moveX = m.input.moveX; dst.down = m.input.down; dst.motion = m.input.motion || dst.motion;
-    dst.jump ||= m.input.jump; dst.punch ||= m.input.punch; dst.kick ||= m.input.kick; dst.throw ||= m.input.throw;
+    mergeCoordinatorInput(dst, m.input);
     if (side === 'a') am.ackA = m.seq; else am.ackB = m.seq; // for client-side prediction reconciliation
   }
 
