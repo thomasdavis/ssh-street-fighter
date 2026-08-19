@@ -55,6 +55,10 @@ export const AURORA_PALETTE: FighterPalette = {
   skin: { r: 80, g: 98, b: 112 }, gi: { r: 38, g: 194, b: 184 }, giDark: { r: 18, g: 72, b: 92 },
   hair: { r: 242, g: 222, b: 156 }, belt: { r: 246, g: 142, b: 56 },
 };
+export const HEARTH_PALETTE: FighterPalette = {
+  skin: { r: 236, g: 226, b: 210 }, gi: { r: 218, g: 119, b: 86 }, giDark: { r: 126, g: 56, b: 38 },
+  hair: { r: 52, g: 58, b: 70 }, belt: { r: 242, g: 200, b: 120 },
+};
 
 const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
 const shade = (c: RGB): RGB => ({ r: c.r >> 1, g: c.g >> 1, b: c.b >> 1 });

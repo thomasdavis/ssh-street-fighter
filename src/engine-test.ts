@@ -216,7 +216,35 @@ for (let k = 0; k < 12; k++) stepMatch(m, idle(), idle());
 check('WEIGHT OF EVIDENCE cancels Context only on descent', revisedOnDescent && m.b.hp < hp, `startY=${descentY.toFixed(1)} attack=${m.a.attack} dmg=${hp - m.b.hp}`);
 check('WEIGHT OF EVIDENCE compounds to its capped damage on a long fall', hp - m.b.hp === specialMoveStats('mergecomet').maxDamage, `dmg=${hp - m.b.hp}`);
 
-// 19) Every projectile fighter's appearance follows its move definition, not a character-name conditional.
+// 19) FABLE fights in narrative beats with three unique, roster-fair commitments.
+// Story Arc buys evasion with a long landing, never damage or immunity.
+const fableMoves = specialMovesFor('FABLE');
+const nonFableAttacks = new Set(ROSTER.filter((character) => character.name !== 'FABLE').flatMap((character) => specialMovesFor(character.name).map((move) => move.attack)));
+check('FABLE specials use three unique attack kinds', new Set(fableMoves.map((move) => move.attack)).size === 3 && fableMoves.every((move) => !nonFableAttacks.has(move.attack)), fableMoves.map((move) => move.attack).join(','));
+check('FABLE specials stay below Final Testimony damage', fableMoves.every((move) => specialMoveStats(move.attack).maxDamage < specialMoveStats('testimony').maxDamage));
+
+m = fresh('FABLE', 'OMEGA'); m.a.x = 58; m.b.x = 182; hp = m.a.hp;
+{
+  const fable = idle(); fable.motion = 'DU'; fable.punch = true;
+  const omega = idle(); omega.motion = 'DL'; omega.punch = true;
+  stepMatch(m, fable, omega);
+}
+for (let k = 0; k < 18; k++) stepMatch(m, idle(), idle());
+check('STORY ARC sails over a simultaneous Omega beam', m.a.hp === hp && m.a.y > 48, `hp=${m.a.hp} y=${m.a.y.toFixed(1)}`);
+
+m = fresh('FABLE'); m.a.x = 100; m.b.x = 126; hp = m.b.hp;
+const twistStartX = m.a.x;
+let twistMinX = m.a.x;
+{ const i = idle(); i.motion = 'LR'; i.kick = true; stepMatch(m, i, idle()); }
+for (let k = 0; k < 16; k++) { stepMatch(m, idle(), idle()); twistMinX = Math.min(twistMinX, m.a.x); }
+check('PLOT TWIST retreats through the feint then lands the lunge', twistMinX < twistStartX - 8 && m.b.hp < hp, `minX=${twistMinX.toFixed(1)} dmg=${hp - m.b.hp}`);
+
+m = fresh('FABLE'); m.a.x = 100; m.b.x = 124; hp = m.b.hp;
+{ const i = idle(); i.motion = 'DL'; i.punch = true; stepMatch(m, i, idle()); }
+for (let k = 0; k < 34; k++) stepMatch(m, idle(), idle());
+check('INK TEMPEST clips a close rival in repeated pulses', hp - m.b.hp >= 8, `dmg=${hp - m.b.hp}`);
+
+// 20) Every projectile fighter's appearance follows its move definition, not a character-name conditional.
 for (const character of ROSTER) {
   const move = specialMovesFor(character.name).find((x) => x.attack === 'hadouken');
   if (!move) continue;

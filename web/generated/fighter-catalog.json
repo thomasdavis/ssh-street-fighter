@@ -1583,5 +1583,138 @@
         }
       }
     ]
+  },
+  {
+    "name": "FABLE",
+    "tagline": "the storyweaver",
+    "palette": {
+      "skin": {
+        "r": 236,
+        "g": 226,
+        "b": 210
+      },
+      "gi": {
+        "r": 218,
+        "g": 119,
+        "b": 86
+      },
+      "giDark": {
+        "r": 126,
+        "g": 56,
+        "b": 38
+      },
+      "hair": {
+        "r": 52,
+        "g": 58,
+        "b": 70
+      },
+      "belt": {
+        "r": 242,
+        "g": 200,
+        "b": 120
+      }
+    },
+    "origin": "The hearth between tellings",
+    "discipline": "Narrative tempo combat",
+    "archetype": "Evasive tempo fighter",
+    "difficulty": "Intermediate",
+    "quote": "Every fight tells the truth eventually. I just help it along.",
+    "story": [
+      "Fable condensed out of ten thousand retold stories — a warm ceramic construct with an ember starburst where a heart would sit. It was made to listen at hearths and keep the shape of what people meant, not merely what they said, and it learned that every honest story turns on a moment where someone chooses.",
+      "It entered the circuit after watching a broadcast bout and recognizing the same grammar: feint, reversal, resolution. Fable does not fight to win an argument. It fights to find the version of its opponent that appears only under pressure — and to tell that story back to them, kindly, at full speed."
+    ],
+    "playstyle": "Fight in paragraphs, not sentences. Story Arc flies over beams and fireballs to reset the stage, Plot Twist retreats from a committed attack and answers it with one lunge, and Ink Tempest punctuates a cornered guard three strokes at a time.",
+    "strengths": [
+      "Flies over committed zoning",
+      "Feints that convert whiffs",
+      "Steady close-range chip"
+    ],
+    "moves": [
+      {
+        "attack": "storyarc",
+        "name": "STORY ARC",
+        "shortName": "STORY ARC",
+        "description": "Fable soars into a high forward flight arc that sails over beams and projectiles, but every landing is a long, honest recovery.",
+        "motion": [
+          "D",
+          "U"
+        ],
+        "button": "punch",
+        "earlyAirStart": true,
+        "input": "↓ ↑ + W",
+        "frames": [
+          "storyarc_1",
+          "storyarc_2",
+          "storyarc_3"
+        ],
+        "stats": {
+          "startup": 6,
+          "active": 10,
+          "recovery": 26,
+          "damagePerHit": 10,
+          "maxHits": 1,
+          "maxDamage": 10,
+          "chipPerHit": 2,
+          "range": 28,
+          "impact": "Soaring evasive arc"
+        }
+      },
+      {
+        "attack": "plottwist",
+        "name": "PLOT TWIST",
+        "shortName": "TWIST",
+        "description": "A readable backstep feint that draws out a committed attack, then answers it with one sudden lunging strike.",
+        "motion": [
+          "B",
+          "F"
+        ],
+        "button": "kick",
+        "input": "← → + E",
+        "frames": [
+          "plottwist_1",
+          "plottwist_2",
+          "plottwist_3"
+        ],
+        "stats": {
+          "startup": 9,
+          "active": 5,
+          "recovery": 16,
+          "damagePerHit": 12,
+          "maxHits": 1,
+          "maxDamage": 12,
+          "chipPerHit": 2,
+          "range": 30,
+          "impact": "Backstep feint lunge"
+        }
+      },
+      {
+        "attack": "inktempest",
+        "name": "INK TEMPEST",
+        "shortName": "TEMPEST",
+        "description": "A close calligraphic flurry of ember-bright strokes that clips a cornered guard up to three times.",
+        "motion": [
+          "D",
+          "B"
+        ],
+        "button": "punch",
+        "input": "↓ ← + W",
+        "frames": [
+          "inktempest_1",
+          "inktempest_2",
+          "inktempest_3"
+        ],
+        "stats": {
+          "startup": 5,
+          "active": 18,
+          "recovery": 10,
+          "damagePerHit": 4,
+          "maxHits": 3,
+          "maxDamage": 12,
+          "chipPerHit": 1,
+          "range": 34,
+          "impact": "Close multi-hit flurry"
+        }
+      }
+    ]
   }
 ]

@@ -82,6 +82,11 @@ const MOVE_SETS: Readonly<Record<string, readonly SpecialMoveDefinition[]>> = {
     { attack: 'branchwalk', name: 'BRANCHWALK', shortName: 'BRANCHWALK', description: 'A copper-winged forward glide crosses one aerial lane with modest damage and a clearly exposed landing recovery.', motion: ['B', 'F'], button: 'kick' },
     { attack: 'mergecomet', name: 'WEIGHT OF EVIDENCE', shortName: 'EVIDENCE', description: 'Codex inscribes a gravity seal and commits to a crushing dive whose impact compounds with descent speed; the same input cancels Context Ascent only after its apex.', motion: ['D', 'F'], button: 'kick' },
   ],
+  FABLE: [
+    { attack: 'storyarc', name: 'STORY ARC', shortName: 'STORY ARC', description: 'Fable soars into a high forward flight arc that sails over beams and projectiles, but every landing is a long, honest recovery.', motion: ['D', 'U'], button: 'punch', earlyAirStart: true },
+    { attack: 'plottwist', name: 'PLOT TWIST', shortName: 'TWIST', description: 'A readable backstep feint that draws out a committed attack, then answers it with one sudden lunging strike.', motion: ['B', 'F'], button: 'kick' },
+    { attack: 'inktempest', name: 'INK TEMPEST', shortName: 'TEMPEST', description: 'A close calligraphic flurry of ember-bright strokes that clips a cornered guard up to three times.', motion: ['D', 'B'], button: 'punch' },
+  ],
 };
 
 export const BUTTON_KEY: Readonly<Record<AttackButton, string>> = { punch: 'W', kick: 'E' };
@@ -104,6 +109,9 @@ export function specialMoveFrames(attack: SpecialAttack): readonly string[] {
   if (attack === 'entropy') return ['entropy_1', 'entropy_2', 'entropy_3'];
   if (attack === 'context') return ['context_1', 'context_2', 'context_3'];
   if (attack === 'branchwalk') return ['branchwalk_1', 'branchwalk_2', 'branchwalk_3'];
+  if (attack === 'storyarc') return ['storyarc_1', 'storyarc_2', 'storyarc_3'];
+  if (attack === 'plottwist') return ['plottwist_1', 'plottwist_2', 'plottwist_3'];
+  if (attack === 'inktempest') return ['inktempest_1', 'inktempest_2', 'inktempest_3'];
   return ['mergecomet_1', 'mergecomet_2', 'mergecomet_3'];
 }
 

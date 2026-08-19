@@ -14,7 +14,7 @@ const COMMON = [
 ] as const;
 
 const errors: string[] = [];
-if (ROSTER.length !== 12) errors.push(`expected 12 roster fighters, found ${ROSTER.length}`);
+if (ROSTER.length !== 13) errors.push(`expected 13 roster fighters, found ${ROSTER.length}`);
 
 for (const fighter of ROSTER) {
   const moves = specialMovesFor(fighter.name);
@@ -55,4 +55,4 @@ if (errors.length) {
   for (const error of errors) console.error(`FAIL: ${error}`);
   process.exit(1);
 }
-console.log('ASSET TEST: PASS (12 fighters, 36 specials, 6 stages)');
+console.log('ASSET TEST: PASS (13 fighters, 39 specials, 6 stages)');
