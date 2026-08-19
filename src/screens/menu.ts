@@ -9,7 +9,7 @@ import { characterAt, ROSTER } from '../game/roster.js';
 import { composeMenuStage } from '../game/select-scene.js';
 import * as db from '../db/db.js';
 
-const ITEMS = ['QUICK MATCH', 'FIGHT LOUNGE', 'PRACTICE MODE', 'LEADERBOARD', 'CONTROLS', 'HELP', 'QUIT'];
+const ITEMS = ['QUICK MATCH', 'FIGHT LOUNGE', 'PRACTICE MODE', 'LEADERBOARD', 'HELP', 'QUIT'];
 const MENU_STAGE = 'harbor';   // title-screen backdrop
 
 export const menu = {
@@ -70,9 +70,8 @@ export const menu = {
         case 1: s.enterLounge(); break;
         case 2: s.selectMode = 'practice'; s.goTo('select'); break;
         case 3: s.goTo('leaderboard'); break;
-        case 4: s.goTo('controls'); break;
-        case 5: s.helpOpen = true; s.prevFrame = null; break;
-        case 6: s.close(); break;
+        case 4: s.helpOpen = true; s.prevFrame = null; break;
+        case 5: s.close(); break;
       }
     }
   },

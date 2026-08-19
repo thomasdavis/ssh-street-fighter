@@ -95,9 +95,9 @@ export class Session {
   controlsCursor = 0;
   bindingCapture: BindableAction | null = null;
   controlsNotice = '';
-  // Octant (2x4 sub-pixels/cell) is the crisp default — the whole UI already
-  // renders in it, and the "terminal too small" gate only lets octant-capable
-  // terminals in. 'v' toggles to half-block as a fallback for older terminals.
+  // Octant (2x4 sub-pixels/cell): the whole pixel UI renders in it and the
+  // "terminal too small" gate only admits octant-capable terminals, so it's the
+  // one render mode now (the old 'v' half-block toggle has been retired).
   renderMode: RenderMode = 'octant';
   leader: db.LeaderRow[] = [];
   result: MatchResult | null = null;
@@ -220,16 +220,7 @@ export class Session {
     // packet immediately after a transition instead of pressing Enter again.
     if (Date.now() < this.screenInputGuardUntil && /^[\r\n]+$/.test(d.toString('latin1'))) return;
     if (this.helpOpen) { this.helpOpen = false; this.prevFrame = null; this.forceFull = true; return; }
-    let data = d;
-    // 'v' toggles the pixel renderer (octant <-> half-block) everywhere except
-    // while typing a username (where 'v' is a normal character).
-    if (this.screen !== 'username' && this.screen !== 'lounge' && this.screen !== 'controls' && /[vV]/.test(data.toString('latin1'))) {
-      this.renderMode = this.renderMode === 'octant' ? 'half' : 'octant';
-      this.trackEvent('renderer_changed', { mode: this.renderMode });
-      this.prevFrame = null; this.forceFull = true;
-      data = Buffer.from(data.toString('latin1').replace(/[vV]/g, ''), 'latin1');
-      if (data.length === 0) return;
-    }
+    const data = d;
     if (this.screen === 'fight') {
       // Fight controls use their own hold/motion parser, so handle the overlay
       // key here before forwarding bytes. Any key closes help without also

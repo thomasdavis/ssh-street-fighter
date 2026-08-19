@@ -26,8 +26,7 @@ export const helpOverlay = {
       ['PUNCH', `${bindingLabel(b.punch)}    FAST, SHORT REACH`],
       ['KICK', `${bindingLabel(b.kick)}    SLOWER, LONGER`],
       ['BLOCK', 'HOLD AWAY FROM RIVAL'],
-      ['GFX', 'V   OCTANT / HALF'],
-      ['QUIT', 'Q'],
+      ['QUIT', 'Q  (LEAVE THE FIGHT)'],
     ];
     const contentH = 0.6 + controls.length * SP.row + SP.gap + SP.row + NOTES.length * SP.line + 1.4;
     const ph = Math.min(ui.rows - 2, Math.ceil(contentH + 2));

@@ -118,7 +118,7 @@ export const calibrate = {
       if (q < QMAX) ui.text(mx + QUALITY[q]!.length + 1, r, '(ZOOM OUT FOR MORE)', { color: THEME.textDim });
     }
 
-    hints(ui, ui.rows - 1, [['V', `GFX:${s.renderMode.toUpperCase()}`], ['?', 'MOVES'], ['ENTER', 'READY - LETS FIGHT']]);
+    hints(ui, ui.rows - 1, [['?', 'MOVES'], ['ENTER', 'READY - LETS FIGHT']]);
   },
 
   onKey(s: Session, k: Key): void {

@@ -20,7 +20,7 @@ function controls(cols: number, practice: boolean, bindings: KeyBindings): [stri
   const crouch = bindingLabel(bindings.crouch);
   const punch = bindingLabel(bindings.punch);
   const kick = bindingLabel(bindings.kick);
-  if (cols >= 78) return [[move, 'MOVE'], [jump, 'JUMP'], [crouch, 'CROUCH'], [punch, 'PUNCH'], [kick, 'KICK'], ['BACK', 'BLOCK'], ['?', 'MOVES'], ['V', 'GFX'], ['Q', quit]];
+  if (cols >= 78) return [[move, 'MOVE'], [jump, 'JUMP'], [crouch, 'CROUCH'], [punch, 'PUNCH'], [kick, 'KICK'], ['BACK', 'BLOCK'], ['?', 'MOVES'], ['Q', quit]];
   if (cols >= 58) return [[move, 'MOVE'], [jump, 'JUMP'], [punch, 'PUNCH'], [kick, 'KICK'], ['?', 'MOVES'], ['Q', quit]];
   if (cols >= 42) return [[move, 'MOVE'], [punch, 'HIT'], [kick, 'KICK'], ['?', 'MOVES'], ['Q', quit]];
   return [[punch, 'HIT'], [kick, 'KICK'], ['?', 'MOVES'], ['Q', quit]];
