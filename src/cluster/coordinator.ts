@@ -104,8 +104,8 @@ export class MatchCoordinator {
     } catch { rec = null; }
     this.matches.set(mid, { mid, a, b, match, pendA: emptyInputs(), pendB: emptyInputs(), relayAccum: 0, ackA: 0, ackB: 0, rec });
     this.gidToMid.set(a.gid, mid); this.gidToMid.set(b.gid, mid);
-    this.send(a, { t: 'matchStart', sid: a.sid, mid, role: 'a', yourCursor: a.cursor, oppName: cb.name, oppCursor: b.cursor, stage: match.stage });
-    this.send(b, { t: 'matchStart', sid: b.sid, mid, role: 'b', yourCursor: b.cursor, oppName: ca.name, oppCursor: a.cursor, stage: match.stage });
+    this.send(a, { t: 'matchStart', sid: a.sid, mid, role: 'a', yourCursor: a.cursor, oppName: b.name, oppCursor: b.cursor, stage: match.stage });
+    this.send(b, { t: 'matchStart', sid: b.sid, mid, role: 'b', yourCursor: b.cursor, oppName: a.name, oppCursor: a.cursor, stage: match.stage });
   }
 
   private sideOf(am: ActiveMatch, gid: string): 'a' | 'b' | null {
@@ -142,6 +142,7 @@ export class MatchCoordinator {
   }
 
   private finish(am: ActiveMatch): void {
+    if (!this.detach(am)) return;
     const m = am.match;
     const aWon = m.a.wins > m.b.wins;
     const winP = aWon ? am.a : am.b, loseP = aWon ? am.b : am.a;
@@ -153,19 +154,19 @@ export class MatchCoordinator {
         ? { before: rating.winnerBefore, after: rating.winnerAfter, delta: rating.delta }
         : { before: rating.loserBefore, after: rating.loserAfter, delta: -rating.delta }) : undefined,
     });
-    this.send(winP, { t: 'matchEnd', sid: winP.sid, mid: am.mid, result: result(true) });
-    this.send(loseP, { t: 'matchEnd', sid: loseP.sid, mid: am.mid, result: result(false) });
     const elo = rating ? {
       aBefore: aWon ? rating.winnerBefore : rating.loserBefore, aAfter: aWon ? rating.winnerAfter : rating.loserAfter,
       bBefore: aWon ? rating.loserBefore : rating.winnerBefore, bAfter: aWon ? rating.loserAfter : rating.winnerAfter,
     } : undefined;
     am.rec?.finish(m, { winner: aWon ? 'a' : 'b', elo });
-    this.cleanup(am);
+    this.send(winP, { t: 'matchEnd', sid: winP.sid, mid: am.mid, result: result(true) });
+    this.send(loseP, { t: 'matchEnd', sid: loseP.sid, mid: am.mid, result: result(false) });
   }
 
   private forfeit(leaverGid: string): void {
     const mid = this.gidToMid.get(leaverGid); if (!mid) return;
     const am = this.matches.get(mid); if (!am) { this.gidToMid.delete(leaverGid); return; }
+    if (!this.detach(am)) return;
     const leaverIsA = am.a.gid === leaverGid;
     const leaver = leaverIsA ? am.a : am.b;
     const other = leaverIsA ? am.b : am.a;
@@ -182,13 +183,14 @@ export class MatchCoordinator {
       result: { winner: other.name, loser: leaver.name, youWon: true, winnerChar: otherF.name,
         rating: rating ? { before: rating.winnerBefore, after: rating.winnerAfter, delta: rating.delta } : undefined },
     });
-    this.cleanup(am);
   }
 
-  private cleanup(am: ActiveMatch): void {
+  private detach(am: ActiveMatch): boolean {
+    if (this.matches.get(am.mid) !== am) return false;
     this.matches.delete(am.mid);
     this.gidToMid.delete(am.a.gid); this.gidToMid.delete(am.b.gid);
     this.players.delete(am.a.gid); this.players.delete(am.b.gid);
+    return true;
   }
 
   // ---- lounge (global presence + chat + challenges) ----

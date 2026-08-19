@@ -15,8 +15,10 @@
     "test:render": "tsx src/tools/diff-verify.ts",
     "test:hud": "tsx src/hud-test.ts",
     "test:telemetry": "tsx src/telemetry-test.ts",
+    "test:recorder": "tsx src/recorder-test.ts",
+    "test:coordinator": "tsx src/coordinator-test.ts",
     "test:bot": "tsx src/bot-server-test.ts",
-    "test": "pnpm typecheck && pnpm test:engine && pnpm test:assets && pnpm test:db && pnpm test:input && pnpm test:render && pnpm test:hud && pnpm test:telemetry && pnpm test:bot",
+    "test": "pnpm typecheck && pnpm test:engine && pnpm test:assets && pnpm test:db && pnpm test:input && pnpm test:render && pnpm test:hud && pnpm test:telemetry && pnpm test:recorder && pnpm test:coordinator && pnpm test:bot",
     "test:e2e": "tsx src/navigation-test.ts && tsx src/controls-test.ts && tsx src/social-test.ts && tsx src/ssh-test.ts && tsx src/practice-test.ts",
     "render-test": "tsx src/render-test.ts",
     "keygen": "mkdir -p keys && if [ ! -f keys/host.key ]; then ssh-keygen -t ed25519 -f keys/host.key -N \"\"; fi"

@@ -2,12 +2,17 @@
 // fork needed). Two players on DIFFERENT workers with the SAME local sid must
 // still be paired and simulated correctly.
 process.env.SF_DB = '/tmp/coord-test.db';
-import { MatchCoordinator, type WorkerRef } from './cluster/coordinator.js';
-import { initDb } from './db/db.js';
+import { unlinkSync } from 'fs';
+import type { WorkerRef } from './cluster/coordinator.js';
 import type { P2W } from './cluster/messages.js';
 import { emptyInputs } from './game/types.js';
 
-initDb();
+for (const suffix of ['', '-wal', '-shm']) {
+  try { unlinkSync(`${process.env.SF_DB}${suffix}`); } catch { /* absent is fine */ }
+}
+const { MatchCoordinator } = await import('./cluster/coordinator.js');
+const db = await import('./db/db.js');
+db.initDb();
 let pass = true;
 const check = (n: string, c: boolean, x = '') => { console.log(`${c ? 'PASS' : 'FAIL'}  ${n}  ${x}`); if (!c) pass = false; };
 
@@ -24,7 +29,7 @@ coord.handle(wB, { t: 'queue', sid: 5, cid: 'b', name: 'BOB', fp: null, cursor: 
 const startA = outA.find((m) => m.t === 'matchStart') as Extract<P2W, { t: 'matchStart' }> | undefined;
 const startB = outB.find((m) => m.t === 'matchStart') as Extract<P2W, { t: 'matchStart' }> | undefined;
 check('both players paired across workers', !!startA && !!startB && coord.activeMatches === 1);
-check('roles + opponents correct', startA?.role === 'a' && startB?.role === 'b' && startA?.oppName === 'CHONG' && startB?.oppName === 'BYU',
+check('roles + opponent handles correct', startA?.role === 'a' && startB?.role === 'b' && startA?.oppName === 'BOB' && startB?.oppName === 'ALICE',
   `A opp=${startA?.oppName} B opp=${startB?.oppName}`);
 const mid = startA!.mid;
 
@@ -85,6 +90,64 @@ outA.length = 0; outB.length = 0;
 coord.handle(wB, { t: 'respondChallenge', sid: 10, accept: true });
 check('accepting a cross-worker challenge starts a match',
   !!outA.find((m) => m.t === 'matchStart') && !!outB.find((m) => m.t === 'matchStart') && coord.loungeSize === 0);
+
+// ---- regression: matchEnd can synchronously expose a disconnect back to the
+// coordinator. The completed match must already be detached, so that disconnect
+// cannot turn the KO into a forfeit, write a second result, or apply Elo twice. ----
+{
+  const fpA = 'SHA256:finish-a'; const fpB = 'SHA256:finish-b';
+  db.touchOrCreate(fpA); db.setUsername(fpA, 'FINISHA');
+  db.touchOrCreate(fpB); db.setUsername(fpB, 'FINISHB');
+
+  const c3 = new MatchCoordinator();
+  const endA: P2W[] = [], endB2: P2W[] = [];
+  let detachedBeforeCompletion = false;
+  const w3A: WorkerRef = { id: 11, send: (m) => {
+    endA.push(m);
+    if (m.t === 'matchEnd') {
+      detachedBeforeCompletion = c3.activeMatches === 0;
+      c3.handleExit(11); // the exact finish -> immediate disconnect race
+    }
+  } };
+  const w3B: WorkerRef = { id: 12, send: (m) => endB2.push(m) };
+  c3.handle(w3A, { t: 'queue', sid: 1, cid: 'fa', name: 'FINISHA', fp: fpA, cursor: 10, elo: 1200, region: 'NA' });
+  c3.handle(w3B, { t: 'queue', sid: 1, cid: 'fb', name: 'FINISHB', fp: fpB, cursor: 11, elo: 1200, region: 'NA' });
+  const start = endA.find((m) => m.t === 'matchStart') as Extract<P2W, { t: 'matchStart' }>;
+  const finishing = (c3 as unknown as { matches: Map<string, { match: {
+    a: { hp: number; wins: number }; b: { hp: number; wins: number };
+    phase: string; phaseTimer: number;
+  } }> }).matches.get(start.mid)!;
+
+  for (let i = 0; i < 35; i++) c3.tick(); // make the replay authoritative (>1s)
+  finishing.match.a.wins = 2; finishing.match.a.hp = 73;
+  finishing.match.b.wins = 0; finishing.match.b.hp = 0;
+  finishing.match.phase = 'match-over'; finishing.match.phaseTimer = 0;
+  c3.tick();
+
+  // Further stale completion/disconnect signals remain harmless.
+  c3.handle(w3A, { t: 'leaveMatch', mid: start.mid, sid: 1 });
+  c3.handleExit(12);
+
+  const sql = db.getDb();
+  const history = sql.prepare("SELECT * FROM match_history WHERE winner = 'FINISHA' AND loser = 'FINISHB'").all();
+  const pa = db.getByFingerprint(fpA)!; const pb = db.getByFingerprint(fpB)!;
+  const rich = sql.prepare('SELECT * FROM matches WHERE id = ?').get(start.mid) as {
+    winner: string; a_rounds: number; b_rounds: number; end_reason: string;
+    a_elo_before: number; a_elo_after: number; b_elo_before: number; b_elo_after: number;
+  } | undefined;
+  const koRows = (sql.prepare("SELECT COUNT(*) n FROM match_events WHERE match_id = ? AND type = 'ko'").get(start.mid) as { n: number }).n;
+  const aEnds = endA.filter((m) => m.t === 'matchEnd');
+  const bEnds = endB2.filter((m) => m.t === 'matchEnd');
+
+  check('completed match detached before matchEnd is observable', detachedBeforeCompletion);
+  check('finish -> immediate disconnect writes one result', history.length === 1 && aEnds.length === 1 && bEnds.length === 1,
+    `history=${history.length} aEnds=${aEnds.length} bEnds=${bEnds.length}`);
+  check('one authoritative KO row survives the race', !!rich && rich.winner === 'a' && rich.a_rounds === 2 && rich.b_rounds === 0 && rich.end_reason === 'ko' && koRows === 1,
+    `rich=${JSON.stringify(rich)} koRows=${koRows}`);
+  check('Elo and player records advance exactly once', pa.matches === 1 && pa.wins === 1 && pa.elo === 1216 && pb.matches === 1 && pb.losses === 1 && pb.elo === 1184
+    && rich?.a_elo_before === 1200 && rich.a_elo_after === 1216 && rich.b_elo_before === 1200 && rich.b_elo_after === 1184,
+  `A=${pa.matches}/${pa.elo} B=${pb.matches}/${pb.elo}`);
+}
 
 console.log(pass ? '\nCOORDINATOR TEST: PASS' : '\nCOORDINATOR TEST: FAIL');
 process.exit(pass ? 0 : 1);

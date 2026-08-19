@@ -2,13 +2,13 @@
 // box score / event timeline. Fed one call per sim frame (after stepMatch); flushed
 // to the Ringside store at match end. Never throws into the game loop.
 import type { Match, Inputs, Fighter } from '../game/types.js';
+import { specialMoveForAttack } from '../game/moves.js';
 import { captureMatch, captureEvents, captureReplay, type MatchRecord, type MatchEvent, type SideRec } from './store.js';
 
 /** Bumped whenever a sim change would make older replays re-simulate differently.
  *  sf-2: TESTIMONY beam nerf. sf-3: throw mechanic (F) — close-range unblockable grab. */
 export const ENGINE_VERSION = 'sf-5';
 
-const SPECIALS = new Set(['hadouken', 'shoryuken', 'hurricane']);
 const KEYFRAME_EVERY = 300;        // 10s at 30 Hz — seek points for the replayer
 const COMBO_WINDOW = 24;           // frames within which consecutive hits chain
 const MAX_REPLAY_FRAMES = 27000;   // ~15 min cap so an idle practice session can't bloat the BLOB
@@ -41,6 +41,7 @@ export class MatchRecorder {
   private events: MatchEvent[] = [];
   private a = acc(); private b = acc();
   private prev = { aHp: 0, bHp: 0, aAtk: 'none', bAtk: 'none', aWins: 0, bWins: 0, seeded: false };
+  private finished = false;
 
   constructor(public readonly id: string, private readonly meta: RecorderMeta) {}
 
@@ -55,8 +56,8 @@ export class MatchRecorder {
       const p = this.prev;
       if (!p.seeded) { p.aHp = m.a.hp; p.bHp = m.b.hp; p.seeded = true; }
 
-      this.side(m.a, m.b, this.a, this.b, 'a', p.aHp, p.bAtk);   // a's damage to b, a's specials
-      this.side(m.b, m.a, this.b, this.a, 'b', p.bHp, p.aAtk);
+      this.side(m.a, m.b, this.a, this.b, 'a', p.bHp);   // a's damage to b, a's specials
+      this.side(m.b, m.a, this.b, this.a, 'b', p.aHp);
 
       if (m.a.wins > p.aWins || m.b.wins > p.bWins) {
         const w = m.a.wins > p.aWins ? 'a' : 'b';
@@ -70,7 +71,7 @@ export class MatchRecorder {
   }
 
   // Attacker `atk` vs defender `def`; `defPrevHp` is the defender's hp last frame.
-  private side(atk: Fighter, def: Fighter, atkAcc: Acc, defAcc: Acc, who: 'a' | 'b', defPrevHp: number, _prevDefAtk: string): void {
+  private side(atk: Fighter, def: Fighter, atkAcc: Acc, defAcc: Acc, who: 'a' | 'b', defPrevHp: number): void {
     if (def.hp < defPrevHp) {
       const dmg = defPrevHp - def.hp;
       atkAcc.dmgDealt += dmg; defAcc.dmgTaken += dmg; atkAcc.hits++;
@@ -82,7 +83,9 @@ export class MatchRecorder {
     }
     // rising edge into a special = one special performed
     const wasSpecial = who === 'a' ? this.prev.aAtk : this.prev.bAtk;
-    if (SPECIALS.has(atk.attack) && atk.attack !== wasSpecial) {
+    const special = atk.attack === 'none' || atk.attack === 'punch' || atk.attack === 'kick'
+      ? null : specialMoveForAttack(atk.name, atk.attack);
+    if (special && atk.attack !== wasSpecial) {
       atkAcc.specials++;
       this.events.push({ frame: this.f, type: 'special', data: { by: who, kind: atk.attack } });
     }
@@ -97,7 +100,8 @@ export class MatchRecorder {
    *  `opts.winner`/`opts.endReason` override the diff-derived result (used for
    *  forfeits, where round wins don't reflect who actually won). */
   finish(m: Match, opts?: { winner?: 'a' | 'b'; endReason?: string; elo?: { aBefore: number; aAfter: number; bBefore: number; bAfter: number } }): void {
-    if (this.f < 30) return;   // <1s: never really started (early disconnect) — don't store noise
+    if (this.finished || this.f < 30) return;   // <1s: never really started (early disconnect) — don't store noise
+    this.finished = true;
     try {
       const elo = opts?.elo;
       const winner: 'a' | 'b' | 'draw' = opts?.winner ?? (m.a.wins > m.b.wins ? 'a' : m.b.wins > m.a.wins ? 'b' : 'draw');
