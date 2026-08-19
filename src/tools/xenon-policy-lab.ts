@@ -122,7 +122,8 @@ export interface MatchResult {
   winner: 'executor' | 'opponent';
   outcome: Outcome;
   terminal: 'ko' | 'time' | 'double-ko' | 'frame-cap';
-  cleanKo: boolean;
+  koTerminal: boolean;
+  cleanKoWin: boolean;
   roundTerminals: RoundTerminal[];
 }
 
@@ -130,9 +131,12 @@ export interface Aggregate {
   played: number;
   wins: number;
   losses: number;
-  cleanKos: number;
+  koTerminals: number;
+  cleanKoWins: number;
+  timeoutWins: number;
+  timeoutLosses: number;
   winRate: number;
-  cleanKoRate: number;
+  cleanKoWinRate: number;
   roundsWon: number;
   roundsLost: number;
 }
@@ -531,7 +535,7 @@ function playMatch(
     winner: executorWins ? 'executor' : 'opponent', outcome: executorWins ? 'win' : 'loss',
     // Only a KO earns the clean-KO metric. Time remains an authoritative result,
     // but is not promoted to equivalent combat evidence.
-    terminal, cleanKo: terminal === 'ko', roundTerminals,
+    terminal, koTerminal: terminal === 'ko', cleanKoWin: executorWins && terminal === 'ko', roundTerminals,
   };
 }
 
@@ -539,11 +543,15 @@ function aggregate(matches: MatchResult[]): Aggregate {
   const wins = matches.filter((m) => m.outcome === 'win').length;
   const roundsWon = matches.reduce((sum, m) => sum + m.rounds.executor, 0);
   const roundsLost = matches.reduce((sum, m) => sum + m.rounds.opponent, 0);
-  const cleanKos = matches.filter((m) => m.cleanKo).length;
+  const koTerminals = matches.filter((m) => m.koTerminal).length;
+  const cleanKoWins = matches.filter((m) => m.cleanKoWin).length;
+  const timeoutWins = matches.filter((m) => m.terminal === 'time' && m.outcome === 'win').length;
+  const timeoutLosses = matches.filter((m) => m.terminal === 'time' && m.outcome === 'loss').length;
   return {
-    played: matches.length, wins, losses: matches.length - wins, cleanKos,
+    played: matches.length, wins, losses: matches.length - wins,
+    koTerminals, cleanKoWins, timeoutWins, timeoutLosses,
     winRate: matches.length ? wins / matches.length : 0,
-    cleanKoRate: matches.length ? cleanKos / matches.length : 0,
+    cleanKoWinRate: matches.length ? cleanKoWins / matches.length : 0,
     roundsWon, roundsLost,
   };
 }
@@ -568,7 +576,7 @@ function scenarios(
 function score(summary: Aggregate): number {
   // Search only on train scenarios. A frame-cap/non-terminal match throws, while
   // timeout finals remain visible and are penalized rather than silently dropped.
-  return summary.wins * 1000 + (summary.roundsWon - summary.roundsLost) * 10 + summary.cleanKos;
+  return summary.wins * 1000 + (summary.roundsWon - summary.roundsLost) * 10 + summary.cleanKoWins;
 }
 
 function validateOptions(options: PolicyLabOptions): Required<PolicyLabOptions> {

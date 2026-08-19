@@ -75,10 +75,21 @@ check('all results are authoritative whole matches with explicit terminal eviden
   block.matches.every((m) => m.rounds.executor === 2 || m.rounds.opponent === 2)
     && block.matches.every((m) => m.terminal !== 'frame-cap' && m.roundTerminals.length >= 2)));
 const evaluatedMatches = blocks.flatMap((block) => block.matches);
-check('clean-KO evidence excludes time decisions',
-  evaluatedMatches.every((m) => m.cleanKo === (m.terminal === 'ko'))
-    && blocks.every((block) => block.train.cleanKos === block.matches.filter((m) => m.split === 'train' && m.terminal === 'ko').length
-      && block.heldOut.cleanKos === block.matches.filter((m) => m.split === 'held-out' && m.terminal === 'ko').length));
+const losingKos = evaluatedMatches.filter((m) => m.outcome === 'loss' && m.terminal === 'ko');
+check('KO terminal provenance is distinct from executor clean-KO wins',
+  losingKos.length > 0 && losingKos.every((m) => m.koTerminal && !m.cleanKoWin)
+    && evaluatedMatches.every((m) => m.koTerminal === (m.terminal === 'ko'))
+    && evaluatedMatches.every((m) => m.cleanKoWin === (m.outcome === 'win' && m.terminal === 'ko')));
+check('aggregate clean-KO and timeout fields are executor-relative and unambiguous', blocks.every((block) =>
+  (['train', 'held-out'] as const).every((split) => {
+    const matches = block.matches.filter((m) => m.split === split);
+    const aggregate = block[split === 'train' ? 'train' : 'heldOut'];
+    return aggregate.koTerminals === matches.filter((m) => m.terminal === 'ko').length
+      && aggregate.cleanKoWins === matches.filter((m) => m.outcome === 'win' && m.terminal === 'ko').length
+      && aggregate.timeoutWins === matches.filter((m) => m.outcome === 'win' && m.terminal === 'time').length
+      && aggregate.timeoutLosses === matches.filter((m) => m.outcome === 'loss' && m.terminal === 'time').length
+      && aggregate.cleanKoWinRate === aggregate.cleanKoWins / aggregate.played;
+  })));
 
 let overlapRejected = false;
 try { await runPolicyLab({ trainSeeds: [1], heldOutSeeds: [1], candidateLimit: 1 }); } catch { overlapRejected = true; }
