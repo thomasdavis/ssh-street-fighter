@@ -68,6 +68,10 @@ export class MatchCoordinator {
 
   private onQueue(worker: WorkerRef, m: Extract<W2P, { t: 'queue' }>): void {
     const gid = gidOf(worker.id, m.sid);
+    // Idempotent: ignore a duplicate queue for a player already waiting or already
+    // in a match. Without this, a re-queued player's own entry is a valid "waiter"
+    // and they get paired with themselves.
+    if (this.gidToMid.has(gid) || this.waiting.some((w) => w.gid === gid)) return;
     const p: Player = { worker, sid: m.sid, gid, name: m.name, fp: m.fp, cursor: m.cursor, elo: m.elo, region: m.region, queuedAt: Date.now() };
     this.players.set(gid, p);
     const idx = sameRegionWaiter(this.waiting, p.region);   // prefer a same-region opponent
@@ -82,6 +86,7 @@ export class MatchCoordinator {
   }
 
   private pair(a: Player, b: Player): void {
+    if (a.gid === b.gid) { this.waiting.push(a); return; }   // never pair a player with themselves
     const ca = characterAt(a.cursor), cb = characterAt(b.cursor);
     const match = makeMatch(makeFighter('a', ca.name, 'a', ca.palette), makeFighter('b', cb.name, 'b', cb.palette));
     const mid = `m${++this.seq}`;
@@ -243,9 +248,17 @@ export class MatchCoordinator {
 /** Wire a MatchCoordinator to the live cluster (primary only). */
 export function runCoordinator(): void {
   const coord = new MatchCoordinator();
+  // Attach EXACTLY ONCE per worker. The workers are forked before this runs, so
+  // they're already in cluster.workers AND their deferred 'fork' events still
+  // fire after we register the listener below — without this guard every worker
+  // gets its 'message' handler attached twice, doubling every W2P message (which
+  // makes a queuing player pair with themselves, corrupts input, etc.).
+  const attached = new Set<number>();
   const attach = (w: import('cluster').Worker): void => {
+    if (attached.has(w.id)) return;
+    attached.add(w.id);
     w.on('message', (m: W2P) => coord.handle(w, m));
-    w.on('exit', () => coord.handleExit(w.id));
+    w.on('exit', () => { attached.delete(w.id); coord.handleExit(w.id); });
   };
   for (const id in cluster.workers) attach(cluster.workers[id]!);
   cluster.on('fork', attach);

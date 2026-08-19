@@ -49,6 +49,19 @@ const endB = outB.find((m) => m.t === 'matchEnd') as Extract<P2W, { t: 'matchEnd
 check('opponent leaving ends the match as a win', !!endB && endB.result.youWon === true, `bob end=${JSON.stringify(endB?.result?.youWon)}`);
 check('match cleaned up', coord.activeMatches === 0 && coord.queued === 0);
 
+// ---- regression: a duplicate queue (e.g. a double-dispatched W2P message) must
+// NOT pair a player with themselves. ----
+{
+  const c2 = new MatchCoordinator();
+  const out: P2W[] = [];
+  const w: WorkerRef = { id: 9, send: (m) => out.push(m) };
+  const q = { t: 'queue', sid: 1, cid: 'x', name: 'SOLO', fp: null, cursor: 2, elo: 1200, region: 'XX' } as const;
+  c2.handle(w, q); c2.handle(w, q);   // same player queues twice
+  check('duplicate queue does NOT self-pair',
+    c2.activeMatches === 0 && c2.queued === 1 && !out.some((m) => m.t === 'matchStart'),
+    `matches=${c2.activeMatches} queued=${c2.queued} starts=${out.filter((m) => m.t === 'matchStart').length}`);
+}
+
 // ---- lounge across workers ----
 const lounge = (m: P2W | undefined) => m as Extract<P2W, { t: 'lounge' }> | undefined;
 const chal = (m: P2W | undefined) => m as Extract<P2W, { t: 'challengeState' }> | undefined;
