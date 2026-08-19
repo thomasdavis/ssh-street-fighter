@@ -18,6 +18,9 @@ import { ENGINE_VERSION } from '../telemetry/recorder.js';
 
 export const ENGINE_COMMIT = '991acfe56ed096775dca728e2382fe56158d0a79';
 export const LAB_SCHEMA = 'xenon-policy-lab/v1';
+export const EXPECTED_MECHANICS_HASH = 'fdabc4c313f571c022c2d377dff123bb4ffa74ed334610faa6a6c70c74d5eea4';
+const EXPECTED_ENGINE_VERSION = 'sf-6';
+const MECHANICS_FILES = ['game/engine.ts', 'game/moves.ts', 'game/types.ts'] as const;
 const POLICY_SOURCE_VERSION = 'xenon-policy-lab-policies/v1';
 const DEFAULT_TRAIN_SEEDS = [101, 211, 307];
 const DEFAULT_HELD_OUT_SEEDS = [401, 503, 607];
@@ -100,6 +103,7 @@ export interface MatchResult {
   id: string;
   split: Split;
   scenarioSeed: number;
+  streamRootSeed: number;
   matchSeed: number;
   targetPolicySeed: number;
   opponentPolicySeed: number;
@@ -118,7 +122,7 @@ export interface MatchResult {
   winner: 'executor' | 'opponent';
   outcome: Outcome;
   terminal: 'ko' | 'time' | 'double-ko' | 'frame-cap';
-  cleanTerminal: boolean;
+  cleanKo: boolean;
   roundTerminals: RoundTerminal[];
 }
 
@@ -126,9 +130,9 @@ export interface Aggregate {
   played: number;
   wins: number;
   losses: number;
-  cleanTerminals: number;
+  cleanKos: number;
   winRate: number;
-  cleanRate: number;
+  cleanKoRate: number;
   roundsWon: number;
   roundsLost: number;
 }
@@ -164,9 +168,12 @@ export interface PolicyLabResult {
   schema: typeof LAB_SCHEMA;
   engine: {
     version: string;
-    commit: string;
-    engineSourceHash: string;
-    exactEngine: true;
+    expectedBaseCommit: string;
+    mechanicsHash: string;
+    expectedMechanicsHash: string;
+    mechanicsFiles: string[];
+    mechanicsValidated: true;
+    validationScope: string;
     networkAccess: false;
   };
   run: {
@@ -216,6 +223,24 @@ function hash(value: string | Uint8Array): string {
 
 function hashConfig(config: object): string {
   return hash(stable(config));
+}
+
+function computeMechanicsHash(): string {
+  const toolsDirectory = fileURLToPath(new URL('.', import.meta.url));
+  const digest = createHash('sha256');
+  for (const relative of MECHANICS_FILES) {
+    const sourcePath = resolve(toolsDirectory, '..', relative);
+    digest.update(`src/${relative}`).update('\0').update(readFileSync(sourcePath)).update('\0');
+  }
+  return digest.digest('hex');
+}
+
+/** Fail closed if the mechanics snapshot is not the reviewed sf-6 base. */
+export function validateMechanicsSnapshot(actualHash: string, engineVersion = ENGINE_VERSION): void {
+  if (engineVersion !== EXPECTED_ENGINE_VERSION)
+    throw new Error(`engine version mismatch: expected ${EXPECTED_ENGINE_VERSION}, got ${engineVersion}`);
+  if (actualHash !== EXPECTED_MECHANICS_HASH)
+    throw new Error(`mechanics snapshot mismatch: expected ${EXPECTED_MECHANICS_HASH}, got ${actualHash}`);
 }
 
 function mulberry32(seed: number): () => number {
@@ -444,9 +469,14 @@ function playMatch(
   seed: number,
   inputDelay: number,
 ): MatchResult {
-  const matchSeed = deriveSeed(runSeed, seed, split, executorSide, opponent.id, target.configHash);
-  const targetPolicySeed = deriveSeed(matchSeed, 'target');
-  const opponentPolicySeed = deriveSeed(matchSeed, 'opponent');
+  // Common-random-number design: every candidate and both seat assignments see
+  // the same stochastic streams for a given split/opponent/scenario. Candidate
+  // config and executor side affect result identity only, never RNG. Explicit
+  // role labels keep engine, target, and opponent streams disjoint.
+  const streamRootSeed = deriveSeed(runSeed, split, opponent.id, seed, 'common-random-numbers-v1');
+  const matchSeed = deriveSeed(streamRootSeed, 'engine-stream');
+  const targetPolicySeed = deriveSeed(streamRootSeed, 'target-policy-stream');
+  const opponentPolicySeed = deriveSeed(streamRootSeed, 'opponent-policy-stream');
   const targetInstance = target.create(targetPolicySeed);
   const opponentInstance = opponent.create(opponentPolicySeed);
   const aCharacter = executorSide === 'a' ? 'XENON' : opponent.character;
@@ -491,17 +521,17 @@ function playMatch(
   const last = roundTerminals.at(-1);
   const terminal = last?.reason ?? 'frame-cap';
   return {
-    id: hash(`${matchSeed}|${target.id}|${opponent.id}`).slice(0, 16), split,
-    scenarioSeed: seed, matchSeed, targetPolicySeed, opponentPolicySeed,
+    id: hash(`${matchSeed}|${target.id}|${target.configHash}|${opponent.id}|${executorSide}|${inputDelay}`).slice(0, 16), split,
+    scenarioSeed: seed, streamRootSeed, matchSeed, targetPolicySeed, opponentPolicySeed,
     executorSide, executor: 'XENON', opponent: opponent.character as OpponentName,
     opponentPolicy: opponent.id, opponentFamily: opponent.family, opponentConfigHash: opponent.configHash,
     targetPolicy: target.id, targetConfigHash: target.configHash, inputDelay, stage: match.stage,
     frames: match.frame,
     rounds: { executor: executorSide === 'a' ? match.a.wins : match.b.wins, opponent: executorSide === 'a' ? match.b.wins : match.a.wins },
     winner: executorWins ? 'executor' : 'opponent', outcome: executorWins ? 'win' : 'loss',
-    // KO and time are authoritative engine endings. There is no disconnect,
-    // forfeit, queue race, or inferred result in this offline harness.
-    terminal, cleanTerminal: terminal === 'ko' || terminal === 'time', roundTerminals,
+    // Only a KO earns the clean-KO metric. Time remains an authoritative result,
+    // but is not promoted to equivalent combat evidence.
+    terminal, cleanKo: terminal === 'ko', roundTerminals,
   };
 }
 
@@ -509,11 +539,11 @@ function aggregate(matches: MatchResult[]): Aggregate {
   const wins = matches.filter((m) => m.outcome === 'win').length;
   const roundsWon = matches.reduce((sum, m) => sum + m.rounds.executor, 0);
   const roundsLost = matches.reduce((sum, m) => sum + m.rounds.opponent, 0);
-  const cleanTerminals = matches.filter((m) => m.cleanTerminal).length;
+  const cleanKos = matches.filter((m) => m.cleanKo).length;
   return {
-    played: matches.length, wins, losses: matches.length - wins, cleanTerminals,
+    played: matches.length, wins, losses: matches.length - wins, cleanKos,
     winRate: matches.length ? wins / matches.length : 0,
-    cleanRate: matches.length ? cleanTerminals / matches.length : 0,
+    cleanKoRate: matches.length ? cleanKos / matches.length : 0,
     roundsWon, roundsLost,
   };
 }
@@ -538,7 +568,7 @@ function scenarios(
 function score(summary: Aggregate): number {
   // Search only on train scenarios. A frame-cap/non-terminal match throws, while
   // timeout finals remain visible and are penalized rather than silently dropped.
-  return summary.wins * 1000 + (summary.roundsWon - summary.roundsLost) * 10 + summary.cleanTerminals;
+  return summary.wins * 1000 + (summary.roundsWon - summary.roundsLost) * 10 + summary.cleanKos;
 }
 
 function validateOptions(options: PolicyLabOptions): Required<PolicyLabOptions> {
@@ -558,6 +588,8 @@ function validateOptions(options: PolicyLabOptions): Required<PolicyLabOptions> 
 
 export async function runPolicyLab(options: PolicyLabOptions = {}): Promise<PolicyLabResult> {
   const checked = validateOptions(options);
+  const mechanicsHash = computeMechanicsHash();
+  validateMechanicsSnapshot(mechanicsHash);
   const ensemble = new Map<string, PolicyDefinition>();
   for (const split of ['train', 'held-out'] as const) for (const character of DEFAULT_OPPONENTS)
     ensemble.set(`${split}:${character}`, opponentPolicy(character, split));
@@ -590,7 +622,6 @@ export async function runPolicyLab(options: PolicyLabOptions = {}): Promise<Poli
   };
 
   const thisFile = fileURLToPath(import.meta.url);
-  const engineFile = resolve(fileURLToPath(new URL('.', import.meta.url)), '../game/engine.ts');
   const opponentEnsemble = [...ensemble.entries()].map(([key, policy]) => ({
     split: key.startsWith('train:') ? 'train' as const : 'held-out' as const,
     character: policy.character as OpponentName, policyId: policy.id, family: policy.family,
@@ -600,9 +631,11 @@ export async function runPolicyLab(options: PolicyLabOptions = {}): Promise<Poli
   return {
     schema: LAB_SCHEMA,
     engine: {
-      version: ENGINE_VERSION, commit: ENGINE_COMMIT,
-      engineSourceHash: hash(readFileSync(engineFile, 'utf8')),
-      exactEngine: true, networkAccess: false,
+      version: ENGINE_VERSION, expectedBaseCommit: ENGINE_COMMIT,
+      mechanicsHash, expectedMechanicsHash: EXPECTED_MECHANICS_HASH,
+      mechanicsFiles: MECHANICS_FILES.map((file) => `src/${file}`), mechanicsValidated: true,
+      validationScope: 'Exact mechanics snapshot only; stage art/selection and sprites are excluded because the lab pins the cosmetic stage and does not render.',
+      networkAccess: false,
     },
     run: {
       seed: checked.seed, trainSeeds: [...checked.trainSeeds], heldOutSeeds: [...checked.heldOutSeeds],
