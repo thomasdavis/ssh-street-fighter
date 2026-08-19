@@ -16,9 +16,13 @@ import { specialMoveForAttack, specialMoveMotionCode } from '../game/moves.js';
 import type { SpecialAttack } from '../game/moves.js';
 import { ENGINE_VERSION } from '../telemetry/recorder.js';
 
-export const ENGINE_COMMIT = '991acfe56ed096775dca728e2382fe56158d0a79';
+export const ENGINE_COMMIT = 'd20e0aebd6009525dd97493a66f13f3542c6b143';
 export const LAB_SCHEMA = 'xenon-policy-lab/v1';
-export const EXPECTED_MECHANICS_HASH = 'fdabc4c313f571c022c2d377dff123bb4ffa74ed334610faa6a6c70c74d5eea4';
+// Re-baselined after PR #20 added the UNCLOSE fighter: that change is purely additive
+// (a new fighter's move set + a derived SPECIAL_ATTACK_KINDS set) and does not touch
+// the mechanics of any fighter this lab evaluates (XENON vs OMEGA/MNEME/AJAX/FABLE),
+// so the search evidence is unchanged; only the source-file hash moved.
+export const EXPECTED_MECHANICS_HASH = '3f16939a536d16534d89fd3525a9ca9d25bd1247fe321f74e6e8f1eef4d92af7';
 const EXPECTED_ENGINE_VERSION = 'sf-6';
 const MECHANICS_FILES = ['game/engine.ts', 'game/moves.ts', 'game/types.ts'] as const;
 const POLICY_SOURCE_VERSION = 'xenon-policy-lab-policies/v1';
