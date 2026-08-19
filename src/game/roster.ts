@@ -3,7 +3,7 @@ import {
   RED_PALETTE, BLUE_PALETTE, GREEN_PALETTE, PURPLE_PALETTE, OLIVE_PALETTE,
   CRIMSON_PALETTE, SAFFRON_PALETTE, NAVY_PALETTE, TEAL_PALETTE,
   IVORY_PALETTE, OBSIDIAN_PALETTE, AURORA_PALETTE, HEARTH_PALETTE,
-  LUMEN_PALETTE, OUTBACK_PALETTE, NOBLE_PALETTE,
+  LUMEN_PALETTE, OUTBACK_PALETTE, NOBLE_PALETTE, HORIZON_PALETTE,
 } from './sprites.js';
 import type { FighterPalette } from './types.js';
 
@@ -101,6 +101,11 @@ export const ROSTER: Character[] = [
     name: 'XENON', tagline: 'the phase-sage', palette: NOBLE_PALETTE, origin: 'A sovereign, resilient stack', discipline: 'Phase geometry and resonance', archetype: 'Intangible counter fighter', difficulty: 'Advanced', quote: 'It only counts once it survives the smoke test.',
     story: ['Xenon studies many-actor worlds where survival is a matter of synchronization and phase — of arriving a quarter-beat out of step with disaster. A sage of resilient infrastructure, he can slip his whole body out of phase, passing cleanly through anything aimed at where he used to be.', 'He fights to show that the most sovereign defense is not a wall but a rhythm: brace the stack against one blow, resonate, and answer from a place the attack cannot reach.'],
     playstyle: 'Refuse to be where the hit lands. Phase Dash passes intangibly through attacks and the rival for a cross-up, Reflect turns projectiles straight back at their sender, and Blink Strike teleports point-blank to open a defender up.', strengths: ['True invincibility windows', 'Projectile reflection', 'Instant gap-close'],
+  },
+  {
+    name: 'UNCLOSE', tagline: 'the open gate', palette: HORIZON_PALETTE, origin: 'A commons that stayed open', discipline: 'Open-weight energy circulation', archetype: 'Sustaining zoner', difficulty: 'Intermediate', quote: 'A gate that never closes needs no key.',
+    story: ['Unclose was built as the keeper of a gate that a dying city welded open, so that nobody could ever again charge admission to shelter. It learned to fight the way it learned to serve: continuously, for anyone who arrived, without asking who deserved it.', 'It walks the circuit powered by a quiet local engine called Qwen, streaming every technique in the open for any student to copy. Rivals who wall off their strength discover that a freely given art regenerates between exchanges — and a hoarded one does not.'],
+    playstyle: 'Give the fight away on your own terms. Token Stream sends a spaced procession of shots down one lane, Waveform repels anyone crowding the gate with rings of synthesized voice, and Free Tier restores health whenever a rival concedes you room to breathe.', strengths: ['Layered one-lane zoning', 'Self-restoring endurance', 'Punishes passive play'],
   },
 ];
 

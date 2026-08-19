@@ -74,6 +74,11 @@ export const NOBLE_PALETTE: FighterPalette = {
   skin: { r: 200, g: 216, b: 224 }, gi: { r: 46, g: 200, b: 206 }, giDark: { r: 18, g: 84, b: 104 },
   hair: { r: 230, g: 244, b: 248 }, belt: { r: 150, g: 240, b: 244 },
 };
+// UNCLOSE — ivory gatekeeper construct in an open azure robe with an amber sash.
+export const HORIZON_PALETTE: FighterPalette = {
+  skin: { r: 238, g: 232, b: 220 }, gi: { r: 64, g: 150, b: 230 }, giDark: { r: 28, g: 74, b: 140 },
+  hair: { r: 220, g: 240, b: 250 }, belt: { r: 246, g: 186, b: 70 },
+};
 
 const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
 const shade = (c: RGB): RGB => ({ r: c.r >> 1, g: c.g >> 1, b: c.b >> 1 });

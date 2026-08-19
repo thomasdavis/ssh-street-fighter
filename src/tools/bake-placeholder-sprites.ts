@@ -31,6 +31,8 @@ const BASE_FRAMES: Record<string, Bake> = {
   kick_1: { pose: 'kick', ext: 0.55 }, kick_2: { pose: 'kick', ext: 1 },
   crouchpunch_1: { pose: 'crouchpunch', ext: 0.55 }, crouchpunch_2: { pose: 'crouchpunch', ext: 1 },
   crouchkick_1: { pose: 'crouchkick', ext: 0.55 }, crouchkick_2: { pose: 'crouchkick', ext: 1 },
+  jumpkick: { pose: 'kick', ext: 1 },
+  victory_1: { pose: 'idle', phase: 0 }, victory_2: { pose: 'idle', phase: Math.PI / 2 }, victory_3: { pose: 'idle', phase: Math.PI },
 };
 const SPECIAL_FRAMES: Record<string, Bake> = {
   storyarc_1: { pose: 'crouch' }, storyarc_2: { pose: 'jump' }, storyarc_3: { pose: 'fall' },
@@ -40,6 +42,7 @@ const SPECIAL_FRAMES: Record<string, Bake> = {
   hurricane_1: { pose: 'hurricane' }, hurricane_2: { pose: 'hurricane' }, hurricane_3: { pose: 'hurricane' }, hurricane_4: { pose: 'hurricane' },
   electric_1: { pose: 'punch', ext: 0.4 }, electric_2: { pose: 'punch', ext: 0.9 },
   rolling_1: { pose: 'rolling' }, rolling_2: { pose: 'rolling' }, rolling_3: { pose: 'rolling' }, rolling_4: { pose: 'rolling' },
+  stream: { pose: 'hadouken', ext: 1 }, freetier: { pose: 'block' },
 };
 
 function bakeFrame(grid: PixelGrid): { w: number; h: number; anchorX: number; anchorY: number; data: string } {

@@ -6,12 +6,13 @@
 import { makeFighter, makeMatch, stepMatch, attackActive, specialMoveStats } from '../game/engine.js';
 import { emptyInputs } from '../game/types.js';
 import type { Fighter, Inputs, Match } from '../game/types.js';
-import type { SpecialAttack } from '../game/moves.js';
+import { SPECIAL_ATTACK_KINDS, type SpecialAttack } from '../game/moves.js';
 import { ROSTER } from '../game/roster.js';
 import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
-const SPECIAL_KINDS = new Set(['hadouken', 'shoryuken', 'hurricane', 'rolling', 'verticalroll', 'electric', 'testimony', 'nullstep', 'entropy', 'context', 'branchwalk', 'mergecomet', 'storyarc', 'plottwist', 'inktempest']);
+// Shared with bot-server so the gym's view never drifts from the wire view again.
+const SPECIAL_KINDS = SPECIAL_ATTACK_KINDS;
 
 // Build the exact per-tick view a bot receives over the wire (mirrors bot-server fighterView).
 function view(f: Fighter): any {
