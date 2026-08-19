@@ -6,16 +6,15 @@
 import { makeFighter, makeMatch, stepMatch, attackActive, specialMoveStats } from '../game/engine.js';
 import { emptyInputs } from '../game/types.js';
 import type { Fighter, Inputs, Match } from '../game/types.js';
-import type { SpecialAttack } from '../game/moves.js';
+import { specialMoveForAttack, type SpecialAttack } from '../game/moves.js';
 import { ROSTER } from '../game/roster.js';
 import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
-const SPECIAL_KINDS = new Set(['hadouken', 'shoryuken', 'hurricane', 'rolling', 'verticalroll', 'electric', 'testimony', 'nullstep', 'entropy', 'context', 'branchwalk', 'mergecomet', 'storyarc', 'plottwist', 'inktempest']);
-
 // Build the exact per-tick view a bot receives over the wire (mirrors bot-server fighterView).
-function view(f: Fighter): any {
-  const special = SPECIAL_KINDS.has(f.attack);
+export function gymFighterView(f: Fighter): any {
+  const special = f.attack !== 'none' && f.attack !== 'punch' && f.attack !== 'kick' && f.attack !== 'throw'
+    && specialMoveForAttack(f.name, f.attack as SpecialAttack) !== null;
   const active = attackActive(f);
   let casting = false;
   if (special && !active) { try { casting = f.attackFrame < specialMoveStats(f.attack as SpecialAttack).startup; } catch { /* ignore */ } }
@@ -23,7 +22,7 @@ function view(f: Fighter): any {
     facing: f.facing, hp: f.hp, wins: f.wins, attack: f.attack, attackFrame: f.attackFrame,
     stun: f.stun, pose: f.pose, crouching: f.crouching, special, active, casting };
 }
-function toInputs(cmd: any): Inputs {
+export function gymInputs(cmd: any): Inputs {
   const i = emptyInputs();
   if (cmd?.moveX) i.moveX = cmd.moveX;
   i.jump = !!cmd?.jump; i.punch = !!cmd?.punch; i.kick = !!cmd?.kick; i.throw = !!cmd?.throw; i.down = !!cmd?.down;
@@ -162,10 +161,10 @@ function playMatch(target: LoadedPolicy, oppPolicy: Policy, fighter: string, opp
   while (m.phase !== 'match-over' && frames < CAP) {
     const proj = m.projectiles.filter((p) => p.active).map((p) => ({ owner: p.owner, x: Math.round(p.x), y: Math.round(p.y), vx: p.vx, style: p.style }));
     let cmdA: any = {};
-    try { cmdA = target.decide(view(m.a), view(m.b), m.phase, proj, 'a') || {}; } catch { cmdA = {}; }
+    try { cmdA = target.decide(gymFighterView(m.a), gymFighterView(m.b), m.phase, proj, 'a') || {}; } catch { cmdA = {}; }
     let cmdB: any = {};
-    try { cmdB = oppPolicy(view(m.b), view(m.a), m.phase) || {}; } catch { cmdB = {}; }
-    stepMatch(m, toInputs(cmdA), toInputs(cmdB));
+    try { cmdB = oppPolicy(gymFighterView(m.b), gymFighterView(m.a), m.phase) || {}; } catch { cmdB = {}; }
+    stepMatch(m, gymInputs(cmdA), gymInputs(cmdB));
     frames++;
   }
   const outcome = m.phase !== 'match-over' || m.a.wins === m.b.wins ? 'draw' : m.a.wins > m.b.wins ? 'win' : 'loss';

@@ -1,4 +1,5 @@
-import { runGym } from './tools/omega-gym.js';
+import { makeFighter } from './game/engine.js';
+import { gymFighterView, runGym } from './tools/omega-gym.js';
 
 let pass = true;
 const check = (name: string, ok: boolean, detail = '') => {
@@ -27,6 +28,14 @@ check('style rows contain bounded match and round summaries',
 let rejected = false;
 try { await runGym({ fighter: 'NOT_A_FIGHTER', matches: 1 }); } catch { rejected = true; }
 check('invalid fighters fail fast', rejected);
+
+for (const [character, attack] of [['MNEME', 'construct'], ['AJAX', 'boomerang'], ['XENON', 'phase']] as const) {
+  const fighter = makeFighter('a', character, 'a');
+  fighter.attack = attack;
+  const observed = gymFighterView(fighter);
+  check(`${character} canonical special is labeled in agent observations`, observed.special === true,
+    `attack=${observed.attack} special=${observed.special}`);
+}
 
 console.log(pass ? '\nSPARRING GYM TEST: PASS' : '\nSPARRING GYM TEST: FAIL');
 process.exit(pass ? 0 : 1);
