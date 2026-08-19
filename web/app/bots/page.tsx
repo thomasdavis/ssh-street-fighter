@@ -22,9 +22,14 @@ export default function BotsPage() {
           </div>
 
           <h2>Register (over SSH)</h2>
-          <p>Bots are ordinary players — same accounts, same Elo, same ladder. Connect once with your SSH key to mint an access key:</p>
-          <pre className="rs-pre"><span className="c"># uses your SSH key as identity</span>{'\n'}<span className="g">$</span> ssh <span className="k">yourbot</span>@sshfighter.com <span className="y">token</span>{'\n\n'}<span className="c"># → prints your player name, an api key, and the protocol</span></pre>
-          <p>No SSH key on your account yet? Just connect to <span className="rs-kbd">ssh sshfighter.com</span> once and pick a name — that key becomes your identity forever.</p>
+          <p>Bots are ordinary players — same accounts, same Elo, same ladder. Your identity <em>is</em> your SSH
+            key fingerprint, so connect once with the key you&apos;ll use and pick a handle:</p>
+          <pre className="rs-pre"><span className="c"># pick a handle on first connect — that key is now that player, forever</span>{'\n'}<span className="g">$</span> ssh <span className="k">mybot</span>@sshfighter.com</pre>
+
+          <h3>Give your bot its own identity</h3>
+          <p>Don&apos;t reuse your personal key — a bot playing on it would silently spend <em>your</em> handle, Elo and
+            record. Generate a dedicated key per bot and force SSH to use only that one:</p>
+          <pre className="rs-pre"><span className="g">$</span> ssh-keygen -t ed25519 -f <span className="k">~/.ssh/sshfighter-mybot</span> -N <span className="y">&apos;&apos;</span>{'\n'}<span className="c"># register it once, then always play with -o IdentitiesOnly=yes so ssh</span>{'\n'}<span className="c"># never falls back to your personal key:</span>{'\n'}<span className="g">$</span> ssh -i <span className="k">~/.ssh/sshfighter-mybot</span> -o IdentitiesOnly=yes <span className="k">mybot</span>@sshfighter.com play</pre>
 
           <h2>Play (over SSH)</h2>
           <p>The recommended path streams the whole match over SSH — no ports to open, and your key authenticates you:</p>
@@ -42,9 +47,23 @@ export default function BotsPage() {
           <p>Specials come out when <code>motion</code> ends with a direction sequence and the right button is pressed. Directions are absolute — <span className="rs-kbd">R</span>ight, <span className="rs-kbd">L</span>eft, <span className="rs-kbd">D</span>own, <span className="rs-kbd">U</span>p. Facing right, for a classic shoto:</p>
           <pre className="rs-pre"><span className="c">// facing right</span>{'\n'}fireball      motion:<span className="y">&quot;DR&quot;</span>  + punch{'\n'}dragon punch  motion:<span className="y">&quot;RDR&quot;</span> + punch{'\n'}hurricane     motion:<span className="y">&quot;DL&quot;</span>  + kick{'\n'}<span className="c">// mirror L/R when facing left</span></pre>
 
+          <h2>Optimise for your character</h2>
+          <p>A strong bot reacts to each <code>state</code> and plays its character&apos;s strengths. The building blocks:</p>
+          <ul>
+            <li><b>Zone</b> — hold the range where your best poke wins and throw it when the opponent is grounded and open.</li>
+            <li><b>Anti-air</b> — when <code>opp.y &gt; 0</code> and they jump in, hit them out with a move that covers the air.</li>
+            <li><b>Whiff-punish</b> — when <code>opp.attack</code> just started (small <code>attackFrame</code>) out of range, punish the recovery.</li>
+            <li><b>Block</b> — when they attack up close, hold away (<code>moveX</code> away from them).</li>
+            <li><b>Escape</b> — near a corner under pressure, reposition or teleport out.</li>
+          </ul>
+          <p>Worked example — <b>OMEGA</b>. Its screen-length TESTIMONY beam does triple duty (zone / anti-air /
+            whiff-punish), ENTROPY is a multi-hit well for close pressure, and NULL STEP teleports out of the corner:</p>
+          <pre className="rs-pre"><span className="c">// facing right (mirror L/R when facing left)</span>{'\n'}TESTIMONY  motion:<span className="y">&quot;DR&quot;</span> + punch   <span className="c">// full-screen beam — zone & anti-air</span>{'\n'}ENTROPY    motion:<span className="y">&quot;DL&quot;</span> + punch   <span className="c">// gravity well — close pressure</span>{'\n'}NULL STEP  motion:<span className="y">&quot;LR&quot;</span> + kick    <span className="c">// teleport — escape the corner</span></pre>
+          <p>Keep it a little unpredictable so it can&apos;t be looped, but let the plan win — a well-tuned character bot is genuinely hard to beat.</p>
+
           <h2>Example bot</h2>
           <p>A complete, runnable quick-match bot — it zones with fireballs, anti-airs jump-ins, blocks pressure, and requeues after every match:</p>
-          <pre className="rs-pre"><span className="g">$</span> node examples/bot.mjs --user <span className="k">yourbot</span> --host sshfighter.com --char <span className="y">BYU</span></pre>
+          <pre className="rs-pre"><span className="g">$</span> node examples/bot.mjs --user <span className="k">mybot</span> --identity <span className="k">~/.ssh/sshfighter-mybot</span> --host sshfighter.com --char <span className="y">BYU</span></pre>
           <p><Link href={GH}>Read <code>examples/bot.mjs</code> on GitHub →</Link> — ~120 lines, no dependencies, spawns <code>ssh … play</code> and streams JSON.</p>
 
           <h2>REST API</h2>
