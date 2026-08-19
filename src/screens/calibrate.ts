@@ -102,8 +102,8 @@ export const calibrate = {
     line('THIS IS EXACTLY HOW A FIGHT LOOKS. TUNE YOUR', THEME.textDim);
     line('TERMINAL SO BOTH READ CLEAN:', THEME.textDim);
     r += SP.gap;
-    line('ZOOM OUT  (CTRL - / CMD -)  SMOOTHER FIGHTERS', THEME.accent2);
-    line('ZOOM IN   (CTRL + / CMD +)  LARGER HUD TEXT', THEME.accent2);
+    line('ZOOM OUT   CTRL -  /  CMD -        SMOOTHER FIGHTERS', THEME.accent2);
+    line('ZOOM IN    CTRL SHIFT +  /  CMD +  BIGGER HUD TEXT', THEME.accent2);
     r += SP.gap;
 
     // live resolution + quality meter (fidelity tracks the TERMINAL resolution)

@@ -2,58 +2,61 @@ import type { Frame } from '../render/frame.js';
 import type { Key } from '../ui/key.js';
 import type { Session } from '../net/session.js';
 import { makeSurface } from '../ui/surface.js';
-import { menuList, hints, stat, SP } from '../ui/widgets.js';
+import { menuList, hints, stat, centerText, SP } from '../ui/widgets.js';
 import { THEME } from '../ui/theme.js';
+import type { RGB } from '../render/pixel.js';
 import { characterAt, ROSTER } from '../game/roster.js';
+import { composeMenuStage } from '../game/select-scene.js';
 import * as db from '../db/db.js';
 
 const ITEMS = ['QUICK MATCH', 'FIGHT LOUNGE', 'PRACTICE MODE', 'LEADERBOARD', 'CONTROLS', 'HELP', 'QUIT'];
+const MENU_STAGE = 'harbor';   // title-screen backdrop
 
 export const menu = {
   render(s: Session, f: Frame): void {
+    // Title-screen scene: dimmed stage + the selected fighter posing on the right.
+    f.usePixel(composeMenuStage(s.cursor, s.frame, f.cols * 2, f.rows * 4, MENU_STAGE));
     const ui = makeSurface(f);
-    ui.gradient(THEME.bgTop, THEME.bgBot);
     ui.heading(1, 'STREET FIGHTER', THEME.accent, 1);
     const hy = 1 + ui.headingHeight(1) + 1;
-    const welcome = `WELCOME, ${s.displayName}`;
-    ui.text(Math.floor((ui.cols - welcome.length) / 2), hy, welcome, { color: THEME.text, bold: true });
+    centerText(ui, hy, `WELCOME, ${s.displayName}`, { color: THEME.text });
 
-    // two panels (menu + fighter card), centered as a group
-    const leftW = Math.min(40, Math.floor(ui.cols * 0.5));
-    const rightW = Math.min(26, Math.floor(ui.cols * 0.3));
-    const colGap = 2;
-    const startX = Math.max(0, Math.floor((ui.cols - (leftW + colGap + rightW)) / 2));
-    const py = hy + 2;
-    // Fit the item list to the available height: double-space only if it fits,
-    // else single-space; the panel is exactly as tall as its content.
-    const avail = ui.rows - py - 2;                 // rows left below the panel (minus hints)
-    const titleRows = 2;
-    const rowGap = ITEMS.length * 2 + titleRows + 1 <= avail ? 1 : 0;
-    const ph = Math.min(ITEMS.length * (1 + rowGap) + titleRows + 1, avail);
-
-    const menuInner = ui.panel(startX, py, leftW, ph, { title: 'MAIN MENU' });
+    // MAIN MENU panel on the left, over the scene.
+    const leftW = Math.min(36, Math.floor(ui.cols * 0.42));
+    const py = hy + Math.round(SP.gap) + 1;
+    const avail = ui.rows - py - 2;
+    const rowGap = ITEMS.length * 2 + 3 <= avail ? 1 : 0;
+    const ph = Math.min(ITEMS.length * (1 + rowGap) + 3, avail);
+    const menuInner = ui.panel(3, py, leftW, ph, { title: 'MAIN MENU' });
     menuList(ui, menuInner.x, menuInner.y, menuInner.w, ITEMS, s.menuIndex, { gap: rowGap });
 
-    const cardInner = ui.panel(startX + leftW + colGap, py, rightW, ph, { title: 'YOUR FIGHTER' });
+    // Fighter nameplate: bottom-right, over the sprite. Height is computed from
+    // the content (title + tagline + stat rows) so nothing bleeds past the box.
     const c = characterAt(s.cursor);
-    const cx = cardInner.x;
-    ui.text(cx, cardInner.y, c.name, { color: THEME.accent });
-    ui.text(cx, cardInner.y + SP.line, c.tagline.toUpperCase(), { color: THEME.textDim });
-    let ry = cardInner.y + SP.line + SP.section;
     const p = s.player;
-    if (p) {
-      const rank = s.fp ? db.playerRank(s.fp) : null;
-      stat(ui, cx, ry, 'WINS', String(p.wins), THEME.good); ry += SP.row;
-      stat(ui, cx, ry, 'LOSSES', String(p.losses), THEME.bad); ry += SP.row;
-      stat(ui, cx, ry, 'ELO', String(p.elo), THEME.accent); ry += SP.row;
-      if (rank) { stat(ui, cx, ry, 'RANK', `#${rank}`, THEME.accent2); ry += SP.row; }
-      stat(ui, cx, ry, 'WIN%', String(p.matches ? Math.round((p.wins / p.matches) * 100) : 0));
-    } else {
-      ui.text(cx, ry, 'GUEST', { color: THEME.textDim });
-      ui.text(cx, ry + SP.line, 'STATS NOT SAVED', { color: THEME.textDim });
+    const rank = p && s.fp ? db.playerRank(s.fp) : null;
+    const rows: [string, string, RGB][] = p
+      ? [
+          ['ELO', String(p.elo), THEME.accent],
+          ['RECORD', `${p.wins}-${p.losses}`, THEME.text],
+          rank ? ['RANK', `#${rank}`, THEME.accent2] : ['WIN%', `${p.matches ? Math.round((p.wins / p.matches) * 100) : 0}%`, THEME.accent2],
+        ]
+      : [['', 'GUEST - NOT SAVED', THEME.textDim]];
+    const rowPitch = 1.35;
+    const npW = Math.min(28, Math.floor(ui.cols * 0.32));
+    const npH = Math.ceil(2 + SP.row + rows.length * rowPitch + 1.2);
+    const npX = ui.cols - npW - 3;
+    const np = ui.panel(npX, ui.rows - npH - 2, npW, npH, { title: c.name, titleColor: THEME.accent });
+    const iw = Math.floor(np.w);
+    ui.text(np.x, np.y, c.tagline.toUpperCase().slice(0, iw), { color: THEME.textDim });
+    let ry = np.y + SP.row;
+    for (const [label, value, col] of rows) {
+      if (label) stat(ui, np.x, ry, label, value, col);
+      else ui.text(np.x, ry, value.slice(0, iw), { color: col });
+      ry += rowPitch;
     }
 
-    hints(ui, ui.rows - 2, [['W/S', 'MOVE'], ['ENTER', 'SELECT'], ['?', 'HELP']]);
+    hints(ui, ui.rows - 1, [['W/S', 'MENU'], ['A/D', 'FIGHTER'], ['ENTER', 'SELECT'], ['?', 'HELP']]);
   },
 
   onKey(s: Session, k: Key): void {

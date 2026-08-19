@@ -10,6 +10,7 @@ import { drawFighter } from './sprites.js';
 import { WORLD_W, WORLD_H, GROUND_Y } from './engine.js';
 import { ROSTER, characterAt } from './roster.js';
 import { SPRITES } from './sprite-set.js';
+import { STAGES } from './stage-set.js';
 import type { FighterPalette } from './types.js';
 
 const GOLD = rgb(250, 224, 96);
@@ -39,15 +40,23 @@ function backdrop(g: PixelGrid, v: View): void {
   wrect(g, v, 0, GROUND_Y + 8, WORLD_W, WORLD_H - GROUND_Y - 8, rgb(50, 38, 54));
 }
 
-/** Draw a character's idle at full framebuffer resolution (one clean resample). */
-function drawIdleAt(g: PixelGrid, v: View, name: string, palette: FighterPalette, wx: number, baseline: number, standH: number, bob: number): void {
+/** Draw a character pose at full framebuffer resolution (one clean resample). */
+function drawIdleAt(g: PixelGrid, v: View, name: string, palette: FighterPalette, wx: number, baseline: number, standH: number, bob: number, pose = 'idle_1', facing: 1 | -1 = 1): void {
   const targetH = Math.max(8, Math.round(standH * v.ws));
   const feetX = v.ox + wx * v.ws, feetY = v.oy + (baseline + bob) * v.ws;
-  const spr = SPRITES.getScaled(name, 'idle_1', 1, targetH);
+  const spr = SPRITES.getScaled(name, pose, facing, targetH) ?? (pose !== 'idle_1' ? SPRITES.getScaled(name, 'idle_1', facing, targetH) : null);
   if (spr) { blit(g, spr.grid, Math.round(feetX - spr.anchorX), Math.round(feetY - spr.anchorY), false); return; }
   const { grid } = resizeGridH(drawFighter('idle', palette, 0), targetH);   // procedural fallback, scaled to match
   const gw = grid[0]?.length ?? 0, gh = grid.length;
-  blit(g, grid, Math.round(feetX - gw / 2), Math.round(feetY - gh), false);
+  blit(g, grid, Math.round(feetX - gw / 2), Math.round(feetY - gh), facing === -1);
+}
+
+/** Multiply every pixel toward black (allocates fresh cells — grids share refs). */
+function dimGrid(g: PixelGrid, factor: number): void {
+  for (const row of g) for (let x = 0; x < row.length; x++) {
+    const c = row[x];
+    if (c) row[x] = { r: Math.round(c.r * factor), g: Math.round(c.g * factor), b: Math.round(c.b * factor) };
+  }
 }
 
 export interface SelectSlot { x: number; baseline: number; standH: number; }
@@ -86,6 +95,25 @@ export function composeSelectStage(cursor: number, frame: number, pw: number, ph
     drawIdleAt(g, v, c.name, c.palette, slot.x, slot.baseline, slot.standH, isSel ? bob : 0);
     if (isSel) { const ay = slot.baseline - slot.standH - 7; for (let k = 0; k < 4; k++) wrect(g, v, slot.x - k, ay + k, 1 + k * 2, 1, GOLD); }
   }
+  return g;
+}
+
+/** Home-screen backdrop: a dimmed stage with the selected fighter posing on the
+ *  right, so the main menu reads like a game title screen. Rendered at full
+ *  framebuffer resolution; the menu UI is drawn over it by the screen. */
+export function composeMenuStage(cursor: number, frame: number, pw: number, ph: number, stageId: string): PixelGrid {
+  const g = createGrid(pw, ph, rgb(12, 10, 20));
+  const coverH = Math.max(ph, Math.ceil(pw / 1.5));   // 3:2 stage sized to cover the frame
+  const stage = STAGES.get(stageId, coverH);
+  if (stage) {
+    const sw = stage[0]?.length ?? 0, sh = stage.length;
+    blit(g, stage, Math.round((pw - sw) / 2), Math.round((ph - sh) / 2), false);
+  }
+  dimGrid(g, 0.5);   // moody title vibe + keeps overlaid UI legible
+  const v = makeView(pw, ph);
+  const c = characterAt(cursor);
+  const bob = Math.round(Math.sin(frame / 9) * 1.5);
+  drawIdleAt(g, v, c.name, c.palette, WORLD_W * 0.72, SELECT_FLOOR + 14, 104, bob, 'menu', -1);
   return g;
 }
 

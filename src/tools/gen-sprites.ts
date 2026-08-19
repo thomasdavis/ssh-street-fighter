@@ -52,6 +52,7 @@ interface PoseDef { name: string; desc: string; anchor?: 'spin' | 'ball'; charac
 const POSES: PoseDef[] = [
   { name: 'idle_1', desc: 'a solid neutral fighting stance, both fists raised in guard near the face, weight settled' },
   { name: 'idle_2', desc: 'fighting stance, both fists raised in guard, chest lifted mid-breath' },
+  { name: 'menu', desc: 'a bold TITLE-SCREEN hero stance, side view: standing tall and proud with the chest out and chin lifted, both fists clenched and the arms flexed with power — the rear fist drawn back low at the hip and the lead fist raised forward at chest height in a confident challenge, weight rooted and strong, radiating star-character presence (this pose overrides the normal fighting guard)' },
   { name: 'walk_1', desc: 'stepping forward in a fighting stance, both fists raised in guard, lead leg forward' },
   { name: 'walk_2', desc: 'advancing mid-stride in a fighting stance, both fists raised in guard, rear leg forward' },
   { name: 'crouch', desc: 'crouching low in a defensive stance, knees deeply bent, both fists still raised in guard' },
