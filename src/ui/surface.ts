@@ -126,11 +126,15 @@ class PixelSurface implements Surface {
   width(str: string): number { return str.length; }
 }
 
-/** Pick the backend by terminal size: the pixel font once the graphics layer has
- *  enough resolution to render it cleanly, crisp cells otherwise. SF_UI forces a
- *  mode ('pixel' | 'cell') for testing. */
+/** Pick the backend by terminal resolution: the constant-size pixel font ONLY
+ *  once the graphics layer has enough sub-pixels to render it crisply (cellPx≥2,
+ *  ~68+ rows, and a wide enough grid), crisp one-cell text otherwise. This keeps
+ *  the UI crisp at every zoom — cell text when zoomed in / normal, constant-size
+ *  pixel text when zoomed way out. SF_UI ('pixel' | 'cell') forces a mode. */
 export function makeSurface(f: Frame): Surface {
   const forced = process.env.SF_UI;
-  const usePixel = forced ? forced === 'pixel' : f.rows >= 46 && f.cols >= 80;
-  return usePixel ? new PixelSurface(f) : new CellSurface(f);
+  if (forced === 'pixel') return new PixelSurface(f);
+  if (forced === 'cell') return new CellSurface(f);
+  const cellPx = Math.round(f.rows * 4 * PIXEL_UNIT);
+  return cellPx >= 2 && f.cols >= 170 ? new PixelSurface(f) : new CellSurface(f);
 }
