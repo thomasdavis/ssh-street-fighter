@@ -141,21 +141,27 @@ class PixelSurface implements Surface {
 export interface SurfaceInfo { kind: 'cell' | 'pixel'; cols: number; rows: number; cellPx: number; mode: string; }
 export let lastSurfaceInfo: SurfaceInfo = { kind: 'cell', cols: 0, rows: 0, cellPx: 0, mode: '-' };
 
-/** Would the pixel backend have a big enough grid (at its ≥2px legible size) to
- *  fit a screen of content here? Below this it overflows, so we use crisp cells. */
-function pixelFits(f: Frame): boolean {
-  const pw = f.cols * 2, ph = f.rows * 4;
+export const MIN_PIXEL_COLS = 48, MIN_PIXEL_ROWS = 22;   // virtual-grid minimum for a full screen of UI
+/** Is the terminal big enough for the (legible, ≥2px) pixel UI to fit? Below
+ *  this we show a "make your terminal bigger" notice instead of a squashed UI. */
+export function pixelReady(cols: number, rows: number): boolean {
+  const pw = cols * 2, ph = rows * 4;
   const cellPx = Math.max(2, Math.round(ph * PIXEL_UNIT));
-  return Math.floor(pw / (4 * cellPx)) >= 48 && Math.floor(ph / (6 * cellPx)) >= 22;
+  return Math.floor(pw / (4 * cellPx)) >= MIN_PIXEL_COLS && Math.floor(ph / (6 * cellPx)) >= MIN_PIXEL_ROWS;
+}
+
+/** Smallest terminal (cols, rows) that satisfies pixelReady — shown in the notice. */
+export function minTerminal(): { cols: number; rows: number } {
+  for (let rows = 20; rows < 300; rows++) if (pixelReady(rows * 3, rows)) {
+    let cols = 40; while (!pixelReady(cols, rows)) cols += 2;
+    return { cols, rows };
+  }
+  return { cols: 200, rows: 68 };
 }
 
 export function makeSurface(f: Frame): Surface {
-  // Constant-size pixel UI when the terminal is big enough for it to read AND
-  // fit; crisp one-cell text otherwise (readable at every zoom). SF_UI forces:
-  // 'pixel' | 'cell'.
-  const forced = process.env.SF_UI;
-  const usePixel = forced === 'pixel' ? true : forced === 'cell' ? false : pixelFits(f);
-  const s = usePixel ? new PixelSurface(f) : new CellSurface(f);
+  // Pixel-only UI. SF_UI=cell is a dev-only escape hatch.
+  const s = process.env.SF_UI === 'cell' ? new CellSurface(f) : new PixelSurface(f);
   lastSurfaceInfo = { kind: s.kind, cols: s.cols, rows: s.rows, cellPx: (s as unknown as { cellPx?: number }).cellPx ?? 0, mode: f.mode };
   return s;
 }

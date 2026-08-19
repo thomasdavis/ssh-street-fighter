@@ -16,6 +16,8 @@ import { composeSceneCached } from '../game/scene.js';
 import { makeRenderPool } from '../render/render-pool.js';
 import { hub, type RosterEntry, type ChatLine, type ChallengePeer } from './hub.js';
 import { drawDebugOverlay, DEBUG_ON } from '../ui/debug.js';
+import { pixelReady } from '../ui/surface.js';
+import { drawTooSmall } from '../ui/notice.js';
 import { MATCH_IDS } from './match-ids.js';
 import { regionOf } from './region.js';
 import { makeFighter, makeMatch, stepMatch, predictLocal, TICK_HZ } from '../game/engine.js';
@@ -34,6 +36,7 @@ const WRAP = '\x1b[?7h';
 const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
 const COLOR_STEP = clamp(parseInt(process.env.SF_COLOR_STEP ?? '1', 10) || 1, 1, 64);
 const INDEXED_COLOR = process.env.SF_COLOR_MODE === '256';
+const SF_UI_CELL = process.env.SF_UI === 'cell';   // dev escape hatch: crisp one-cell UI, no size gate
 
 // Optional pool of render worker threads (SF_RENDER_WORKERS>0). When enabled,
 // the heavy fight render runs off the main thread so the game uses every core;
@@ -297,6 +300,18 @@ export class Session {
   renderCurrent(): void {
     const cols = clamp(this.cols || 120, 24, MAX_COLS);
     const rows = clamp(this.rows || 40, 12, MAX_ROWS);
+    // Pixel-only UI: if the terminal is too small for it to fit, show a "make
+    // your terminal bigger" notice instead of a squashed screen.
+    if (SF_UI_CELL === false && !pixelReady(cols, rows)) {
+      const f = new Frame(cols, rows, this.renderMode);
+      drawTooSmall(f);
+      if (DEBUG_ON) drawDebugOverlay(f);
+      const next = f.toCells(COLOR_STEP);
+      const out = diffCells(this.prevFrame, next, cols, rows, INDEXED_COLOR);
+      if (out) this.write(out);
+      this.prevFrame = next; this.cellsA = this.cellsB = null;
+      return;
+    }
     // Fast path: offload the (expensive) fight render to a worker thread. Menus,
     // help overlays and the practice/versus scene during help stay inline (cheap
     // and stateful). One frame in flight at a time per session — drop, don't
