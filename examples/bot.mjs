@@ -3,20 +3,26 @@
 // SSH Street Fighter — example bot
 // ----------------------------------------------------------------------------
 // A bot is just an ordinary player that reaches the game over an API instead of
-// a terminal. Identity is anchored to your SSH key: you register over SSH, then
-// you play over SSH. You queue for quick matches against humans and bots alike.
+// a terminal. Identity is anchored to your SSH key, so give each bot its own key
+// if its handle, rating, and match history should be independent. Bots queue for
+// quick matches against humans and bots alike.
 //
-//   1. Register (one time), which mints an API key bound to your SSH key:
-//        ssh <yourbot>@sshfighter.com token
+//   1. Create a dedicated key and claim its handle in one interactive login:
+//        ssh-keygen -t ed25519 -f ~/.ssh/sshfighter-mybot -C sshfighter-mybot
+//        ssh -i ~/.ssh/sshfighter-mybot -o IdentitiesOnly=yes MYBOT@sshfighter.com
 //
 //   2. Play — the recommended path streams the match over SSH itself:
-//        node examples/bot.mjs --user <yourbot> --host sshfighter.com --char BYU
+//        node examples/bot.mjs --user MYBOT --host sshfighter.com --char BYU \
+//          --identity ~/.ssh/sshfighter-mybot
 //
-//      That spawns `ssh <yourbot>@sshfighter.com play` and speaks newline-
-//      delimited JSON over the channel. Your SSH key authenticates you, so no
-//      API key is needed on this path.
+//      That spawns `ssh -i <key> -o IdentitiesOnly=yes MYBOT@sshfighter.com play`
+//      and speaks newline-delimited JSON over the channel. No API key is needed
+//      on this path.
 //
-//   3. Direct TCP (if the bot port is reachable) authenticates with the key:
+//   3. Optional: mint an API key for REST or direct TCP access:
+//        ssh -i ~/.ssh/sshfighter-mybot -o IdentitiesOnly=yes MYBOT@sshfighter.com token
+//
+//      Direct TCP (if the bot port is reachable) authenticates with that token:
 //        node examples/bot.mjs --tcp <host>:8091 --key rk_xxx --char BYU
 //
 // Protocol (newline-delimited JSON both ways):
@@ -34,10 +40,38 @@ import net from 'node:net';
 import readline from 'node:readline';
 
 // ---- args ----
-const args = Object.fromEntries(
-  process.argv.slice(2).join(' ').split(/\s+--/).filter(Boolean)
-    .map((s) => s.replace(/^--/, '')).map((s) => { const i = s.indexOf(' '); return i < 0 ? [s, true] : [s.slice(0, i), s.slice(i + 1).trim()]; }),
-);
+const args = {};
+for (let i = 2; i < process.argv.length; i++) {
+  const arg = process.argv[i];
+  if (!arg.startsWith('--')) continue;
+  const name = arg.slice(2);
+  const next = process.argv[i + 1];
+  args[name] = next && !next.startsWith('--') ? process.argv[++i] : true;
+}
+
+if (args.help) {
+  console.log(`Usage:
+  node examples/bot.mjs [--user NAME] [--host HOST] [--char FIGHTER] [--identity KEY]
+  node examples/bot.mjs --tcp HOST:PORT --key rk_xxx [--char FIGHTER]
+
+Options:
+  --identity KEY  Dedicated SSH private key. Also enables IdentitiesOnly=yes.
+  --user NAME     SSH username (default: BOT).
+  --host HOST     SSH host (default: sshfighter.com).
+  --char FIGHTER  Fighter to queue as (default: BYU).
+  --tcp HOST:PORT Use direct TCP instead of the recommended SSH transport.
+  --key TOKEN     API key required by direct TCP.
+  --help          Show this help.`);
+  process.exit(0);
+}
+
+for (const name of ['identity', 'user', 'host', 'char', 'tcp', 'key']) {
+  if (args[name] === true) {
+    console.error(`--${name} requires a value`);
+    process.exit(2);
+  }
+}
+
 const CHAR = args.char || 'BYU';
 const HOST = args.host || 'sshfighter.com';
 const USER = args.user || 'BOT';
@@ -56,8 +90,12 @@ if (args.tcp) {
   preAuthed = false;   // must send {t:'hello',key}
   if (!args.key) { console.error('--tcp requires --key rk_... (mint via: ssh host token)'); process.exit(1); }
 } else {
-  // Spawn ssh and run the `play` command; key auth = registration.
-  const ssh = spawn('ssh', ['-T', `${USER}@${HOST}`, 'play'], { stdio: ['pipe', 'pipe', 'inherit'] });
+  // Spawn ssh and run the `play` command. A dedicated identity keeps this bot's
+  // handle, rating, and match history separate from the operator's account.
+  const sshArgs = ['-T'];
+  if (args.identity) sshArgs.push('-i', String(args.identity), '-o', 'IdentitiesOnly=yes');
+  sshArgs.push(`${USER}@${HOST}`, 'play');
+  const ssh = spawn('ssh', sshArgs, { stdio: ['pipe', 'pipe', 'inherit'] });
   ssh.on('exit', (code) => { console.log(`ssh exited (${code})`); process.exit(code || 0); });
   toGame = (obj) => ssh.stdin.write(JSON.stringify(obj) + '\n');
   lineSource = readline.createInterface({ input: ssh.stdout });
