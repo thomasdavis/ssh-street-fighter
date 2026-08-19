@@ -1,5 +1,5 @@
 // Headless mechanics test for the fluid engine.
-import { makeFighter, makeMatch, stepMatch, ATTACKS, STAGE_RIGHT, specialMoveStats } from './game/engine.js';
+import { makeFighter, makeMatch, stepMatch, ATTACKS, STAGE_RIGHT, MERGE_COMET, specialMoveStats } from './game/engine.js';
 import { emptyInputs, type Inputs } from './game/types.js';
 import { ROSTER } from './game/roster.js';
 import { specialMoveMotionCode, specialMovesFor } from './game/moves.js';
@@ -176,11 +176,13 @@ for (let k = 0; k < 29; k++) stepMatch(m, idle(), idle());
 check('ENTROPY WELL pulls inward and pulses repeatedly', m.b.x - m.a.x < entropyGap && hp - m.b.hp >= 8, `gap=${entropyGap.toFixed(1)}→${(m.b.x - m.a.x).toFixed(1)} dmg=${hp - m.b.hp}`);
 
 // 18) CODEX uses three unique, lower-damage aerial commitments. Context Ascent
-// clears Omega's beam vertically without introducing immunity or reflection.
+// clears Omega's beam vertically without introducing immunity or reflection,
+// then Weight of Evidence may revise only the descending half into a capped dive.
 const codexMoves = specialMovesFor('CODEX');
 const nonCodexAttacks = new Set(ROSTER.filter((character) => character.name !== 'CODEX').flatMap((character) => specialMovesFor(character.name).map((move) => move.attack)));
 check('CODEX specials use three unique attack kinds', new Set(codexMoves.map((move) => move.attack)).size === 3 && codexMoves.every((move) => !nonCodexAttacks.has(move.attack)), codexMoves.map((move) => move.attack).join(','));
 check('CODEX specials stay below Final Testimony damage', codexMoves.every((move) => specialMoveStats(move.attack).maxDamage < specialMoveStats('testimony').maxDamage));
+check('CODEX names its gravity dive WEIGHT OF EVIDENCE', codexMoves.find((move) => move.attack === 'mergecomet')?.name === 'WEIGHT OF EVIDENCE');
 
 m = fresh('CODEX', 'OMEGA'); m.a.x = 58; m.b.x = 182; hp = m.a.hp;
 {
@@ -199,7 +201,20 @@ check('BRANCHWALK commits forward through one aerial lane', m.a.x > 95 && m.a.y 
 m = fresh('CODEX'); m.a.x = 76; m.b.x = 112; hp = m.b.hp;
 { const i = idle(); i.motion = 'DR'; i.kick = true; stepMatch(m, i, idle()); }
 for (let k = 0; k < 22; k++) stepMatch(m, idle(), idle());
-check('MERGE COMET telegraphs a rise before the damaging dive', m.b.hp < hp && m.a.y < 30, `y=${m.a.y.toFixed(1)} dmg=${hp - m.b.hp}`);
+check('WEIGHT OF EVIDENCE telegraphs a rise before the damaging dive', m.b.hp < hp && m.a.y < 30, `y=${m.a.y.toFixed(1)} dmg=${hp - m.b.hp}`);
+
+m = fresh('CODEX'); m.a.x = 76; m.b.x = 114; hp = m.b.hp;
+{ const i = idle(); i.motion = 'DU'; i.punch = true; stepMatch(m, i, idle()); }
+for (let k = 0; k < 5; k++) stepMatch(m, idle(), idle());
+{ const i = idle(); i.motion = 'DR'; i.kick = true; stepMatch(m, i, idle()); }
+check('WEIGHT OF EVIDENCE cannot cancel the Context ascent', m.a.attack === 'context' && m.a.vy > 0, `attack=${m.a.attack} vy=${m.a.vy.toFixed(1)}`);
+for (let k = 0; k < 30 && m.a.vy >= 0; k++) stepMatch(m, idle(), idle());
+const descentY = m.a.y;
+{ const i = idle(); i.motion = 'DR'; i.kick = true; stepMatch(m, i, idle()); }
+const revisedOnDescent = m.a.attack === 'mergecomet' && m.a.attackFrame === MERGE_COMET.startup - 1 && m.a.vy < 0;
+for (let k = 0; k < 12; k++) stepMatch(m, idle(), idle());
+check('WEIGHT OF EVIDENCE cancels Context only on descent', revisedOnDescent && m.b.hp < hp, `startY=${descentY.toFixed(1)} attack=${m.a.attack} dmg=${hp - m.b.hp}`);
+check('WEIGHT OF EVIDENCE compounds to its capped damage on a long fall', hp - m.b.hp === specialMoveStats('mergecomet').maxDamage, `dmg=${hp - m.b.hp}`);
 
 // 19) Every projectile fighter's appearance follows its move definition, not a character-name conditional.
 for (const character of ROSTER) {

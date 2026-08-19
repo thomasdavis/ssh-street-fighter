@@ -154,9 +154,9 @@ const POSES: PoseDef[] = [
   { name: 'branchwalk_1', anchor: 'spin', characters: ['CODEX'], desc: 'BRANCHWALK FRAME 1 of 3: low airborne forward lean with both wing-mantles folding into a narrow arrow and fists guarding' },
   { name: 'branchwalk_2', anchor: 'spin', characters: ['CODEX'], desc: 'BRANCHWALK FRAME 2 of 3: fast horizontal glide right with torso nearly horizontal, fists guarding and wings swept straight back' },
   { name: 'branchwalk_3', anchor: 'spin', characters: ['CODEX'], desc: 'BRANCHWALK FRAME 3 of 3: braking recovery with torso rising, wings flared and lead foot reaching for landing' },
-  { name: 'mergecomet_1', anchor: 'spin', characters: ['CODEX'], desc: 'MERGE COMET FRAME 1 of 3: readable rising setup with knees tucked, both wings high and open, torso guarded' },
-  { name: 'mergecomet_2', anchor: 'spin', characters: ['CODEX'], desc: 'MERGE COMET FRAME 2 of 3: committed steep diagonal dive down and right with one shoulder and knee leading, wings folded back like a comet tail' },
-  { name: 'mergecomet_3', anchor: 'spin', characters: ['CODEX'], desc: 'MERGE COMET FRAME 3 of 3: low three-point landing recovery facing right, one hand near the floor and wings flared to brake' },
+  { name: 'mergecomet_1', anchor: 'spin', characters: ['CODEX'], desc: 'WEIGHT OF EVIDENCE FRAME 1 of 3: readable gravity-seal cast with knees tucked, both wings high and open, one palm inscribing a bright teal sigil below' },
+  { name: 'mergecomet_2', anchor: 'spin', characters: ['CODEX'], desc: 'WEIGHT OF EVIDENCE FRAME 2 of 3: committed steep diagonal plunge down and right with one shoulder and knee leading, wings folded behind a trail of copper glyphs' },
+  { name: 'mergecomet_3', anchor: 'spin', characters: ['CODEX'], desc: 'WEIGHT OF EVIDENCE FRAME 3 of 3: crushing three-point landing inside a compact teal-and-copper gravity seal, one hand near the floor and wings flared to brake' },
 ];
 
 const supportsPose = (c: Char, p: PoseDef): boolean => !p.characters || p.characters.includes(c.id);
