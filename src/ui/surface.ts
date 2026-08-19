@@ -135,8 +135,14 @@ class PixelSurface implements Surface {
  *  ~68+ rows, and a wide enough grid), crisp one-cell text otherwise. This keeps
  *  the UI crisp at every zoom — cell text when zoomed in / normal, constant-size
  *  pixel text when zoomed way out. SF_UI ('pixel' | 'cell') forces a mode. */
+/** Summary of the most recently created surface, for the debug overlay. */
+export interface SurfaceInfo { kind: 'cell' | 'pixel'; cols: number; rows: number; cellPx: number; mode: string; }
+export let lastSurfaceInfo: SurfaceInfo = { kind: 'cell', cols: 0, rows: 0, cellPx: 0, mode: '-' };
+
 export function makeSurface(f: Frame): Surface {
   // Pixel (constant-size) UI by default now that it stays crisp at any zoom;
   // SF_UI=cell forces the one-cell backend.
-  return process.env.SF_UI === 'cell' ? new CellSurface(f) : new PixelSurface(f);
+  const s = process.env.SF_UI === 'cell' ? new CellSurface(f) : new PixelSurface(f);
+  lastSurfaceInfo = { kind: s.kind, cols: s.cols, rows: s.rows, cellPx: (s as unknown as { cellPx?: number }).cellPx ?? 0, mode: f.mode };
+  return s;
 }

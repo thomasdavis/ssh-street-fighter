@@ -15,6 +15,7 @@ import {
 import { composeSceneCached } from '../game/scene.js';
 import { makeRenderPool } from '../render/render-pool.js';
 import { hub, type RosterEntry, type ChatLine, type ChallengePeer } from './hub.js';
+import { drawDebugOverlay, DEBUG_ON } from '../ui/debug.js';
 import { MATCH_IDS } from './match-ids.js';
 import { regionOf } from './region.js';
 import { makeFighter, makeMatch, stepMatch, predictLocal, TICK_HZ } from '../game/engine.js';
@@ -320,6 +321,7 @@ export class Session {
       SCREENS[this.screen].render(this, f);
     }
     if (this.helpOpen) SCREENS.help.render(this, f);
+    if (DEBUG_ON) drawDebugOverlay(f);
     // fill the buffer that ISN'T the current prevFrame (double-buffer); toCells
     // reuses it in place when the size matches, else allocates a fresh one.
     const reuse = this.prevFrame === this.cellsA ? this.cellsB : this.prevFrame === this.cellsB ? this.cellsA : null;
