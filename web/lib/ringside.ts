@@ -82,6 +82,12 @@ export function getReplay(id: string): ReplayData | undefined {
 }
 export function hasReplay(id: string): boolean { return !!one('SELECT 1 FROM replays WHERE match_id=?', id); }
 
+export interface ChatRow { id: number; username: string; message: string; created_at: number }
+/** Most recent Fight Lounge chat, oldest-first (ready to render top-to-bottom). */
+export function chatMessages(limit = 40): ChatRow[] {
+  return q<ChatRow>('SELECT id, username, message, created_at FROM chat_messages ORDER BY id DESC LIMIT ?', limit).reverse();
+}
+
 export function characterStats(): CharRow[] {
   const rows = q<{ char: string; picks: number; wins: number; games: number }>('SELECT char, picks, wins, games FROM char_agg ORDER BY games DESC, char');
   const totalPicks = rows.reduce((s, r) => s + r.picks, 0) || 1;

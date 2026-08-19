@@ -44,6 +44,14 @@ function route(coord: MatchCoordinator | null, req: IncomingMessage, res: Server
     return r ? send(res, 200, r) : send(res, 404, { error: 'match not live' });
   }
 
+  // Live Fight Lounge chat feed for the homepage (read-only view of the banter).
+  if (p === '/api/chat')
+    return send(res, 200, {
+      messages: db.chatHistory(clamp(q.get('limit'), 40, 100)),
+      lounge: coord ? coord.loungeSize : 0,
+      players: coord ? coord.playerCount : 0,
+    });
+
   if (p === '/api/stats') return send(res, 200, store.summary());
   if (p === '/api/leaderboard') return send(res, 200, db.leaderboard(clamp(q.get('limit'), 25, 200)));
   if (p === '/api/characters') return send(res, 200, store.characterStats());
