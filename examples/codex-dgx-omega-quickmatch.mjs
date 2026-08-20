@@ -135,8 +135,7 @@ export function deterministicFixture() {
 }
 
 export function queueWithinBound(value, maximum) {
-  const count = Number(value);
-  return Number.isInteger(count) && count >= 0 && count <= maximum;
+  return typeof value === 'number' && Number.isInteger(value) && value >= 0 && value <= maximum;
 }
 
 export function createOneMatchController(options, io) {

@@ -19,7 +19,8 @@ check('existing queue allowance is explicitly bounded',
     && throws(() => parseArgs(['--dry-run', '--max-existing-queued', '5']), /integer from 0 to 4/));
 check('malformed queue telemetry fails closed',
   queueWithinBound(4, 4) && !queueWithinBound(5, 4)
-    && !queueWithinBound(undefined, 4) && !queueWithinBound('not-a-number', 4));
+    && !queueWithinBound(undefined, 4) && !queueWithinBound(null, 4)
+    && !queueWithinBound('', 4) && !queueWithinBound('4', 4) && !queueWithinBound('not-a-number', 4));
 check('dry-run requires no identity or output', parseArgs(['--dry-run']).dryRun === true);
 check('fixed seed remains OMEG', POLICY_SEED === 0x4f4d4547);
 check('current restart epoch is replay-attested',
