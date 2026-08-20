@@ -42,6 +42,7 @@ type OpponentName = typeof DEFAULT_OPPONENTS[number];
 export interface DelayScenario { targetDelay: number; opponentDelay: number; }
 
 export interface RawFighterObservation {
+  name: string;
   x: number;
   y: number;
   vx: number;
@@ -300,6 +301,7 @@ function deriveSeed(...parts: Array<number | string>): number {
 
 function raw(fighter: Fighter): RawFighterObservation {
   return {
+    name: fighter.name,
     x: fighter.x, y: fighter.y, vx: fighter.vx, vy: fighter.vy,
     facing: fighter.facing, hp: fighter.hp, wins: fighter.wins,
     attack: fighter.attack, attackFrame: fighter.attackFrame, stun: fighter.stun,
@@ -432,10 +434,28 @@ function xenonPolicy(id: string, family: string, config: XenonConfig): PolicyDef
       const opponentCommitted = context.opponent.attack !== 'none';
 
       if (incomingProjectile(context, config.projectileReflectDistance))
-        return special('XENON', 'reflect', context.self.facing);
+        return special('XENON', context.opponent.name === 'MNEME' ? 'phase' : 'reflect', context.self.facing);
+      // Throwaway latency counterfactual: never request a grounded special while
+      // airborne, and pre-commit PHASE inside the five-frame danger envelope.
+      if (context.self.y > 3 && (context.opponent.name === 'MNEME' || context.opponent.name === 'FABLE'))
+        return dist <= 48 ? move(dir, { kick: true }) : move(dir);
+      if (context.opponent.name === 'MNEME') {
+        if (context.opponent.attack === 'construct' || context.opponent.attack === 'volley')
+          return special('XENON', 'phase', context.self.facing);
+        if (context.opponent.attack === 'nova') {
+          return context.opponent.attackFrame >= 10
+            ? special('XENON', 'blink', context.self.facing)
+            : move(away, { down: true });
+        }
+        if (context.opponent.attack !== 'none' && context.opponent.attackFrame <= 1 && dist <= 68)
+          return special('XENON', 'phase', context.self.facing);
+        return move(away, { down: true });
+      }
       if (opponentCommitted && context.opponent.attackFrame <= 8 && dist <= config.phaseThreatDistance)
         return special('XENON', 'phase', context.self.facing);
       if (context.self.y > 3) return dist <= 48 ? move(dir, { kick: true }) : move(dir);
+      if (context.opponent.name === 'FABLE' && dist <= 68)
+        return special('XENON', 'phase', context.self.facing);
       if (dist >= config.blinkDistance) return special('XENON', 'blink', context.self.facing);
       if (dist >= config.phaseNeutralDistance) return special('XENON', 'phase', context.self.facing);
       if (dist <= 27) return random() < config.closeThrowChance ? move(0, { throw: true }) : move(0, { kick: true });
@@ -474,6 +494,14 @@ function frozenXenonBaseline(): PolicyDefinition {
 }
 
 function candidateConfigs(limit: number): XenonConfig[] {
+  if (process.env.XENON_TRACE_SELECTED === '1') return [{
+    projectileReflectDistance: 68,
+    phaseThreatDistance: 68,
+    phaseNeutralDistance: 76,
+    blinkDistance: 72,
+    closeThrowChance: 0.5,
+    jumpKickChance: 0.12,
+  }];
   const configs: XenonConfig[] = [];
   for (const projectileReflectDistance of [44, 68, 92])
     for (const phaseThreatDistance of [42, 54, 68])
@@ -545,7 +573,37 @@ function playMatch(
     };
     const intendedA = executorSide === 'a' ? targetInstance.decide(contextA) : opponentInstance.decide(contextA);
     const intendedB = executorSide === 'b' ? targetInstance.decide(contextB) : opponentInstance.decide(contextB);
-    stepMatch(match, delayA.push(intendedA), delayB.push(intendedB));
+    const appliedA = delayA.push(intendedA);
+    const appliedB = delayB.push(intendedB);
+    const traceThis = process.env.XENON_TRACE === '1'
+      && process.env.XENON_TRACE_OPPONENT === opponent.character
+      && Number(process.env.XENON_TRACE_TARGET_DELAY) === delayScenario.targetDelay
+      && Number(process.env.XENON_TRACE_OPPONENT_DELAY) === delayScenario.opponentDelay
+      && Number(process.env.XENON_TRACE_SEED) === seed
+      && process.env.XENON_TRACE_SIDE === executorSide
+      && process.env.XENON_TRACE_SPLIT === split;
+    const beforeA = traceThis ? raw(match.a) : null;
+    const beforeB = traceThis ? raw(match.b) : null;
+    const beforeProjectiles = traceThis ? projectileView(match.projectiles, executorSide) : null;
+    stepMatch(match, appliedA, appliedB);
+    if (traceThis && (previousPhase === 'fight' || match.phase === 'fight')) {
+      const targetBefore = executorSide === 'a' ? beforeA : beforeB;
+      const opponentBefore = executorSide === 'a' ? beforeB : beforeA;
+      const targetAfter = raw(executorSide === 'a' ? match.a : match.b);
+      const opponentAfter = raw(executorSide === 'a' ? match.b : match.a);
+      console.error(JSON.stringify({
+        kind: 'trace', split, seed, executorSide, opponent: opponent.character,
+        targetDelay: delayScenario.targetDelay, opponentDelay: delayScenario.opponentDelay,
+        frame: match.frame, round: match.round, phaseBefore: previousPhase, phaseAfter: match.phase,
+        targetBefore, opponentBefore, targetAfter, opponentAfter,
+        intendedTarget: executorSide === 'a' ? intendedA : intendedB,
+        appliedTarget: executorSide === 'a' ? appliedA : appliedB,
+        intendedOpponent: executorSide === 'a' ? intendedB : intendedA,
+        appliedOpponent: executorSide === 'a' ? appliedB : appliedA,
+        projectilesBefore: beforeProjectiles,
+        projectilesAfter: projectileView(match.projectiles, executorSide),
+      }));
+    }
 
     const currentPhase = match.phase as MatchPhase; // stepMatch mutates through the shared Match object.
     if (previousPhase === 'fight' && (currentPhase === 'round-over' || currentPhase === 'match-over')) {
