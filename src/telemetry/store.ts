@@ -11,7 +11,8 @@ export interface SideRec {
   eloDelta: number;
 }
 export interface MatchRecord {
-  id: string; mode: 'versus' | 'practice'; stage: string; seed: number; region: string | null; engineVersion: string;
+  id: string; mode: 'versus' | 'practice'; stage: string; seed: number; region: string | null;
+  engineVersion: string; engineCommit: string | null; engineDirty: boolean | null;
   winner: 'a' | 'b' | 'draw' | null; endReason: string; durationFrames: number;
   aEloBefore: number | null; aEloAfter: number | null; bEloBefore: number | null; bEloAfter: number | null;
   startedAt: number; endedAt: number; a: SideRec; b: SideRec;
@@ -23,12 +24,13 @@ export function captureMatch(m: MatchRecord): void {
   const db = getDb();
   const tx = db.transaction((rec: MatchRecord) => {
     db.prepare(`INSERT OR REPLACE INTO matches
-      (id, mode, stage, seed, region, engine_version, a_fp, b_fp, a_name, b_name, a_char, b_char,
+      (id, mode, stage, seed, region, engine_version, engine_commit, engine_dirty, a_fp, b_fp, a_name, b_name, a_char, b_char,
        a_is_bot, b_is_bot, winner, a_rounds, b_rounds, end_reason, duration_frames,
        a_elo_before, a_elo_after, b_elo_before, b_elo_after, started_at, ended_at)
-      VALUES (@id,@mode,@stage,@seed,@region,@ev,@afp,@bfp,@aname,@bname,@achar,@bchar,
+      VALUES (@id,@mode,@stage,@seed,@region,@ev,@ec,@ed,@afp,@bfp,@aname,@bname,@achar,@bchar,
               @abot,@bbot,@winner,@ar,@br,@reason,@dur,@aeb,@aea,@beb,@bea,@start,@end)`).run({
-      id: rec.id, mode: rec.mode, stage: rec.stage, seed: rec.seed, region: rec.region, ev: rec.engineVersion,
+      id: rec.id, mode: rec.mode, stage: rec.stage, seed: rec.seed, region: rec.region,
+      ev: rec.engineVersion, ec: rec.engineCommit, ed: rec.engineDirty == null ? null : Number(rec.engineDirty),
       afp: rec.a.fp, bfp: rec.b.fp, aname: rec.a.name, bname: rec.b.name, achar: rec.a.char, bchar: rec.b.char,
       abot: rec.a.isBot ? 1 : 0, bbot: rec.b.isBot ? 1 : 0, winner: rec.winner, ar: rec.a.roundsWon, br: rec.b.roundsWon,
       reason: rec.endReason, dur: rec.durationFrames,

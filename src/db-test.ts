@@ -11,6 +11,10 @@ const assert = (ok: boolean, message: string): void => {
   else console.log(`PASS  ${message}`);
 };
 
+const matchColumns = db.getDb().prepare('PRAGMA table_info(matches)').all() as Array<{ name: string }>;
+assert(matchColumns.some((column) => column.name === 'engine_commit')
+  && matchColumns.some((column) => column.name === 'engine_dirty'), 'match schema stores exact engine build provenance');
+
 db.touchOrCreate('fp:a'); db.touchOrCreate('fp:b');
 assert(db.setUsername('fp:a', 'ALPHA'), 'create ALPHA');
 assert(db.setUsername('fp:b', 'BRAVO'), 'create BRAVO');

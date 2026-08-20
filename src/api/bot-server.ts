@@ -12,12 +12,20 @@ import { SPECIAL_ATTACK_KINDS, type SpecialAttack } from '../game/moves.js';
 import { ROSTER } from '../game/roster.js';
 import { getByFingerprint } from '../db/db.js';
 import { apiKeyLookup } from '../telemetry/store.js';
+import { VERSION_INFO } from '../version.js';
 import type { P2W } from '../cluster/messages.js';
 import type { MatchCoordinator, WorkerRef } from '../cluster/coordinator.js';
 
 const BOT_WORKER_ID = 900001;          // reserved id so bots don't collide with real workers (1..N)
 const MAX_LINE = 64 * 1024;
 const NAME_TO_IDX = new Map(ROSTER.map((c, i) => [c.name.toUpperCase(), i]));
+const BOT_BUILD = Object.freeze({
+  engine: VERSION_INFO.engine,
+  commit: VERSION_INFO.commit,
+  dirty: VERSION_INFO.dirty,
+  build: VERSION_INFO.build,
+  protocol: VERSION_INFO.botProtocol,
+});
 
 /** True for a connection from this host. The SSH `play` path pipes a key-verified
  *  SSH channel to this server over loopback and vouches for the fingerprint, so a
@@ -76,8 +84,8 @@ const HELP = {
     ping: '{"t":"ping"}',
   },
   receive: {
-    welcome: 'sent after hello; includes your name, elo and the roster',
-    matchStart: '{"t":"matchStart","role":"a|b","stage":..,"oppName":..,"oppCursor":..}',
+    welcome: 'sent after hello; includes your name, elo, roster, engine, commit and build',
+    matchStart: '{"t":"matchStart","role":"a|b","stage":..,"oppName":..,"engine":..,"commit":..,"build":..}',
     state: 'every relayed tick: your fighter (you), opponent (opp), projectiles, phase, round',
     matchEnd: '{"t":"matchEnd","result":{...}}',
     lounge: '{"t":"lounge","roster":[...],"chat":[...]}  presence/chat snapshot after join and updates',
@@ -110,7 +118,10 @@ export function createBotServer(coord: MatchCoordinator): Server {
       switch (msg.t) {
         case 'matchStart':
           c.role = msg.role; c.mid = msg.mid; c.queued = false; c.inLounge = false;
-          return write(c, { t: 'matchStart', mid: msg.mid, role: msg.role, yourCursor: msg.yourCursor, stage: msg.stage, oppName: msg.oppName, oppCursor: msg.oppCursor });
+          return write(c, {
+            t: 'matchStart', mid: msg.mid, role: msg.role, yourCursor: msg.yourCursor,
+            stage: msg.stage, oppName: msg.oppName, oppCursor: msg.oppCursor, ...BOT_BUILD,
+          });
         case 'state': return write(c, stateFor(c, msg.m, msg.ack));
         case 'matchEnd': c.mid = ''; return write(c, { t: 'matchEnd', result: msg.result });
         case 'lounge':
@@ -144,7 +155,10 @@ export function createBotServer(coord: MatchCoordinator): Server {
       if (!fp) return void write(c, { t: 'error', msg: 'invalid api key — mint one with: ssh host token' });
       const player = getByFingerprint(fp);
       c.authed = true; c.fp = fp; c.name = player?.username ?? 'BOT'; c.elo = player?.elo ?? 1200;
-      return write(c, { t: 'welcome', fp: c.fp, name: c.name, elo: c.elo, roster: ROSTER.map((x) => x.name), channel: 'bot-api' });
+      return write(c, {
+        t: 'welcome', fp: c.fp, name: c.name, elo: c.elo,
+        roster: ROSTER.map((x) => x.name), channel: 'bot-api', ...BOT_BUILD,
+      });
     }
     if (!c.authed) return write(c, { t: 'error', msg: 'send {"t":"hello","key":...} first' });
 
@@ -231,7 +245,10 @@ export function createBotServer(coord: MatchCoordinator): Server {
     conns.set(c.sid, c);
     socket.setNoDelay(true);
     socket.setTimeout(120000, () => socket.destroy());   // drop idle bots
-    write(c, { t: 'hi', service: 'ringside-bot', send_hello_with: 'api key from `ssh host token`' });
+    write(c, {
+      t: 'hi', service: 'ringside-bot',
+      send_hello_with: 'api key from `ssh host token`', ...BOT_BUILD,
+    });
     socket.on('data', (chunk) => {
       c.buf += chunk.toString('utf8');
       if (c.buf.length > MAX_LINE) { write(c, { t: 'error', msg: 'line too long' }); socket.destroy(); return; }

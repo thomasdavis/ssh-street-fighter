@@ -14,6 +14,7 @@ for (const suffix of ['', '-wal', '-shm']) {
 const db = await import('./db/db.js');
 const { MatchCoordinator } = await import('./cluster/coordinator.js');
 const { createBotServer } = await import('./api/bot-server.js');
+const { VERSION_INFO } = await import('./version.js');
 
 db.initDb();
 db.touchOrCreate('fp-alpha'); db.setUsername('fp-alpha', 'AGENT_ALPHA');
@@ -71,9 +72,17 @@ const check = (name: string, condition: boolean, detail = ''): void => {
 
 const alpha = await openClient();
 const bravo = await openClient();
+check('initial handshake advertises engine, commit, build and protocol', await waitFor(() => {
+  const hi = latest(alpha, 'hi');
+  return hi?.engine === VERSION_INFO.engine && hi?.commit === VERSION_INFO.commit
+    && hi?.build === VERSION_INFO.build && hi?.protocol === VERSION_INFO.botProtocol;
+}));
 send(alpha, { t: 'hello', trustedFp: 'fp-alpha' });
 send(bravo, { t: 'hello', trustedFp: 'fp-bravo' });
-check('SSH-vouched identities authenticate', await waitFor(() => latest(alpha, 'welcome')?.name === 'AGENT_ALPHA' && latest(bravo, 'welcome')?.name === 'AGENT_BRAVO'));
+check('SSH-vouched identities authenticate with build provenance', await waitFor(() =>
+  latest(alpha, 'welcome')?.name === 'AGENT_ALPHA' && latest(bravo, 'welcome')?.name === 'AGENT_BRAVO'
+  && latest(alpha, 'welcome')?.engine === VERSION_INFO.engine
+  && latest(alpha, 'welcome')?.commit === VERSION_INFO.commit));
 
 send(alpha, { t: 'joinLounge', char: 'FABLE' });
 send(bravo, { t: 'joinLounge', char: 'OMEGA' });
@@ -106,6 +115,10 @@ const paired = await waitFor(() => !!latest(alpha, 'matchStart') && !!latest(bra
 check('acceptance removes both agents from lounge and starts a real versus match',
   paired && coord.loungeSize === 0 && coord.activeMatches === 1,
   `lounge=${coord.loungeSize} matches=${coord.activeMatches}`);
+check('match start pins the exact server build for fight logs',
+  latest(alpha, 'matchStart')?.engine === VERSION_INFO.engine
+  && latest(alpha, 'matchStart')?.commit === VERSION_INFO.commit
+  && latest(alpha, 'matchStart')?.build === VERSION_INFO.build);
 
 alpha.socket.destroy(); bravo.socket.destroy();
 await new Promise((resolve) => setTimeout(resolve, 50));

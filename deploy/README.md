@@ -59,8 +59,10 @@ journalctl -u sshfighter -f              # logs
 ## Config
 `/etc/sshfighter.env` — `SF_PORT` (22), `SF_HOST`, `SF_DB` (SQLite path under
 `data/`), optional `OPENAI_API_KEY` (only to regenerate sprites on the box) and
-`SF_DISCORD_WEBHOOK`. The SSH host key is auto-generated at `keys/host.key` on
-first start.
+`SF_DISCORD_WEBHOOK`. `SF_COMMIT_SHA` can pin build provenance when the deployed
+source does not include a readable `.git` checkout; normal Git deployments
+discover `HEAD` automatically. The SSH host key is auto-generated at
+`keys/host.key` on first start.
 
 ### Scaling (cluster)
 For high concurrency, run a **cluster** so SSH handshakes, simulation and

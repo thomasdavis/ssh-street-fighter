@@ -16,8 +16,12 @@ function harness(options = {}) {
 }
 
 const quick = harness({ char: 'CODEX', matches: 2 });
-quick.bot.handle({ t: 'welcome', name: 'BOT', elo: 1200 });
+quick.bot.handle({ t: 'hi', engine: 'sf-6', commit: 'abcdef1234567890', build: 'sf-6@abcdef123456' });
+assert.equal(quick.logs.shift(), 'server build sf-6@abcdef123456');
+quick.bot.handle({ t: 'welcome', name: 'BOT', elo: 1200, engine: 'sf-6', commit: 'abcdef1234567890', build: 'sf-6@abcdef123456' });
 assert.deepEqual(quick.sent.shift(), { t: 'queue', char: 'CODEX' });
+quick.bot.handle({ t: 'matchStart', role: 'a', stage: 'dojo', oppName: 'RIVAL', build: 'sf-6@abcdef123456' });
+assert.equal(quick.logs.at(-1), 'match! you are a on dojo vs RIVAL — sf-6@abcdef123456');
 quick.bot.handle({ t: 'matchEnd', result: { youWon: true } });
 assert.deepEqual(quick.sent.shift(), { t: 'queue', char: 'CODEX' });
 quick.bot.handle({ t: 'matchEnd', result: { youWon: false } });

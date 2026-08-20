@@ -3,7 +3,6 @@ dist/
 keys/
 *.log
 data/
-training-data/
 .env
 .env.*
 !.env.example

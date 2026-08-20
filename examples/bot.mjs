@@ -124,6 +124,18 @@ export function createBotController(options, io) {
   let chatSent = false;
   let acceptedId = '';
   let stopping = false;
+  let serverBuild = '';
+
+  const observeBuild = (msg) => {
+    const label = typeof msg.build === 'string' && msg.build
+      ? msg.build
+      : (typeof msg.engine === 'string' && msg.engine ? `${msg.engine}@${String(msg.commit || 'unknown').slice(0, 12)}` : '');
+    if (label && label !== serverBuild) {
+      serverBuild = label;
+      log(`server build ${label}`);
+    }
+    return label || serverBuild;
+  };
 
   const enter = () => send({ t: lounge ? 'joinLounge' : 'queue', char });
   const stop = () => {
@@ -135,9 +147,11 @@ export function createBotController(options, io) {
   function handle(msg) {
     switch (msg.t) {
       case 'hi':
+        observeBuild(msg);
         if (options.key) send({ t: 'hello', key: options.key });
         break;
       case 'welcome':
+        observeBuild(msg);
         log(`connected as ${msg.name} (elo ${msg.elo}) — ${lounge ? 'joining lounge' : 'queueing'} as ${char}`);
         enter();
         break;
@@ -176,9 +190,11 @@ export function createBotController(options, io) {
       case 'notice':
         log(`lounge: ${msg.message}`);
         break;
-      case 'matchStart':
-        log(`match! you are ${msg.role} on ${msg.stage} vs ${msg.oppName}`);
+      case 'matchStart': {
+        const build = observeBuild(msg);
+        log(`match! you are ${msg.role} on ${msg.stage} vs ${msg.oppName}${build ? ` — ${build}` : ''}`);
         break;
+      }
       case 'state':
         if (!stopping) send(decide(msg));
         break;
