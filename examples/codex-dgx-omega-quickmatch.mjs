@@ -17,7 +17,9 @@ export const POLICY_SEED = 0x4f4d4547;
 export const POLICY_FUNCTION_SHA256 = 'ab9b903e9ba74b046b1439adccfedc33224c8ed247355335931f026018f86497';
 export const EXPECTED_FINGERPRINT = 'SHA256:w5cpyiWy6jpCFRaLxln5ZOvrWy1x+QoeWC0PAR4La+A';
 export const SOURCE_COMMIT = '3caedf3435c12996cf4d34fb5ac76c7cd7b75076';
-export const MIN_ATTESTED_UPTIME = 6751;
+export const ATTESTATION_MATCH = 'mmt14ue1l4';
+export const ATTESTED_TRACK_SHA256 = 'ab85fb33d48e677b26b128958f9964ffcf44bd0f26d9a64afb4a445d97cd0fc0';
+export const MIN_ATTESTED_UPTIME = 197;
 
 export function parseArgs(argv) {
   const args = { host: 'sshfighter.com', windowMs: 45_000, armed: false, dryRun: false };
@@ -243,7 +245,8 @@ async function run(args) {
   const closeLog = () => { if (!closed) { fsyncSync(fd); closeSync(fd); closed = true; } };
   append('session', { schema: 'sshfighter-omega-quickmatch-v1', armed: true, handle: HANDLE, character: CHARACTER,
     expectedFingerprint: EXPECTED_FINGERPRINT, policy: POLICY, policySeed: POLICY_SEED, policyFunctionSha256,
-    runnerCommit: head, mechanicsSourceCommit: SOURCE_COMMIT, health, initialLive: live,
+    runnerCommit: head, mechanicsSourceCommit: SOURCE_COMMIT, attestationMatch: ATTESTATION_MATCH,
+    attestedTrackSha256: ATTESTED_TRACK_SHA256, health, initialLive: live,
     queueWindowMs: args.windowMs, matchLimit: 1 });
 
   const ssh = spawn('ssh', ['-T', '-i', resolve(args.identity), '-o', 'IdentitiesOnly=yes', `${HANDLE}@${args.host}`, 'play'], { stdio: ['pipe', 'pipe', 'inherit'] });

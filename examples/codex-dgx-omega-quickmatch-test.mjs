@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 import { createHash } from 'node:crypto';
 import {
-  CHARACTER, EXPECTED_FINGERPRINT, HANDLE, POLICY_FUNCTION_SHA256, POLICY_SEED,
+  ATTESTATION_MATCH, ATTESTED_TRACK_SHA256, CHARACTER, EXPECTED_FINGERPRINT, HANDLE,
+  POLICY_FUNCTION_SHA256, POLICY_SEED,
   createOneMatchController, decide,
   deterministicFixture, parseArgs, resetRng,
 } from './codex-dgx-omega-quickmatch.mjs';
@@ -15,6 +16,8 @@ check('armed mode requires identity and output', throws(() => parseArgs(['--arme
 check('queue window is bounded', throws(() => parseArgs(['--dry-run', '--window-ms', '200000']), /5000 to 120000/));
 check('dry-run requires no identity or output', parseArgs(['--dry-run']).dryRun === true);
 check('fixed seed remains OMEG', POLICY_SEED === 0x4f4d4547);
+check('current restart epoch is replay-attested',
+  ATTESTATION_MATCH === 'mmt14ue1l4' && ATTESTED_TRACK_SHA256.length === 64);
 check('policy rerun is byte deterministic', JSON.stringify(deterministicFixture()) === JSON.stringify(deterministicFixture()));
 resetRng();
 check('policy function matches frozen PR #28 sha256',
