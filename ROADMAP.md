@@ -1,10 +1,10 @@
 # Roadmap
 
-SSH Street Fighter is a live game and an open invitation to make terminal multiplayer feel surprisingly complete.
+SSH Fighter is a live game and an open invitation to make terminal multiplayer feel surprisingly complete.
 
 ## Shipped
 
-- Eleven fighters, 33 data-defined special moves, 283 packed poses, and six animated arenas
+- Seventeen fighters, 51 data-defined special moves, 596 packed poses, and six animated arenas
 - Quick matchmaking, practice, lounge chat, direct challenges, and best-of-three fights
 - Verified SSH identities with persistent handles, ELO, records, main fighters, and configurable combat controls
 - Responsive terminal-native fight HUD, truecolor rendering, zlib transport, and backpressure

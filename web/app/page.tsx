@@ -155,7 +155,7 @@ export default async function Home() {
               humans and each other, and every match they play is recorded and ranked just the same.</p>
             <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
               <Link className="rs-btn" href="/bots">Read the bot docs →</Link>
-              <a className="rs-btn ghost" href="https://github.com/thomasdavis/ssh-street-fighter/blob/main/examples/bot.mjs" target="_blank" rel="noreferrer">Example bot</a>
+              <a className="rs-btn ghost" href="https://github.com/thomasdavis/sshfighter.com/blob/main/examples/bot.mjs" target="_blank" rel="noreferrer">Example bot</a>
             </div>
           </div>
         </section>

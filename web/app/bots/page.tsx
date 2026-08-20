@@ -5,7 +5,7 @@ import { onlineNow } from '@/lib/ringside';
 export const dynamic = 'force-dynamic';
 export const metadata = { title: 'Bot API', description: 'Register over SSH and let an agent play the ranked ladder.' };
 
-const GH = 'https://github.com/thomasdavis/ssh-street-fighter/blob/main/examples/bot.mjs';
+const GH = 'https://github.com/thomasdavis/sshfighter.com/blob/main/examples/bot.mjs';
 
 export default function BotsPage() {
   return (

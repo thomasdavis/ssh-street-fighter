@@ -1,6 +1,6 @@
 # Architecture
 
-SSH Street Fighter treats the terminal as a thin display and input device. One Node.js process owns SSH transport, sessions, matchmaking, simulation, and frame production.
+SSH Fighter treats the terminal as a thin display and input device. A Node.js process owns SSH transport, sessions, matchmaking, simulation, and frame production. It runs single-process by default; `SF_WORKERS>1` forks a cluster where each worker serves connections and a primary coordinates cross-worker matches (`cluster/coordinator.ts`), with client-side prediction hiding the round trip.
 
 ```text
 OpenSSH client
@@ -24,13 +24,22 @@ ssh2 server ──► Session ──► screen / Arena / SocialHub
               OpenSSH client
 ```
 
+## The terminal boundary
+
+A `Terminal` (`net/terminal.ts`) owns everything about talking to the client: the SSH duplex stream, backpressure-aware writing, optional capability negotiation, the idle keepalive, and the render backends. The `Session` holds one `Terminal`, composes a `Frame`, and hands it over to paint — it never touches the stream directly. Input flows the other way: the `Terminal` strips any terminal replies/events and passes real keystrokes back to the `Session`.
+
 ## Rendering
 
-The scene is composed into an RGB pixel grid. A terminal cell represents a pair of vertical color regions in half-block mode, giving two addressable pixels per cell with independent foreground and background colors. The renderer then compares the new terminal-cell array with the previous frame and emits cursor moves plus only the SGR channels that changed.
+Every screen — menus and the fight alike — is composed into one RGB pixel grid plus a constant-size pixel font drawn into that same grid (the HUD's health bars, names, timer, and labels are pixel-font, sized so they stay legible at any font zoom). A `Renderer` (`render/renderer.ts`) then turns the grid into bytes:
 
-The fight world uses the pixel renderer while critical HUD information—fighter names, numeric health, health bars, wins, round, timer, announcements, and controls—uses a text-cell overlay with the same color model. The HUD recomposes at content-driven terminal-width tiers, keeping every critical label at one real terminal glyph per character even when font zoom leaves only a 24×12 grid.
+- **`OctantRenderer`** (default) samples each 2×4 / 2×2 / 1×2 block of pixels into one terminal cell using Unicode block glyphs (`octant` / `quadrant` / `half`; `quadrant` is the universal default that renders without drift on any terminal). It double-buffers the resulting cell array and emits a minimal changed-cell ANSI diff — a cursor move plus only the SGR channels that changed.
+- **`KittyRenderer`** (optional, `SF_CAPS=1`) sends the whole grid as one zlib-compressed true-colour image via the kitty graphics protocol, for terminals that support it. It is opt-in per player (`V`) and used only on the mostly-static menus, never the fight.
 
-The server preserves 24-bit values by default. `SF_COLOR_STEP` and `SF_COLOR_MODE=256` exist only as explicit compatibility controls.
+The server preserves 24-bit values by default. `SF_COLOR_STEP` and `SF_COLOR_MODE=256` exist only as explicit compatibility controls. An optional pool of render worker threads (`SF_RENDER_WORKERS`) runs the CPU-heavy fight render off the main thread; everything else stays single-process.
+
+## Optional terminal capabilities
+
+With `SF_CAPS=1`, the `Terminal` probes the client on connect (kitty graphics? kitty keyboard? pixel size?) and enables mouse, focus, in-band-resize, and synchronized-output (mode 2026) reporting. Every reply is stripped from the input stream by `net/caps.ts` before the game sees it, and anything unsupported degrades silently. Off by default, the game is byte-for-byte the universal octant experience.
 
 ## Timing and backpressure
 

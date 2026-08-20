@@ -79,14 +79,14 @@ function bodyFor(item: EventItem): string {
     dropped = 0;
   }
   return JSON.stringify({
-    username: 'SSH Street Fighter',
+    username: 'SSH Fighter',
     allowed_mentions: { parse: [] },
     embeds: [{
       title: clean(item.event.replaceAll('_', ' ').toUpperCase(), 256),
       color: colorFor(item.event),
       fields,
       timestamp: item.at,
-      footer: { text: 'streetfighter.blah.dev' },
+      footer: { text: 'sshfighter.com' },
     }],
   });
 }
@@ -99,7 +99,7 @@ async function deliver(item: EventItem): Promise<boolean> {
   try {
     const response = await fetch(target, {
       method: 'POST',
-      headers: { 'content-type': 'application/json', 'user-agent': 'ssh-street-fighter/0.1' },
+      headers: { 'content-type': 'application/json', 'user-agent': 'sshfighter/0.1' },
       body: bodyFor(item),
       signal: AbortSignal.timeout(6000),
     });

@@ -13,8 +13,8 @@ players connect with just `ssh sshfighter.com`.
 
 ```bash
 # On the new box, as your admin user:
-git clone https://github.com/thomasdavis/ssh-street-fighter.git
-cd ssh-street-fighter
+git clone https://github.com/thomasdavis/sshfighter.com.git
+cd sshfighter
 sudo deploy/bootstrap.sh          # installs everything; adds admin SSH on :2222; does NOT touch :22 yet
 ```
 
@@ -48,7 +48,7 @@ Let's Encrypt over HTTP-01.)
 
 ## Day-to-day (develop + release on the box)
 ```bash
-cd ~/ssh-street-fighter
+cd ~/sshfighter
 git pull
 pnpm install                      # if deps changed
 sudo systemctl restart sshfighter        # game
