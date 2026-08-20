@@ -13,6 +13,7 @@
 //   - m=1/0 : chunk continuation (base64 split at 4096 bytes)
 import { deflateSync } from 'node:zlib';
 import { createGrid, type PixelGrid } from './pixel.js';
+import type { Frame } from './frame.js';
 
 const CHUNK = 4096;
 const ST = '\x1b\\';
@@ -104,6 +105,9 @@ export class KittyRenderer {
   constructor(private readonly imageId: number) {}
 
   reset(): void { this.lastHash = -1; this.lastW = 0; this.lastH = 0; }
+
+  /** Renderer-interface adapter: encode the frame's pixel layer. */
+  render(f: Frame, cols: number, rows: number): string { return this.frame(f.pixel(), cols, rows); }
 
   /** Bytes to draw this frame (empty string if nothing changed). The image is
    *  packed at the grid's own pixel size and scaled to fill `cols`x`rows` cells. */

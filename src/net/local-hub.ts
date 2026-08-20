@@ -74,7 +74,7 @@ export class LocalHub implements Hub {
     s.loungeNotice = `CHALLENGE SENT TO ${to.displayName}`;
     to.loungeNotice = `${s.displayName} CHALLENGED YOU`;
     track('challenge_sent', { challenger: s.displayName, challenged: to.displayName });
-    s.prevFrame = null; to.prevFrame = null;
+    s.forceRedraw(); to.forceRedraw();
   }
   acceptChallenge(s: Session): void {
     const from = s.incoming ? this.find(s.incoming.id) : null;
@@ -88,16 +88,16 @@ export class LocalHub implements Hub {
   declineChallenge(s: Session): void {
     const from = s.incoming ? this.find(s.incoming.id) : null;
     s.incoming = null;
-    if (from) { if (from.outgoing?.id === s.connectionId) from.outgoing = null; from.loungeNotice = `${s.displayName} DECLINED YOUR CHALLENGE`; from.prevFrame = null; }
+    if (from) { if (from.outgoing?.id === s.connectionId) from.outgoing = null; from.loungeNotice = `${s.displayName} DECLINED YOUR CHALLENGE`; from.forceRedraw(); }
     s.loungeNotice = from ? `DECLINED ${from.displayName}` : 'NO CHALLENGE TO DECLINE';
-    s.prevFrame = null;
+    s.forceRedraw();
   }
   cancelChallenge(s: Session): void {
     const to = s.outgoing ? this.find(s.outgoing.id) : null;
     s.outgoing = null;
-    if (to) { if (to.incoming?.id === s.connectionId) to.incoming = null; to.loungeNotice = `${s.displayName} CANCELLED THE CHALLENGE`; to.prevFrame = null; }
+    if (to) { if (to.incoming?.id === s.connectionId) to.incoming = null; to.loungeNotice = `${s.displayName} CANCELLED THE CHALLENGE`; to.forceRedraw(); }
     s.loungeNotice = to ? `CANCELLED CHALLENGE TO ${to.displayName}` : 'NO OUTGOING CHALLENGE';
-    s.prevFrame = null;
+    s.forceRedraw();
   }
 
   // ---- helpers ----
@@ -116,7 +116,7 @@ export class LocalHub implements Hub {
         .map((x) => ({ id: x.connectionId, name: x.displayName, cursor: x.cursor, elo: x.player?.elo ?? null }));
       m.loungeRoster = roster;
       m.loungeChat = chat;
-      m.prevFrame = null;
+      m.forceRedraw();
     }
   }
 }
