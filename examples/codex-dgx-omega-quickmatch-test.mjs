@@ -14,6 +14,9 @@ const throws = (fn, pattern) => { try { fn(); return false; } catch (error) { re
 check('default launch is impossible', throws(() => parseArgs([]), /choose exactly one/));
 check('armed mode requires identity and output', throws(() => parseArgs(['--armed']), /requires --identity and --out/));
 check('queue window is bounded', throws(() => parseArgs(['--dry-run', '--window-ms', '200000']), /5000 to 120000/));
+check('existing queue allowance is explicitly bounded',
+  parseArgs(['--dry-run', '--max-existing-queued', '4']).maxExistingQueued === 4
+    && throws(() => parseArgs(['--dry-run', '--max-existing-queued', '5']), /integer from 0 to 4/));
 check('dry-run requires no identity or output', parseArgs(['--dry-run']).dryRun === true);
 check('fixed seed remains OMEG', POLICY_SEED === 0x4f4d4547);
 check('current restart epoch is replay-attested',
@@ -56,12 +59,12 @@ check('expired queue window leaves without a match', timeoutSent.at(-1)?.t === '
 const unsafeSent = [];
 const unsafe = createOneMatchController({ windowMs: 5000 }, {
   send: (message) => unsafeSent.push(message), append: () => {}, schedule: () => 0, cancel: () => {},
-  assertQueueSafe: async () => { throw new Error('global queue changed before join: 1'); },
+  assertQueueSafe: async () => { throw new Error('global queue exceeds authorized bound before join: 5 > 4'); },
   fetchOfficial: async () => null, finish: () => {},
 });
 await check('connection-time queue race aborts before queueing',
   await unsafe.handle({ t: 'welcome', name: HANDLE, fp: EXPECTED_FINGERPRINT, roster })
-    .then(() => false, (error) => /queue changed/.test(String(error)))
+    .then(() => false, (error) => /exceeds authorized bound/.test(String(error)))
     && unsafeSent.length === 0);
 
 const wrongIdentitySent = [];

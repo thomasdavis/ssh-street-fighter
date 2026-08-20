@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // One-match Quick Match transport for the frozen omega-control-v1 policy.
-// Live operation is impossible without explicit --armed and a zero-queue preflight.
+// Live operation is impossible without explicit --armed and a bounded queue preflight.
 import { spawn, execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import {
@@ -22,20 +22,24 @@ export const ATTESTED_TRACK_SHA256 = 'ab85fb33d48e677b26b128958f9964ffcf44bd0f26
 export const MIN_ATTESTED_UPTIME = 197;
 
 export function parseArgs(argv) {
-  const args = { host: 'sshfighter.com', windowMs: 45_000, armed: false, dryRun: false };
+  const args = { host: 'sshfighter.com', windowMs: 45_000, maxExistingQueued: 0, armed: false, dryRun: false };
   for (let index = 0; index < argv.length; index++) {
     const name = argv[index];
     if (name === '--armed') { args.armed = true; continue; }
     if (name === '--dry-run') { args.dryRun = true; continue; }
-    if (!['--identity', '--out', '--host', '--window-ms'].includes(name)) throw new Error(`unknown argument: ${name}`);
+    if (!['--identity', '--out', '--host', '--window-ms', '--max-existing-queued'].includes(name)) throw new Error(`unknown argument: ${name}`);
     const value = argv[++index];
     if (!value || value.startsWith('--')) throw new Error(`${name} requires a value`);
     if (name === '--window-ms') args.windowMs = Number(value);
+    else if (name === '--max-existing-queued') args.maxExistingQueued = Number(value);
     else args[name.slice(2)] = value;
   }
   if (args.armed === args.dryRun) throw new Error('choose exactly one of --armed or --dry-run');
   if (!Number.isInteger(args.windowMs) || args.windowMs < 5_000 || args.windowMs > 120_000) {
     throw new Error('--window-ms must be an integer from 5000 to 120000');
+  }
+  if (!Number.isInteger(args.maxExistingQueued) || args.maxExistingQueued < 0 || args.maxExistingQueued > 4) {
+    throw new Error('--max-existing-queued must be an integer from 0 to 4');
   }
   if (args.armed && (!args.identity || !args.out)) throw new Error('--armed requires --identity and --out');
   return args;
@@ -164,7 +168,7 @@ export function createOneMatchController(options, io) {
         io.append('queue_window_expired', { windowMs: options.windowMs });
         stop('bounded_queue_window_expired');
       }, options.windowMs);
-      send({ t: 'queue', char: CHARACTER }, 'welcome_zero_queue_preflight');
+      send({ t: 'queue', char: CHARACTER }, 'welcome_authorized_queue_gate');
     } else if (message.t === 'queued') {
       if (message.char !== CHARACTER) throw new Error(`queued wrong character: ${message.char}`);
     } else if (message.t === 'matchStart') {
@@ -235,7 +239,9 @@ async function run(args) {
     fetchJson(`https://${args.host}/api/health`), fetchJson(`https://${args.host}/api/live`),
   ]);
   if (health.engine !== 'sf-6' || Number(health.uptime_s) < MIN_ATTESTED_UPTIME) throw new Error('live mechanics/deployment epoch gate failed');
-  if (Number(live.queued) !== 0) throw new Error(`global queue is not empty: ${live.queued}`);
+  if (Number(live.queued) > args.maxExistingQueued) {
+    throw new Error(`global queue exceeds authorized bound: ${live.queued} > ${args.maxExistingQueued}`);
+  }
 
   mkdirSync(dirname(outputPath), { recursive: true });
   const fd = openSync(outputPath, 'wx', 0o600);
@@ -247,7 +253,7 @@ async function run(args) {
     expectedFingerprint: EXPECTED_FINGERPRINT, policy: POLICY, policySeed: POLICY_SEED, policyFunctionSha256,
     runnerCommit: head, mechanicsSourceCommit: SOURCE_COMMIT, attestationMatch: ATTESTATION_MATCH,
     attestedTrackSha256: ATTESTED_TRACK_SHA256, health, initialLive: live,
-    queueWindowMs: args.windowMs, matchLimit: 1 });
+    queueWindowMs: args.windowMs, maxExistingQueued: args.maxExistingQueued, matchLimit: 1 });
 
   const ssh = spawn('ssh', ['-T', '-i', resolve(args.identity), '-o', 'IdentitiesOnly=yes', `${HANDLE}@${args.host}`, 'play'], { stdio: ['pipe', 'pipe', 'inherit'] });
   const lines = readline.createInterface({ input: ssh.stdout });
@@ -259,7 +265,9 @@ async function run(args) {
     assertQueueSafe: async () => {
       const latest = await fetchJson(`https://${args.host}/api/live`);
       append('queue_gate', { live: latest });
-      if (Number(latest.queued) !== 0) throw new Error(`global queue changed before join: ${latest.queued}`);
+      if (Number(latest.queued) > args.maxExistingQueued) {
+        throw new Error(`global queue exceeds authorized bound before join: ${latest.queued} > ${args.maxExistingQueued}`);
+      }
     },
     fetchOfficial: async (matchId) => {
       for (let attempt = 1; attempt <= 12; attempt++) {
