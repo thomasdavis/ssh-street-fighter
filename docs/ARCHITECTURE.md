@@ -48,7 +48,7 @@ With `SF_CAPS=1`, the `Terminal` probes the client on connect (kitty graphics? k
 - Stage motifs animate at 7.5 Hz.
 - Scene and sprite scaling use bounded caches.
 - A failed stream write marks the session output-blocked. Intermediate obsolete frames are discarded until `drain`, preventing slow clients from accumulating an unbounded animation history.
-- Terminal dimensions are capped at 300×120 for render work. The client may request a larger PTY, but the game never allocates beyond that safety boundary.
+- Terminal dimensions are capped at 900×360 for render work. The client may request a larger PTY, but the game never allocates beyond that safety boundary.
 
 ## Combat and moves
 

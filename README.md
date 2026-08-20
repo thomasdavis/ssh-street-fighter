@@ -203,7 +203,7 @@ The renderer preserves color and detail while limiting transport work:
 - changed-cell ANSI diffs instead of full-frame redraws
 - SSH zlib compression, slow-client backpressure, and obsolete-frame coalescing
 - bounded sprite and stage caches
-- a `300×120` terminal safety cap
+- a `900×360` terminal safety cap
 - native truecolor (`38;2` / `48;2`) unless the operator explicitly opts into indexed mode
 
 See [the architecture guide](docs/ARCHITECTURE.md) for the render and session pipelines.
