@@ -2,6 +2,7 @@ import type { Frame } from '../render/frame.js';
 import type { Key } from '../ui/key.js';
 import type { Session } from '../net/session.js';
 import type { Surface, Rect } from '../ui/surface.js';
+import type { MouseEvent } from '../net/caps.js';
 import { makeSurface } from '../ui/surface.js';
 import { hints, inputField, centerText, SP } from '../ui/widgets.js';
 import { THEME } from '../ui/theme.js';
@@ -181,5 +182,12 @@ export const lounge = {
     if (k.t === 'up') s.loungeCursor = n ? (s.loungeCursor - 1 + n) % n : 0;
     else if (k.t === 'down') s.loungeCursor = n ? (s.loungeCursor + 1) % n : 0;
     else if (k.t === 'enter' || (k.t === 'char' && k.ch.toLowerCase() === 'c')) s.challengeSelected();
+  },
+
+  // Wheel scrolls the chat log (up = into history).
+  onMouse(s: Session, e: MouseEvent): void {
+    if (e.kind !== 'wheel') return;
+    if (e.wheel < 0) s.loungeChatScroll++;
+    else s.loungeChatScroll = Math.max(0, s.loungeChatScroll - 1);
   },
 };

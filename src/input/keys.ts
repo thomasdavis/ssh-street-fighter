@@ -7,6 +7,7 @@
 //   BLOCK is not a key: hold the direction AWAY from your opponent (the engine
 //   derives it from movement vs. facing), exactly like the arcade games.
 import { emptyInputs, type Inputs } from '../game/types.js';
+import type { KittyKey } from '../net/caps.js';
 import {
   DEFAULT_KEY_BINDINGS,
   bindingFromArrowCode,
@@ -23,6 +24,12 @@ export class InputState {
   private leftUntil = 0;
   private rightUntil = 0;
   private downUntil = 0;
+  // Kitty-keyboard mode: real key-up events, so held directions are exact (no
+  // auto-repeat expiry window). Used only when the terminal supports it.
+  private kittyMode = false;
+  private leftHeld = false;
+  private rightHeld = false;
+  private downHeld = false;
   private jumpEdge = false;
   private punchEdge = false;
   private kickEdge = false;
@@ -86,11 +93,40 @@ export class InputState {
     }
   }
 
+  /** Switch to (precise) kitty-keyboard holds, or back to the expiry-window model. */
+  setKittyMode(on: boolean): void {
+    this.kittyMode = on;
+    this.leftHeld = this.rightHeld = this.downHeld = false;
+  }
+
+  /** Apply one kitty-keyboard key event (press / repeat / release). Directions
+   *  become true holds; attacks/jump stay edge-triggered on press. */
+  applyKittyKey(e: KittyKey): void {
+    const now = Date.now();
+    if (e.ch && (e.ch.toLowerCase() === 'q' || e.ch === '\x03')) { if (e.event === 'press') this.quit = true; return; }
+    const token = e.arrow ? bindingFromArrowCode(e.arrow) : e.ch ? bindingFromChar(e.ch) : null;
+    const action = token ? this.actionFor(token) : null;
+    if (!action) return;
+    const down = e.event !== 'release';
+    if (action === 'left') { this.leftHeld = down; if (down) this.pushMotion('L', now); }
+    else if (action === 'right') { this.rightHeld = down; if (down) this.pushMotion('R', now); }
+    else if (action === 'crouch') { this.downHeld = down; if (down) this.pushMotion('D', now); }
+    else if ((action === 'jump' || action === 'jumpAlt') && e.event === 'press') { this.jumpEdge = true; this.pushMotion('U', now); }
+    else if (action === 'punch' && e.event === 'press') this.punchEdge = true;
+    else if (action === 'kick' && e.event === 'press') this.kickEdge = true;
+    else if (action === 'throw' && e.event === 'press') this.throwEdge = true;
+  }
+
   snapshot(): Inputs {
     const now = Date.now();
     const inp: Inputs = emptyInputs();
-    inp.moveX = (now < this.rightUntil ? 1 : 0) - (now < this.leftUntil ? 1 : 0);
-    inp.down = now < this.downUntil;
+    if (this.kittyMode) {
+      inp.moveX = (this.rightHeld ? 1 : 0) - (this.leftHeld ? 1 : 0);
+      inp.down = this.downHeld;
+    } else {
+      inp.moveX = (now < this.rightUntil ? 1 : 0) - (now < this.leftUntil ? 1 : 0);
+      inp.down = now < this.downUntil;
+    }
     inp.jump = this.jumpEdge;
     inp.punch = this.punchEdge;
     inp.kick = this.kickEdge;

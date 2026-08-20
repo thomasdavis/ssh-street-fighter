@@ -13,6 +13,10 @@ export const RESET = `${ESC}[0m`;
 export const HIDE_CURSOR = `${ESC}[?25l`;
 export const SHOW_CURSOR = `${ESC}[?25h`;
 export const CLEAR_SCREEN = `${ESC}[2J${ESC}[H`;
+// Synchronized output (mode 2026): wrap a frame so the terminal never shows a
+// half-painted update (no tearing/flicker). Unknown to older terminals → ignored.
+export const SYNC_BEGIN = `${ESC}[?2026h`;
+export const SYNC_END = `${ESC}[?2026l`;
 
 const DEFAULT_BG: RGB = { r: 16, g: 16, b: 22 };
 

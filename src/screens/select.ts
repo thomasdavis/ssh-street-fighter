@@ -2,6 +2,7 @@ import type { Frame } from '../render/frame.js';
 import type { Key } from '../ui/key.js';
 import type { Session } from '../net/session.js';
 import type { RGB } from '../render/pixel.js';
+import type { MouseEvent } from '../net/caps.js';
 import { composeSelectStage, selectLayout, SELECT_COLS } from '../game/select-scene.js';
 import { makeSurface } from '../ui/surface.js';
 import { hints, centerText } from '../ui/widgets.js';
@@ -12,6 +13,13 @@ import * as db from '../db/db.js';
 const DIFF_COLOR: Record<Character['difficulty'], RGB> = {
   Beginner: THEME.good, Intermediate: THEME.accent, Advanced: THEME.bad,
 };
+
+function confirm(s: Session): void {
+  if (!s.guest && s.fp) db.setMainChar(s.fp, s.cursor);
+  s.trackEvent('fighter_selected', { fighter: characterAt(s.cursor).name, mode: s.selectMode });
+  if (s.selectMode === 'practice') s.startPractice(s.cursor);
+  else s.joinLobby();
+}
 
 export const select = {
   render(s: Session, f: Frame): void {
@@ -57,11 +65,23 @@ export const select = {
     else if (k.t === 'up' || isCh('w')) { const t = s.cursor - SELECT_COLS; if (t >= 0) s.cursor = t; }
     else if (k.t === 'down' || isCh('s')) { const t = s.cursor + SELECT_COLS; if (t < n) s.cursor = t; }
     else if (k.t === 'esc' || isCh('q')) s.goTo('menu');
-    else if (k.t === 'enter' || (k.t === 'char' && (k.ch === 'j' || k.ch === ' '))) {
-      if (!s.guest && s.fp) db.setMainChar(s.fp, s.cursor);
-      s.trackEvent('fighter_selected', { fighter: characterAt(s.cursor).name, mode: s.selectMode });
-      if (s.selectMode === 'practice') s.startPractice(s.cursor);
-      else s.joinLobby();
+    else if (k.t === 'enter' || (k.t === 'char' && (k.ch === 'j' || k.ch === ' '))) confirm(s);
+  },
+
+  // Click a portrait to select it; click the already-selected one to start.
+  onMouse(s: Session, e: MouseEvent, pw: number, ph: number): void {
+    if (e.kind !== 'down') return;
+    const n = ROSTER.length;
+    const cx = (e.col - 0.5) * 2;   // cell → pixel-layer coords (each cell is 2x4 subpixels)
+    const cy = (e.row - 0.5) * 4;
+    const L = selectLayout(pw, ph, n);
+    for (let i = 0; i < n; i++) {
+      const b = L.boxes[i]!;
+      if (cx >= b.x && cx < b.x + b.w && cy >= b.y && cy < b.y + b.h) {
+        if (i === ((s.cursor % n) + n) % n) confirm(s);
+        else s.cursor = i;
+        return;
+      }
     }
   },
 };

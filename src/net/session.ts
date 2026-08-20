@@ -1,6 +1,8 @@
 import type { Duplex } from 'stream';
-import { HIDE_CURSOR, SHOW_CURSOR, CLEAR_SCREEN, RESET } from '../render/pixel.js';
+import { HIDE_CURSOR, SHOW_CURSOR, CLEAR_SCREEN, RESET, SYNC_BEGIN, SYNC_END } from '../render/pixel.js';
 import { Frame, diffCells, type RenderMode, type Cell } from '../render/frame.js';
+import { KittyRenderer, deleteImage } from '../render/kitty.js';
+import { Caps, SETUP, MOUSE_ON, TEARDOWN, FIGHT_KEYBOARD_ON, FIGHT_KEYBOARD_OFF, probeSequence, GRAPHICS_IMAGE_ID, type MouseEvent, type KittyKey } from './caps.js';
 import { parseKeys, type Key } from '../ui/key.js';
 import { InputState } from '../input/keys.js';
 import {
@@ -38,6 +40,9 @@ const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v
 const COLOR_STEP = clamp(parseInt(process.env.SF_COLOR_STEP ?? '1', 10) || 1, 1, 64);
 const INDEXED_COLOR = process.env.SF_COLOR_MODE === '256';
 const SF_UI_CELL = process.env.SF_UI === 'cell';   // dev escape hatch: crisp one-cell UI, no size gate
+// Terminal capability negotiation (graphics / kitty-keyboard / mouse / resize).
+// SF_CAPS=0 disables it entirely → pure legacy behaviour (instant rollback valve).
+const CAPS_ENABLED = process.env.SF_CAPS !== '0';
 
 // Optional pool of render worker threads (SF_RENDER_WORKERS>0). When enabled,
 // the heavy fight render runs off the main thread so the game uses every core;
@@ -67,6 +72,11 @@ export class Session {
   cols = 120; rows = 40;
   region = 'XX';           // coarse continent for region-aware matchmaking
   private lastWriteAt = Date.now();  // for the idle keepalive
+  // terminal capabilities (graphics / kitty-keyboard / mouse), probed on connect.
+  // Everything degrades gracefully to the octant renderer + legacy input.
+  private caps: Caps;
+  graphics = false;                              // true → render via kitty graphics
+  private kitty = new KittyRenderer(GRAPHICS_IMAGE_ID);
   prevFrame: Cell[] | null = null;
   // two persistent cell buffers; render ping-pongs between them so steady-state
   // rendering reuses them in place (zero per-frame allocation, minimal GC).
@@ -159,6 +169,18 @@ export class Session {
     this.postCalibrate = landing;
     this.screen = 'calibrate';
     this.fightInput = new InputState(this.keyBindings);
+    this.caps = new Caps({
+      onProbeDone: (c) => {
+        this.graphics = c.graphics;
+        if (c.graphics || c.kittyKeyboard) this.write(MOUSE_ON);   // modern terminal → SGR mouse is safe
+        this.kitty.reset(); this.prevFrame = null; this.forceFull = true;   // switch renderers cleanly
+        this.trackEvent('terminal_caps', { graphics: c.graphics, kitty_keyboard: c.kittyKeyboard, client: this.clientSoftware });
+      },
+      onResize: (cols, rows) => this.resize(cols, rows),
+      onFocus: (focused) => { if (focused) { this.prevFrame = null; this.forceFull = true; this.kitty.reset(); } },
+      onMouse: (e) => this.onMouse(e),
+      onKittyKey: (e) => this.onKittyKey(e),
+    });
     HUB.register(this);
   }
 
@@ -175,7 +197,9 @@ export class Session {
 
   start(): void {
     this.trackEvent('game_session_started', { identity: this.guest ? 'guest' : 'verified_key', client: this.clientSoftware });
-    this.write(HIDE_CURSOR + NOWRAP + CLEAR_SCREEN);
+    // Enable focus/resize reporting, then probe for graphics + kitty keyboard.
+    // Replies are stripped by caps.consume() before the game sees them.
+    this.write(HIDE_CURSOR + NOWRAP + CLEAR_SCREEN + (CAPS_ENABLED ? SETUP + probeSequence() : ''));
     this.stream.on('data', (d: Buffer) => this.onData(d));
     this.stream.on('close', () => this.close());
     this.stream.on('error', () => this.close());
@@ -196,20 +220,25 @@ export class Session {
   }
 
   resize(cols: number, rows: number): void {
-    if (cols > 0) this.cols = cols;
-    if (rows > 0) this.rows = rows;
+    const c = cols > 0 ? cols : this.cols;
+    const r = rows > 0 ? rows : this.rows;
+    if (c === this.cols && r === this.rows) return;   // SSH window-change + in-band 2048 both fire — dedupe
+    this.cols = c; this.rows = r;
     this.prevFrame = null;
     this.forceFull = true;
+    this.kitty.reset();
     this.write(CLEAR_SCREEN);
   }
 
   goTo(screen: ScreenName): void {
     const previous = this.screen;
+    if (previous === 'fight' && screen !== 'fight') this.fightKeyboard(false);   // pop kitty keyboard on exit
     if (this.screen === 'lounge' && screen !== 'lounge') HUB.leaveLounge(this);
     this.screen = screen;
     this.menuIndex = 0;
     this.errorMsg = '';
     this.prevFrame = null;
+    this.kitty.reset();
     if (previous !== screen) this.screenInputGuardUntil = Date.now() + 120;
     this.write(CLEAR_SCREEN);
     if (screen === 'leaderboard') this.leader = db.leaderboard(10);
@@ -220,20 +249,27 @@ export class Session {
   // ---------- input ----------
   private onData(d: Buffer): void {
     if (!this.alive) return;
+    // Strip + dispatch terminal replies/events (probe answers, mouse, focus,
+    // resize, kitty-keyboard) first; only real keystrokes remain in `rest`.
+    const rest = CAPS_ENABLED ? this.caps.consume(d) : d;
+    if (rest.length === 0) return;
     // Some clients split CRLF across packets. Ignore a trailing newline-only
     // packet immediately after a transition instead of pressing Enter again.
-    if (Date.now() < this.screenInputGuardUntil && /^[\r\n]+$/.test(d.toString('latin1'))) return;
+    if (Date.now() < this.screenInputGuardUntil && /^[\r\n]+$/.test(rest.toString('latin1'))) return;
     if (this.helpOpen) { this.helpOpen = false; this.prevFrame = null; this.forceFull = true; return; }
-    let data = d;
-    // 'v' cycles the view mode — sharp octant pixels <-> compatible cell text —
-    // so players whose terminal can't render octant can switch to something legible
-    // (and it's remembered). Not while typing a name or in the lounge chat.
+    let data = rest;
+    // 'v' cycles the view mode — graphics (if supported) → sharp octant → compatible
+    // quadrant — so players can pick what renders best. Not while typing a name or
+    // in the lounge chat.
     if (this.screen !== 'username' && this.screen !== 'lounge' && /[vV]/.test(data.toString('latin1'))) {
-      this.setViewMode(this.renderMode === 'octant' ? 'quadrant' : 'octant');
+      this.cycleView();
       data = Buffer.from(data.toString('latin1').replace(/[vV]/g, ''), 'latin1');
       if (data.length === 0) return;
     }
     if (this.screen === 'fight') {
+      // With kitty keyboard active, fight keys arrive as CSI events via onKittyKey,
+      // so nothing is left to feed here.
+      if (this.caps.kittyKeyActive) return;
       // Fight controls use their own hold/motion parser, so handle the overlay
       // key here before forwarding bytes. Any key closes help without also
       // becoming an accidental punch, kick, movement, or quit input.
@@ -297,6 +333,25 @@ export class Session {
   }
   private renderAccum = 0;
 
+  /** Build the Frame for the current screen (fight scene + HUD, or screen UI).
+   *  Both the octant and the graphics backends render from this same pixel layer. */
+  private composeFrame(cols: number, rows: number): Frame {
+    const f = new Frame(cols, rows, this.renderMode);
+    if (this.screen === 'fight' && this.match) {
+      f.usePixel(composeSceneCached(this.match, cols * 2, rows * 4, this.practice));
+      drawFightHud(f, this.match, this.practice, this.keyBindings);
+    } else {
+      SCREENS[this.screen].render(this, f);
+    }
+    if (this.helpOpen) SCREENS.help.render(this, f);
+    if (DEBUG_ON) drawDebugOverlay(f);
+    return f;
+  }
+
+  /** Wrap a paint in synchronized-output (mode 2026) so the terminal never shows
+   *  a half-drawn frame. Harmlessly ignored by terminals that don't support it. */
+  private paint(out: string): void { if (out) this.write(CAPS_ENABLED ? SYNC_BEGIN + out + SYNC_END : out); }
+
   renderCurrent(): void {
     const cols = clamp(this.cols || 120, 24, MAX_COLS);
     const rows = clamp(this.rows || 40, 12, MAX_ROWS);
@@ -307,9 +362,16 @@ export class Session {
       drawTooSmall(f);
       if (DEBUG_ON) drawDebugOverlay(f);
       const next = f.toCells(COLOR_STEP);
-      const out = diffCells(this.prevFrame, next, cols, rows, INDEXED_COLOR);
-      if (out) this.write(out);
+      this.paint(diffCells(this.prevFrame, next, cols, rows, INDEXED_COLOR));
       this.prevFrame = next; this.cellsA = this.cellsB = null;
+      return;
+    }
+    // Graphics backend: send the whole pixel layer as one kitty image (true
+    // colour, scaled to fill the grid). Only when the terminal supports it —
+    // everyone else keeps the octant renderer below. Bypasses the render pool.
+    if (this.graphics) {
+      const f = this.composeFrame(cols, rows);
+      this.paint(this.kitty.frame(f.pixel(), cols, rows));
       return;
     }
     // Fast path: offload the (expensive) fight render to a worker thread. Menus,
@@ -321,22 +383,11 @@ export class Session {
       this.renderInFlight = true;
       const full = this.forceFull; this.forceFull = false;
       RENDER_POOL.render(this.sid, this.match, cols, rows, this.renderMode, this.practice, this.keyBindings, full)
-        .then((bytes) => { this.renderInFlight = false; if (this.alive && bytes) this.write(bytes); })
+        .then((bytes) => { this.renderInFlight = false; if (this.alive && bytes) this.paint(bytes); })
         .catch(() => { this.renderInFlight = false; this.forceFull = true; });
       return;
     }
-    const f = new Frame(cols, rows, this.renderMode);
-    if (this.screen === 'fight' && this.match) {
-      // Render the stage at native pixel resolution. Critical HUD information
-      // is a separate text-cell overlay, so font zoom never scales it below one
-      // readable terminal glyph per character.
-      f.usePixel(composeSceneCached(this.match, cols * 2, rows * 4, this.practice));
-      drawFightHud(f, this.match, this.practice, this.keyBindings);
-    } else {
-      SCREENS[this.screen].render(this, f);
-    }
-    if (this.helpOpen) SCREENS.help.render(this, f);
-    if (DEBUG_ON) drawDebugOverlay(f);
+    const f = this.composeFrame(cols, rows);
     // fill the buffer that ISN'T the current prevFrame (double-buffer); toCells
     // reuses it in place when the size matches, else allocates a fresh one.
     const reuse = this.prevFrame === this.cellsA ? this.cellsB : this.prevFrame === this.cellsB ? this.cellsA : null;
@@ -344,8 +395,7 @@ export class Session {
     if (nextCells !== this.cellsA && nextCells !== this.cellsB) {
       if (this.prevFrame === this.cellsA) this.cellsB = nextCells; else this.cellsA = nextCells;
     }
-    const out = diffCells(this.prevFrame, nextCells, cols, rows, INDEXED_COLOR);
-    if (out) this.write(out);
+    this.paint(diffCells(this.prevFrame, nextCells, cols, rows, INDEXED_COLOR));
     this.prevFrame = nextCells;
   }
 
@@ -356,6 +406,8 @@ export class Session {
     this.lastAttackA = 'none'; this.lastAttackB = 'none';
     this.screen = 'fight'; this.prevFrame = null; this.forceFull = true;
     this.write(CLEAR_SCREEN + HIDE_CURSOR + NOWRAP);
+    this.kitty.reset();
+    this.fightKeyboard(true);
   }
 
   startPractice(charIdx: number): void {
@@ -381,6 +433,8 @@ export class Session {
     this.trackEvent('practice_started', { fighter: you.name, dummy: dummy.name, stage: m.stage, match_id: mid });
     this.screen = 'fight'; this.prevFrame = null; this.forceFull = true;
     this.write(CLEAR_SCREEN + HIDE_CURSOR + NOWRAP);
+    this.kitty.reset();
+    this.fightKeyboard(true);
   }
 
   /** Flush the current practice recording to the Ringside store (best-effort). */
@@ -475,6 +529,8 @@ export class Session {
     this.trackEvent('quick_match_paired', { fighter: ca.name, opponent: oppName });
     this.screen = 'fight'; this.prevFrame = null; this.forceFull = true;
     this.write(CLEAR_SCREEN + HIDE_CURSOR + NOWRAP);
+    this.kitty.reset();
+    this.fightKeyboard(true);
   }
   applyRemoteState(mid: string, m: Match, ack: number): void {
     if (mid !== this.remoteMid) return;
@@ -536,6 +592,49 @@ export class Session {
     if (!this.guest && this.fp) { db.setViewMode(this.fp, mode); this.player = db.getByFingerprint(this.fp) ?? this.player; }
   }
 
+  /** 'v' cycles the visible renderer: graphics (if the terminal supports it) →
+   *  octant → quadrant → back around. Graphics is not persisted; octant/quadrant is. */
+  private cycleView(): void {
+    if (this.graphics) {
+      this.write(deleteImage(GRAPHICS_IMAGE_ID) + CLEAR_SCREEN);
+      this.graphics = false; this.prevFrame = null; this.forceFull = true;
+      this.renderMode = 'octant';
+      this.trackEvent('view_mode_changed', { mode: 'octant' });
+      if (!this.guest && this.fp) { db.setViewMode(this.fp, 'octant'); this.player = db.getByFingerprint(this.fp) ?? this.player; }
+    } else if (this.renderMode === 'octant') {
+      this.setViewMode('quadrant');
+    } else if (this.caps.graphics) {
+      this.graphics = true; this.kitty.reset(); this.prevFrame = null; this.forceFull = true;
+      this.write(CLEAR_SCREEN);
+      this.trackEvent('view_mode_changed', { mode: 'graphics' });
+    } else {
+      this.setViewMode('octant');
+    }
+  }
+
+  /** Enable/disable the kitty keyboard protocol around a fight, so held keys give
+   *  real press/release events (precise blocking, holds, charges). No-op when the
+   *  terminal doesn't support it. */
+  private fightKeyboard(on: boolean): void {
+    if (!this.caps.kittyKeyboard) return;
+    if (on && !this.caps.kittyKeyActive) { this.write(FIGHT_KEYBOARD_ON); this.caps.kittyKeyActive = true; this.fightInput.setKittyMode(true); }
+    else if (!on && this.caps.kittyKeyActive) { this.write(FIGHT_KEYBOARD_OFF); this.caps.kittyKeyActive = false; this.fightInput.setKittyMode(false); }
+  }
+
+  private onMouse(e: MouseEvent): void {
+    if (!this.alive || this.helpOpen) return;
+    const pw = clamp(this.cols || 120, 24, MAX_COLS) * 2;
+    const ph = clamp(this.rows || 40, 12, MAX_ROWS) * 4;
+    SCREENS[this.screen].onMouse?.(this, e, pw, ph);
+  }
+
+  private onKittyKey(e: KittyKey): void {
+    if (!this.alive || this.screen !== 'fight') return;
+    if (this.helpOpen) { if (e.event === 'press') { this.helpOpen = false; this.prevFrame = null; this.forceFull = true; } return; }
+    if (e.ch === '?') { if (e.event === 'press') { this.helpOpen = true; this.prevFrame = null; this.trackEvent('move_help_opened', { fighter: this.ownFighterName() }); } return; }
+    this.fightInput.applyKittyKey(e);
+  }
+
   resetKeyBindings(): void {
     this.keyBindings = DEFAULT_KEY_BINDINGS;
     this.persistKeyBindings();
@@ -575,7 +674,10 @@ export class Session {
       other.match = null; other.peer = null; other.isStepper = false;
       other.goTo('results');
     }
-    try { this.stream.write(SHOW_CURSOR + WRAP + RESET + '\r\n'); this.stream.end(); } catch { /* ignore */ }
+    // Undo everything we turned on: our image, kitty keyboard (if pushed), mouse /
+    // focus / resize reporting, then restore the cursor and wrap.
+    const teardown = deleteImage(GRAPHICS_IMAGE_ID) + (this.caps.kittyKeyActive ? FIGHT_KEYBOARD_OFF : '') + TEARDOWN;
+    try { this.stream.write(teardown + SHOW_CURSOR + WRAP + RESET + '\r\n'); this.stream.end(); } catch { /* ignore */ }
   }
 
   private ownFighterName(): string {
