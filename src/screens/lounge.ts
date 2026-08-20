@@ -1,38 +1,89 @@
 import type { Frame } from '../render/frame.js';
 import type { Key } from '../ui/key.js';
 import type { Session } from '../net/session.js';
-import type { Surface } from '../ui/surface.js';
+import type { Surface, Rect } from '../ui/surface.js';
 import { makeSurface } from '../ui/surface.js';
 import { hints, inputField, centerText, SP } from '../ui/widgets.js';
 import { THEME } from '../ui/theme.js';
 import { characterAt } from '../game/roster.js';
 
-// Reads only the session's hub-filled caches (loungeRoster / loungeChat /
-// incoming / outgoing) — plain data, so it renders identically whether the
-// other players are in this process or on other cluster workers.
-function drawMessages(s: Session, ui: Surface, x: number, y: number, w: number, h: number): void {
-  type Line = { prefix?: string; text: string };
-  const lines: Line[] = [];
-  const iw = Math.floor(w);
-  for (const message of s.loungeChat) {
-    const prefix = `${message.username}: `;
-    const firstW = Math.max(1, iw - prefix.length);
-    lines.push({ prefix, text: message.message.slice(0, firstW) });
-    let rest = message.message.slice(firstW);
-    while (rest.length) { lines.push({ text: `  ${rest.slice(0, Math.max(1, iw - 2))}` }); rest = rest.slice(Math.max(1, iw - 2)); }
+const clamp = (v: number, lo: number, hi: number): number => Math.max(lo, Math.min(hi, v));
+
+// Word-wrap a message body: the first line fits `firstW`, the rest `contW`
+// (continuation lines are indented under the speaker's name). Over-long words
+// are hard-broken so nothing overflows the panel.
+function wrapMessage(body: string, firstW: number, contW: number): string[] {
+  const words = body.split(/\s+/).filter(Boolean);
+  const out: string[] = [];
+  let cur = '', w = Math.max(1, firstW);
+  const flush = (): void => { out.push(cur); cur = ''; w = Math.max(1, contW); };
+  for (let word of words) {
+    while (word.length > w) { if (cur) flush(); out.push(word.slice(0, w)); word = word.slice(w); w = Math.max(1, contW); }
+    if (!cur) cur = word;
+    else if (cur.length + 1 + word.length <= w) cur += ' ' + word;
+    else { flush(); cur = word; }
   }
-  const visible = lines.slice(-Math.max(0, Math.floor(h)));
-  if (!visible.length) {
-    ui.text(x, y + 1, 'NO MESSAGES YET.', { color: THEME.textDim });
-    ui.text(x, y + 2, 'TYPE BELOW AND PRESS ENTER.', { color: THEME.textDim });
+  out.push(cur);
+  return out;
+}
+
+// Reads only the session's hub-filled caches (loungeRoster / loungeChat) — plain
+// data, so it renders identically whether the peers are in this process or on
+// other cluster workers.
+function drawMessages(s: Session, ui: Surface, r: Rect): void {
+  const x = r.x, iw = Math.max(1, Math.floor(r.w));
+  const pitch = 1.2;
+  const capacity = Math.max(1, Math.floor(r.h / pitch));
+  if (!s.loungeChat.length) {
+    ui.text(x, r.y + 0.4, 'NO MESSAGES YET.', { color: THEME.textDim });
+    ui.text(x, r.y + 0.4 + pitch, 'TYPE BELOW AND PRESS ENTER.', { color: THEME.textDim });
     return;
   }
+  type Line = { prefix?: string; indent: number; text: string };
+  const lines: Line[] = [];
+  for (const m of s.loungeChat) {
+    const prefix = `${m.username}: `;
+    const wrapped = wrapMessage(m.message, iw - prefix.length, iw - 2);
+    lines.push({ prefix, indent: 0, text: wrapped[0] ?? '' });
+    for (let j = 1; j < wrapped.length; j++) lines.push({ indent: 2, text: wrapped[j]! });
+  }
+  const visible = lines.slice(-capacity);
   for (let i = 0; i < visible.length; i++) {
-    const line = visible[i]!;
+    const line = visible[i]!, ly = r.y + i * pitch;
     if (line.prefix) {
-      ui.text(x, y + i, line.prefix, { color: THEME.accent, bold: true });
-      ui.text(x + line.prefix.length, y + i, line.text, { color: THEME.text });
-    } else ui.text(x, y + i, line.text, { color: THEME.textDim });
+      ui.text(x, ly, line.prefix, { color: THEME.accent, bold: true });
+      ui.text(x + line.prefix.length, ly, line.text, { color: THEME.text });
+    } else ui.text(x + line.indent, ly, line.text, { color: THEME.text });
+  }
+}
+
+function drawPlayers(s: Session, ui: Surface, r: Rect, active: boolean): void {
+  const roster = s.loungeRoster;
+  const x = r.x, iw = Math.floor(r.w);
+  if (!roster.length) {
+    ui.text(x, r.y + 0.4, 'NOBODY ELSE', { color: THEME.textDim });
+    ui.text(x, r.y + 0.4 + SP.line, 'ONLINE YET.', { color: THEME.textDim });
+    ui.text(x, r.y + 0.4 + SP.line * 2.4, 'INVITE A FRIEND', { color: THEME.textDim });
+    ui.text(x, r.y + 0.4 + SP.line * 3.4, 'TO SSH IN.', { color: THEME.textDim });
+    return;
+  }
+  s.loungeCursor = clamp(s.loungeCursor, 0, roster.length - 1);
+  const pitch = SP.row;
+  const rows = Math.max(1, Math.floor(r.h / pitch));
+  // scroll so the cursor stays on screen when the roster is longer than the box
+  const start = roster.length <= rows ? 0 : clamp(s.loungeCursor - Math.floor(rows / 2), 0, roster.length - rows);
+  const end = Math.min(roster.length, start + rows);
+  // adaptive columns: drop the character column on a narrow panel, ELO if narrower still
+  const eloW = 5, showChar = iw >= 26, charW = showChar ? 8 : 0, showElo = iw >= 16;
+  const nameW = Math.max(3, iw - 2 - charW - (showElo ? eloW : 0));
+  for (let i = start; i < end; i++) {
+    const p = roster[i]!, sel = active && i === s.loungeCursor;
+    const ry = r.y + 0.3 + (i - start) * pitch;
+    if (sel) ui.fill(x - 0.7, ry - 0.3, r.w + 1.4, 1.2, THEME.select);
+    let row = `${sel ? '▶' : ' '} ${p.name.slice(0, nameW).padEnd(nameW)}`;
+    if (showChar) row += ` ${characterAt(p.cursor).name.slice(0, 7).padEnd(7)}`;
+    if (showElo) row += ` ${String(p.elo ?? '---').padStart(4)}`;
+    ui.text(x, ry, row.slice(0, iw), { color: sel ? THEME.selectText : THEME.text });
   }
 }
 
@@ -40,63 +91,60 @@ export const lounge = {
   render(s: Session, f: Frame): void {
     const ui = makeSurface(f);
     ui.gradient(THEME.bgTop, THEME.bgBot);
-    ui.heading(1, 'FIGHT LOUNGE', THEME.accent, 1);
-    const hy = 1 + ui.headingHeight(1) + Math.round(SP.gap);
+    ui.heading(0, 'FIGHT LOUNGE', THEME.accent, 1);
+
     const you = characterAt(s.cursor);
     const ownElo = s.player ? String(s.player.elo) : 'UNRATED';
-    centerText(ui, hy, `${s.displayName}  ·  ${you.name}  ·  ELO ${ownElo}`, { color: THEME.accent2 });
+    const headH = ui.headingHeight(1);
+    centerText(ui, headH, `${s.displayName}  ·  ${you.name}  ·  ELO ${ownElo}`, { color: THEME.accent2 });
 
-    const banner = hy + SP.row;
+    const bannerY = headH + 1;
     if (s.incoming) {
-      ui.fill(0, banner - 0.2, ui.cols, 1.2, THEME.select);
-      centerText(ui, banner, `${s.incoming.name} CHALLENGED YOU  ·  Y ACCEPT / N DECLINE`, { color: THEME.selectText });
+      ui.fill(0, bannerY - 0.15, ui.cols, 1.2, THEME.select);
+      centerText(ui, bannerY, `${s.incoming.name} CHALLENGED YOU  ·  Y ACCEPT / N DECLINE`, { color: THEME.selectText });
     } else if (s.outgoing) {
-      ui.fill(0, banner - 0.2, ui.cols, 1.2, THEME.select);
-      centerText(ui, banner, `CHALLENGE SENT TO ${s.outgoing.name}  ·  X CANCEL`, { color: THEME.selectText });
+      ui.fill(0, bannerY - 0.15, ui.cols, 1.2, THEME.select);
+      centerText(ui, bannerY, `CHALLENGE SENT TO ${s.outgoing.name}  ·  X CANCEL`, { color: THEME.selectText });
     } else {
-      centerText(ui, banner, '[ESC] MAIN MENU  ·  [TAB] SWITCH CHAT / PLAYERS', { color: THEME.textDim });
+      const tabTo = s.loungeFocus === 'chat' ? `PLAYERS (${s.loungeRoster.length})` : 'CHAT';
+      centerText(ui, bannerY, `[ESC] MAIN MENU  ·  [TAB] ${tabTo}`, { color: THEME.textDim });
     }
 
-    const narrow = ui.cols < 76;
-    const top = Math.ceil(banner + SP.row + 0.5);
-    const bottom = Math.max(top + 4, ui.rows - 6);
-    const panelH = bottom - top;
-    const roster = s.loungeRoster;
-    if (narrow) {
-      const names = roster.length ? roster.map((p) => p.name).join(' · ').slice(0, ui.cols - 9) : 'NOBODY ELSE ONLINE';
-      centerText(ui, top - 1, `ONLINE: ${names}`, { color: roster.length ? THEME.text : THEME.textDim });
-      const chat = ui.panel(2, top, ui.cols - 4, panelH, { title: s.loungeFocus === 'chat' ? 'CHAT · ACTIVE' : 'CHAT', border: s.loungeFocus === 'chat' ? THEME.accent : THEME.panelBorder });
-      drawMessages(s, ui, chat.x, chat.y, chat.w, chat.h);
-    } else {
-      const playersW = 30, chatW = ui.cols - playersW - 6;
-      const chat = ui.panel(2, top, chatW, panelH, { title: s.loungeFocus === 'chat' ? 'CHAT · ACTIVE' : 'CHAT', border: s.loungeFocus === 'chat' ? THEME.accent : THEME.panelBorder });
-      drawMessages(s, ui, chat.x, chat.y, chat.w, chat.h);
+    // Panels: chat (left) + players (right) are ALWAYS both shown. Widths adapt to
+    // the terminal so the players box never disappears as the player zooms — the
+    // player column just compacts (drops char, then ELO) on narrow terminals.
+    const M = 2;
+    const top = Math.ceil(bannerY + 2);
+    const inputY = ui.rows - 5;
+    const panelH = Math.max(5, inputY - 1 - top);
+    const fullW = ui.cols - 2 * M;
+    const focusChat = s.loungeFocus === 'chat';
+    const playersW = clamp(Math.round(ui.cols * 0.32), 20, 30);
+    const gap = 2;
+    const chatW = Math.max(12, fullW - playersW - gap);
 
-      const list = ui.panel(chatW + 3, top, playersW, panelH, { title: s.loungeFocus === 'players' ? 'PLAYERS · ACTIVE' : 'PLAYERS', border: s.loungeFocus === 'players' ? THEME.accent : THEME.panelBorder });
-      if (!roster.length) {
-        ui.text(list.x, list.y + 0.5, 'NOBODY ELSE ONLINE', { color: THEME.textDim });
-        ui.text(list.x, list.y + 0.5 + SP.row, 'INVITE A FRIEND TO SSH IN.', { color: THEME.textDim });
-      } else {
-        s.loungeCursor = Math.max(0, Math.min(roster.length - 1, s.loungeCursor));
-        const maxRows = Math.floor(list.h / SP.row);
-        for (let i = 0; i < roster.length && i < maxRows; i++) {
-          const p = roster[i]!, selected = s.loungeFocus === 'players' && i === s.loungeCursor;
-          const ry = list.y + 0.3 + i * SP.row;
-          if (selected) ui.fill(list.x - 0.7, ry - 0.3, list.w + 1.4, 1.2, THEME.select);
-          const elo = p.elo ?? '---';
-          const row = `${selected ? '▶' : ' '} ${p.name.slice(0, 12).padEnd(12)} ${characterAt(p.cursor).name.padEnd(6)} ${elo}`;
-          ui.text(list.x, ry, row.slice(0, Math.floor(list.w)), { color: selected ? THEME.selectText : THEME.text });
-        }
-      }
-    }
+    const chat = ui.panel(M, top, chatW, panelH, {
+      title: focusChat ? 'CHAT · ACTIVE' : 'CHAT',
+      border: focusChat ? THEME.accent : THEME.panelBorder,
+    });
+    drawMessages(s, ui, chat);
 
-    inputField(ui, 2, ui.rows - 5, ui.cols - 4, s.chatBuf, { focus: s.loungeFocus === 'chat', frame: s.frame, placeholder: s.loungeFocus === 'chat' ? 'SAY SOMETHING...' : 'TAB TO TYPE' });
+    const list = ui.panel(M + chatW + gap, top, playersW, panelH, {
+      title: focusChat ? `PLAYERS (${s.loungeRoster.length})` : 'PLAYERS · ACTIVE',
+      border: focusChat ? THEME.panelBorder : THEME.accent,
+    });
+    drawPlayers(s, ui, list, !focusChat);
+
+    inputField(ui, M, inputY, fullW, s.chatBuf, {
+      focus: focusChat, frame: s.frame,
+      placeholder: focusChat ? 'SAY SOMETHING...' : 'TAB TO CHAT',
+    });
     centerText(ui, ui.rows - 2, s.loungeNotice.slice(0, Math.max(0, ui.cols - 4)), { color: THEME.accent2, bold: true });
     const keyhints: [string, string][] = s.incoming
-      ? [['Y/ENTER', 'ACCEPT'], ['N/ESC', 'DECLINE']]
-      : s.loungeFocus === 'chat'
+      ? [['Y', 'ACCEPT'], ['N', 'DECLINE']]
+      : focusChat
         ? [['TYPE', 'CHAT'], ['ENTER', 'SEND'], ['TAB', 'PLAYERS'], ['ESC', 'MENU']]
-        : [['↑/↓', 'PLAYER'], ['ENTER', 'CHALLENGE'], ['TAB', 'CHAT'], ['ESC', 'MENU']];
+        : [['↑↓', 'PICK'], ['ENTER', 'FIGHT'], ['TAB', 'CHAT'], ['ESC', 'MENU']];
     hints(ui, ui.rows - 1, keyhints);
   },
 
