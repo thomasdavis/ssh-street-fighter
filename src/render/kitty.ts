@@ -12,10 +12,36 @@
 //   - q=2   : quiet — the terminal sends no OK/response we would have to parse
 //   - m=1/0 : chunk continuation (base64 split at 4096 bytes)
 import { deflateSync } from 'node:zlib';
-import type { PixelGrid } from './pixel.js';
+import { createGrid, type PixelGrid } from './pixel.js';
 
 const CHUNK = 4096;
 const ST = '\x1b\\';
+// Over SSH a full image per frame is ~16x the bytes of the octant cell-diff, so
+// the source is downscaled to this width (the terminal scales it back up to fill
+// the grid). Tunable via SF_KITTY_W. Static screens still transmit only on change.
+const TARGET_W = Math.max(80, parseInt(process.env.SF_KITTY_W ?? '240', 10) || 240);
+
+/** Average each 2x2 block into one pixel (fast, allocation-light halving). */
+function halve(grid: PixelGrid): PixelGrid {
+  const h = grid.length >> 1, w = (grid[0]?.length ?? 0) >> 1;
+  const out = createGrid(w, h, null);
+  for (let y = 0; y < h; y++) {
+    const r0 = grid[y * 2]!, r1 = grid[y * 2 + 1]!, orow = out[y]!;
+    for (let x = 0; x < w; x++) {
+      let R = 0, G = 0, B = 0, n = 0;
+      for (const p of [r0[x * 2], r0[x * 2 + 1], r1[x * 2], r1[x * 2 + 1]]) if (p) { R += p.r; G += p.g; B += p.b; n++; }
+      orow[x] = n ? { r: Math.round(R / n), g: Math.round(G / n), b: Math.round(B / n) } : null;
+    }
+  }
+  return out;
+}
+
+/** Downscale (integer halving) until the width is at/under TARGET_W. */
+function fitForTransmit(grid: PixelGrid): PixelGrid {
+  let g = grid;
+  while ((g[0]?.length ?? 0) > TARGET_W && g.length > 2) g = halve(g);
+  return g;
+}
 
 /** Pack a PixelGrid (cols*2 x rows*4, RGB|null) into tightly-packed RGB bytes.
  *  Null (transparent) pixels become black — our scenes fill their background. */
@@ -81,7 +107,8 @@ export class KittyRenderer {
 
   /** Bytes to draw this frame (empty string if nothing changed). The image is
    *  packed at the grid's own pixel size and scaled to fill `cols`x`rows` cells. */
-  frame(grid: PixelGrid, cols: number, rows: number): string {
+  frame(gridIn: PixelGrid, cols: number, rows: number): string {
+    const grid = fitForTransmit(gridIn);
     const w = grid[0]?.length ?? 0, h = grid.length;
     if (w === 0 || h === 0) return '';
     const rgb = packRGB(grid, w, h);

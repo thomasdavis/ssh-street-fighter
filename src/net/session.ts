@@ -33,6 +33,9 @@ import { drawFightHud } from '../screens/fight-hud.js';
 import { actorRef, eventId, track, type TelemetryFields } from '../telemetry/discord.js';
 
 const MAX_RENDER_HZ = 15; // visual refresh rate (sim/input stay at TICK_HZ = 30)
+// Graphics sends a full image per changed frame (heavy over SSH), so animated
+// screens repaint at this lower rate. Static screens transmit nothing when idle.
+const GRAPHICS_HZ = Math.max(2, Math.min(15, parseInt(process.env.SF_KITTY_HZ ?? '6', 10) || 6));
 const MAX_COLS = 300, MAX_ROWS = 120;
 const NOWRAP = '\x1b[?7l';
 const WRAP = '\x1b[?7h';
@@ -76,6 +79,7 @@ export class Session {
   // Everything degrades gracefully to the octant renderer + legacy input.
   private caps: Caps;
   graphics = false;                              // true → render via kitty graphics
+  private wantsGraphics = false;                 // remembered opt-in (default off — octant is lighter over SSH)
   private kitty = new KittyRenderer(GRAPHICS_IMAGE_ID);
   prevFrame: Cell[] | null = null;
   // two persistent cell buffers; render ping-pongs between them so steady-state
@@ -158,7 +162,8 @@ export class Session {
     if (fp) {
       this.player = db.touchOrCreate(fp);
       this.keyBindings = parseKeyBindings(this.player.key_bindings_json);
-      if (this.player.view_mode === 'octant') this.renderMode = 'octant';   // remembered view preference (else stays quadrant)
+      if (this.player.view_mode === 'graphics') this.wantsGraphics = true;   // opt-in HD, applied once the probe confirms support
+      else if (this.player.view_mode === 'octant') this.renderMode = 'octant';   // remembered view preference (else stays quadrant)
       if (this.player.username) { this.username = this.player.username; landing = 'menu'; this.cursor = this.player.main_char; }
       else landing = 'username'; // registered key without a handle yet
     } else {
@@ -171,7 +176,7 @@ export class Session {
     this.fightInput = new InputState(this.keyBindings);
     this.caps = new Caps({
       onProbeDone: (c) => {
-        this.graphics = c.graphics;
+        this.graphics = c.graphics && this.wantsGraphics;   // opt-in: default stays on the lighter octant renderer
         if (c.graphics || c.kittyKeyboard) this.write(MOUSE_ON);   // modern terminal → SGR mouse is safe
         this.kitty.reset(); this.prevFrame = null; this.forceFull = true;   // switch renderers cleanly
         this.trackEvent('terminal_caps', { graphics: c.graphics, kitty_keyboard: c.kittyKeyboard, client: this.clientSoftware });
@@ -320,7 +325,8 @@ export class Session {
     // sim + input run at TICK_HZ (responsive); rendering is throttled to
     // RENDER_HZ to cut the streamed bytes without hurting input latency.
     const renderCells = clamp(this.cols || 120, 24, MAX_COLS) * clamp(this.rows || 40, 12, MAX_ROWS);
-    const renderHz = renderCells > 30_000 ? 8 : renderCells > 16_000 ? 10 : renderCells > 8_000 ? 12 : MAX_RENDER_HZ;
+    let renderHz = renderCells > 30_000 ? 8 : renderCells > 16_000 ? 10 : renderCells > 8_000 ? 12 : MAX_RENDER_HZ;
+    if (this.graphics && this.screen !== 'fight') renderHz = Math.min(renderHz, GRAPHICS_HZ);   // full-image frames are heavy
     this.renderAccum += renderHz;
     if (this.renderAccum >= TICK_HZ) {
       this.renderAccum -= TICK_HZ;
@@ -366,10 +372,11 @@ export class Session {
       this.prevFrame = next; this.cellsA = this.cellsB = null;
       return;
     }
-    // Graphics backend: send the whole pixel layer as one kitty image (true
-    // colour, scaled to fill the grid). Only when the terminal supports it —
-    // everyone else keeps the octant renderer below. Bypasses the render pool.
-    if (this.graphics) {
+    // Graphics backend: send the pixel layer as one kitty image (true colour,
+    // scaled to fill the grid, downscaled for bandwidth). Used for the (mostly
+    // static) menus/select/lounge — NOT the fight, whose constant motion is far
+    // cheaper as an octant cell-diff. Bypasses the render pool.
+    if (this.graphics && this.screen !== 'fight') {
       const f = this.composeFrame(cols, rows);
       this.paint(this.kitty.frame(f.pixel(), cols, rows));
       return;
@@ -595,21 +602,18 @@ export class Session {
   /** 'v' cycles the visible renderer: graphics (if the terminal supports it) →
    *  octant → quadrant → back around. Graphics is not persisted; octant/quadrant is. */
   private cycleView(): void {
-    if (this.graphics) {
-      this.write(deleteImage(GRAPHICS_IMAGE_ID) + CLEAR_SCREEN);
-      this.graphics = false; this.prevFrame = null; this.forceFull = true;
-      this.renderMode = 'octant';
-      this.trackEvent('view_mode_changed', { mode: 'octant' });
-      if (!this.guest && this.fp) { db.setViewMode(this.fp, 'octant'); this.player = db.getByFingerprint(this.fp) ?? this.player; }
-    } else if (this.renderMode === 'octant') {
-      this.setViewMode('quadrant');
-    } else if (this.caps.graphics) {
-      this.graphics = true; this.kitty.reset(); this.prevFrame = null; this.forceFull = true;
-      this.write(CLEAR_SCREEN);
-      this.trackEvent('view_mode_changed', { mode: 'graphics' });
-    } else {
-      this.setViewMode('octant');
-    }
+    // quadrant → octant → graphics (if the terminal supports it) → quadrant
+    let mode: 'quadrant' | 'octant' | 'graphics';
+    if (this.graphics) mode = 'quadrant';
+    else if (this.renderMode === 'quadrant') mode = 'octant';
+    else mode = this.caps.graphics ? 'graphics' : 'quadrant';
+    const wasGraphics = this.graphics;
+    if (mode === 'graphics') { this.graphics = true; this.wantsGraphics = true; this.renderMode = 'quadrant'; }
+    else { this.graphics = false; if (mode === 'octant' || mode === 'quadrant') this.renderMode = mode; this.wantsGraphics = false; }
+    if (wasGraphics && !this.graphics) this.write(deleteImage(GRAPHICS_IMAGE_ID));
+    this.prevFrame = null; this.forceFull = true; this.kitty.reset(); this.write(CLEAR_SCREEN);
+    this.trackEvent('view_mode_changed', { mode });
+    if (!this.guest && this.fp) { db.setViewMode(this.fp, mode); this.player = db.getByFingerprint(this.fp) ?? this.player; }
   }
 
   /** Enable/disable the kitty keyboard protocol around a fight, so held keys give
