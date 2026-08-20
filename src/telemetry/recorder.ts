@@ -13,7 +13,8 @@ import { captureMatch, captureEvents, captureReplay, type MatchRecord, type Matc
  *  Bump policy — bump this whenever a sim change would make older replays
  *  re-simulate differently (combat mechanics, roster, or the bot-wire observation
  *  contract). When you bump it, also update the intentionally-pinned attestation
- *  expectations in tools/xenon-policy-lab.ts and tools/xenon-bounded-runner.ts.
+ *  expectations in tools/xenon-policy-lab.ts and any external agent runner
+ *  compatibility profiles.
  *  Caveat: the version is a coarse compatibility family, not a unique source id —
  *  materially different source snapshots have shared one label (e.g. pre- vs
  *  post-UNCLOSE both reported sf-6). For EXACT reproduction, pair it with the
