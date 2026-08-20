@@ -7,6 +7,9 @@
 
 export const GRAPHICS_IMAGE_ID = 4207;
 const ST = '\x1b\\';
+// A legit terminal reply is tiny; anything longer than this still incomplete is a
+// malformed or hostile unterminated sequence and is dropped (bounds memory).
+const MAX_CARRY = 4096;
 
 export interface MouseEvent {
   col: number; row: number;          // 1-based terminal cells
@@ -88,6 +91,7 @@ export class Caps {
       if (adv === 0) { out += c; i++; continue; }           // an ESC we don't own — pass through
       i += adv;                                             // consumed a control sequence
     }
+    if (this.carry.length > MAX_CARRY) this.carry = '';     // drop a malformed/hostile unterminated sequence
     return Buffer.from(out, 'latin1');
   }
 

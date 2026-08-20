@@ -88,5 +88,13 @@ const feed = (caps: Caps, s: string): string => caps.consume(Buffer.from(s, 'lat
   check('split sequence carried + reassembled', a === 'x' && b === '' && log.mouse.length === 1 && log.mouse[0]!.col === 10);
 }
 
+// hostile input: an unterminated CSI must not grow the carry without bound
+{
+  const { caps } = make();
+  feed(caps, '\x1b[' + '1;'.repeat(5000));   // ~10k param bytes, no final byte
+  const after = feed(caps, 'x');             // the oversized carry is dropped; a normal key still lands
+  check('unbounded carry is dropped (DoS-safe)', after === 'x');
+}
+
 console.log(`\nCAPS TEST: ${pass ? 'PASS' : 'FAIL'}`);
 if (!pass) process.exit(1);
