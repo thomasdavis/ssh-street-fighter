@@ -1,6 +1,6 @@
 {
   "name": "sshfighter",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "private": true,
   "type": "module",
   "description": "A Street Fighter-style versus fighter played entirely over SSH, rendered with truecolor Unicode octant pixels.",

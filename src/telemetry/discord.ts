@@ -99,7 +99,7 @@ async function deliver(item: EventItem): Promise<boolean> {
   try {
     const response = await fetch(target, {
       method: 'POST',
-      headers: { 'content-type': 'application/json', 'user-agent': 'sshfighter/0.1' },
+      headers: { 'content-type': 'application/json', 'user-agent': 'sshfighter/1.0' },
       body: bodyFor(item),
       signal: AbortSignal.timeout(6000),
     });
