@@ -18,6 +18,11 @@ sshfighter.com {
 		reverse_proxy localhost:3130
 	}
 
+	# Public game build identity (engine family + exact source commit).
+	handle /version {
+		reverse_proxy localhost:8080
+	}
+
 	# Everything else under /api/* is the Ringside game API (primary on :8080):
 	# live, matches, players, leaderboard, characters, matchups, stats, ops, replay.
 	handle /api/* {

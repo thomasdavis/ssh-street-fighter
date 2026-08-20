@@ -114,7 +114,7 @@ const MOVE_SETS: Readonly<Record<string, readonly SpecialMoveDefinition[]>> = {
 };
 
 /** Every special AttackKind any roster fighter can perform — the single source of
- *  truth for "is this attack a special?" (bot wire view, sparring gym). Derived
+ *  truth for "is this attack a special?" in the bot wire view. Derived
  *  from MOVE_SETS so a new fighter's moves are never silently missing. */
 export const SPECIAL_ATTACK_KINDS: ReadonlySet<string> = new Set(
   Object.values(MOVE_SETS).flatMap((moves) => moves.map((move) => move.attack)),

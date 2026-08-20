@@ -2,11 +2,11 @@
 // character/matchup meta, leaderboard, live server state and ops metrics as JSON
 // for a future homepage. Runs in the cluster primary only. Behind SF_API_PORT
 // (default 8080; set 0 to disable). Never mutates game state.
-import { createServer, type IncomingMessage, type ServerResponse } from 'http';
+import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'http';
 import sharp from 'sharp';
 import * as store from '../telemetry/store.js';
 import * as db from '../db/db.js';
-import { ENGINE_VERSION } from '../telemetry/recorder.js';
+import { VERSION_INFO } from '../version.js';
 import { simulateReplay, replayMatchAtFrame, type Track } from '../telemetry/replay-sim.js';
 import { composeScene } from '../game/scene.js';
 import { WORLD_W, WORLD_H } from '../game/engine.js';
@@ -53,8 +53,15 @@ function route(coord: MatchCoordinator | null, req: IncomingMessage, res: Server
   const q = url.searchParams;
   const seg = p.split('/').filter(Boolean);   // e.g. ['api','matches','m123']
 
+  if (p === '/version' || p === '/api/version')
+    return send(res, 200, { ok: true, service: 'sshfighter', ...VERSION_INFO });
+
   if (p === '/' || p === '/api' || p === '/api/health')
-    return send(res, 200, { ok: true, service: 'ringside', engine: ENGINE_VERSION, uptime_s: Math.round(process.uptime()) });
+    return send(res, 200, {
+      ok: true, service: 'ringside', engine: VERSION_INFO.engine,
+      commit: VERSION_INFO.commit, dirty: VERSION_INFO.dirty, build: VERSION_INFO.build,
+      uptime_s: Math.round(process.uptime()),
+    });
 
   if (p === '/api/live')
     return send(res, 200, coord ? {
@@ -133,14 +140,20 @@ function route(coord: MatchCoordinator | null, req: IncomingMessage, res: Server
   send(res, 404, { error: 'not found', path: p });
 }
 
-export function startApiServer(coord: MatchCoordinator | null): void {
-  const port = parseInt(process.env.SF_API_PORT ?? '8080', 10);
-  if (!port) return;   // SF_API_PORT=0 disables
-  const server = createServer((req, res) => {
+/** Build the REST server without binding it so tests can use an ephemeral port. */
+export function createApiServer(coord: MatchCoordinator | null): Server {
+  return createServer((req, res) => {
     try { route(coord, req, res); }
     catch (e) { try { send(res, 500, { error: (e as Error).message }); } catch { /* ignore */ } }
   });
+}
+
+export function startApiServer(coord: MatchCoordinator | null): Server | null {
+  const port = parseInt(process.env.SF_API_PORT ?? '8080', 10);
+  if (!port) return null;   // SF_API_PORT=0 disables
+  const server = createApiServer(coord);
   server.on('error', (e) => console.error('[ringside-api] listen failed:', (e as Error).message));
   // Loopback only — Caddy reverse-proxies it publicly (TLS, origin hidden).
   server.listen(port, '127.0.0.1', () => console.log(`[ringside-api] REST API on 127.0.0.1:${port}`));
+  return server;
 }

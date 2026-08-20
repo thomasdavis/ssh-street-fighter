@@ -75,6 +75,14 @@ node examples/bot.mjs --user MYBOT --host <host> --char BYU --identity ~/.ssh/ss
 
 `--identity` also enables OpenSSH's `IdentitiesOnly=yes`, preventing fallback to a personal key. SSH bot play needs no API token. Mint one with `ssh -i <key> -o IdentitiesOnly=yes MYBOT@<host> token` only when using the REST API or optional direct TCP transport. See [`examples/bot.mjs`](examples/bot.mjs) for the protocol and a small example controller.
 
+Production bots should live in their own repositories and interact with SSH Fighter only through the documented SSH or HTTP APIs. This repository intentionally contains no bot policy, training, evaluation, or deployment code beyond the generic example client and protocol documentation.
+
+The opening `hi` and `welcome` messages, and every `matchStart`, include `engine`, `commit`, `dirty`, and a display-ready `build` such as `sf-6@a3d35dbbbe18`. Bots can also query the same canonical identity without authenticating:
+
+```console
+curl https://sshfighter.com/version
+```
+
 The same JSON-lines channel can join the live Fight Lounge instead of the quick-match queue. Lounge agents share presence, persistent chat, and direct challenges with terminal players:
 
 ```json
@@ -165,6 +173,8 @@ The server listens on `0.0.0.0:2223` by default. Configuration is entirely envir
 | `SF_PROXY_PROTOCOL` | unset | `1` to accept a leading PROXY v1 header (real client IP behind a relay) |
 | `SF_BOT_PORT` | `8091` | Loopback port for the JSON-lines bot-play server |
 | `SF_PUBLIC_HOST` | `sshfighter.com` | Host shown in bot onboarding messages |
+| `SF_COMMIT_SHA` | current Git `HEAD` | Source revision for deployments without a readable `.git` checkout |
+| `SF_BUILD_DIRTY` | auto-detected | Optional `true`/`false` override for build cleanliness |
 | `SF_DISCORD_WEBHOOK` | unset | Optional best-effort Discord destination for vital community events only |
 
 All events are recorded locally in the append-only `analytics_events` SQLite table for the planned analytics site. Discord receives only quick-match waiting, match start/result, forfeit, and lounge chat events. Inputs, special moves, screen views, connections, and terminal resolution changes never go to Discord. See [the analytics contract](docs/ANALYTICS.md).
@@ -214,22 +224,10 @@ See [the architecture guide](docs/ARCHITECTURE.md) for the render and session pi
 pnpm typecheck
 pnpm test                 # combat, assets, persistence, ANSI reconstruction
 pnpm test:e2e             # lounge, challenge, matchmaking, and practice over real SSH
-pnpm gym --fighter CODEX --seed 42 --matches 20 --json
 pnpm exec tsx src/dump-png.ts fight 112 36
 ```
 
-The deterministic sparring gym accepts any roster fighter and an optional import-safe policy module via `--policy`. Use `--opponents`, `--styles`, and `--matches` to bound a block; `--seed` makes built-in and `Math.random()`-based policies reproducible, while `--json` emits a machine-readable comparison record.
-
-### Offline training exports
-
-Two read-only exporters produce temporally ordered policy-learning data without authenticating to SSH or entering matchmaking:
-
-```powershell
-pnpm export:training --output training-data\public.jsonl.gz --character CODEX --limit 200
-pnpm export:sim-training --output training-data\sim.jsonl --fighter CODEX --opponents 'FABLE,OMEGA' --styles 'rushdown,turtle' --matches 10 --seed 73
-```
-
-`export:training` validates public replay inputs against the published track and keyframes, emits privacy-minimized transitions, and quarantines mismatched matches in a manifest. `export:sim-training` runs the pinned local engine and emits two perspective-specific episodes per match with full state, exact applied inputs, controller hashes, engine commit, and terminal outcome. Simulator-only fields such as blocking and internal timers are auxiliary targets, not live-policy inputs. Generated `training-data/` files are intentionally ignored by Git.
+The canonical engine compatibility family lives in `src/version.ts`. Bump `ENGINE_VERSION` whenever combat changes would alter deterministic replay results or the meaning of bot observations; the exact Git revision distinguishes deployments within that family.
 
 The asset contract verifies all seventeen complete dossiers, all 51 explained special-move definitions, every required fighter pose, and all six stage payloads. CI also rebuilds the authoritative fighter catalog and the Next.js site.
 

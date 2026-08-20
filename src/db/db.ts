@@ -112,6 +112,7 @@ export function initDb(): void {
       id TEXT PRIMARY KEY,
       mode TEXT NOT NULL,
       stage TEXT, seed INTEGER, region TEXT, engine_version TEXT,
+      engine_commit TEXT, engine_dirty INTEGER,
       a_fp TEXT, b_fp TEXT, a_name TEXT, b_name TEXT, a_char TEXT, b_char TEXT,
       a_is_bot INTEGER NOT NULL DEFAULT 0, b_is_bot INTEGER NOT NULL DEFAULT 0,
       winner TEXT, a_rounds INTEGER NOT NULL DEFAULT 0, b_rounds INTEGER NOT NULL DEFAULT 0,
@@ -172,6 +173,8 @@ export function initDb(): void {
   ensureColumn('match_history', 'winner_elo_after', 'winner_elo_after INTEGER');
   ensureColumn('match_history', 'loser_elo_before', 'loser_elo_before INTEGER');
   ensureColumn('match_history', 'loser_elo_after', 'loser_elo_after INTEGER');
+  ensureColumn('matches', 'engine_commit', 'engine_commit TEXT');
+  ensureColumn('matches', 'engine_dirty', 'engine_dirty INTEGER');
 
   // One-time data migrations, guarded so they run exactly once.
   db.exec('CREATE TABLE IF NOT EXISTS app_meta (key TEXT PRIMARY KEY, value TEXT)');
