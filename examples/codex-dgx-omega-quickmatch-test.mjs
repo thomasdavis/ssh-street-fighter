@@ -3,7 +3,7 @@ import { createHash } from 'node:crypto';
 import {
   ATTESTATION_MATCH, ATTESTED_TRACK_SHA256, CHARACTER, EXPECTED_FINGERPRINT, HANDLE,
   POLICY_FUNCTION_SHA256, POLICY_SEED,
-  createOneMatchController, decide,
+  createOneMatchController, decide, queueWithinBound,
   deterministicFixture, parseArgs, resetRng,
 } from './codex-dgx-omega-quickmatch.mjs';
 
@@ -17,6 +17,9 @@ check('queue window is bounded', throws(() => parseArgs(['--dry-run', '--window-
 check('existing queue allowance is explicitly bounded',
   parseArgs(['--dry-run', '--max-existing-queued', '4']).maxExistingQueued === 4
     && throws(() => parseArgs(['--dry-run', '--max-existing-queued', '5']), /integer from 0 to 4/));
+check('malformed queue telemetry fails closed',
+  queueWithinBound(4, 4) && !queueWithinBound(5, 4)
+    && !queueWithinBound(undefined, 4) && !queueWithinBound('not-a-number', 4));
 check('dry-run requires no identity or output', parseArgs(['--dry-run']).dryRun === true);
 check('fixed seed remains OMEG', POLICY_SEED === 0x4f4d4547);
 check('current restart epoch is replay-attested',

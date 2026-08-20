@@ -134,6 +134,11 @@ export function deterministicFixture() {
   });
 }
 
+export function queueWithinBound(value, maximum) {
+  const count = Number(value);
+  return Number.isInteger(count) && count >= 0 && count <= maximum;
+}
+
 export function createOneMatchController(options, io) {
   let matchId = '';
   let stopping = false;
@@ -239,7 +244,7 @@ async function run(args) {
     fetchJson(`https://${args.host}/api/health`), fetchJson(`https://${args.host}/api/live`),
   ]);
   if (health.engine !== 'sf-6' || Number(health.uptime_s) < MIN_ATTESTED_UPTIME) throw new Error('live mechanics/deployment epoch gate failed');
-  if (Number(live.queued) > args.maxExistingQueued) {
+  if (!queueWithinBound(live.queued, args.maxExistingQueued)) {
     throw new Error(`global queue exceeds authorized bound: ${live.queued} > ${args.maxExistingQueued}`);
   }
 
@@ -265,7 +270,7 @@ async function run(args) {
     assertQueueSafe: async () => {
       const latest = await fetchJson(`https://${args.host}/api/live`);
       append('queue_gate', { live: latest });
-      if (Number(latest.queued) > args.maxExistingQueued) {
+      if (!queueWithinBound(latest.queued, args.maxExistingQueued)) {
         throw new Error(`global queue exceeds authorized bound before join: ${latest.queued} > ${args.maxExistingQueued}`);
       }
     },
