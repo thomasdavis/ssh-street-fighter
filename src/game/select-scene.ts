@@ -75,20 +75,6 @@ function stageBackdrop(g: PixelGrid, pw: number, ph: number, stageId: string, di
   }
 }
 
-export interface SelectSlot { x: number; baseline: number; standH: number; }
-export function fighterSlot(i: number, n: number): SelectSlot {
-  if (n <= 4) return { x: Math.round((WORLD_W / n) * i + WORLD_W / n / 2), baseline: SELECT_FLOOR, standH: 52 };
-  const cols = Math.ceil(n / 2);
-  const row = Math.floor(i / cols), col = i % cols;
-  const rowCount = Math.min(cols, n - row * cols);
-  const crowded = n > 8;
-  return {
-    x: Math.round((WORLD_W / rowCount) * col + WORLD_W / rowCount / 2),
-    baseline: row === 0 ? (crowded ? 80 : 72) : (crowded ? 128 : 124),
-    standH: crowded ? 44 : 48,
-  };
-}
-
 // --- sprite-only stages (no pixel text; crisp text is overlaid by the screen) ---
 export const SELECT_STAGE = { W: WORLD_W, H: WORLD_H, floor: SELECT_FLOOR };
 

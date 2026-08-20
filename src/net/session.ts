@@ -43,9 +43,10 @@ const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v
 const COLOR_STEP = clamp(parseInt(process.env.SF_COLOR_STEP ?? '1', 10) || 1, 1, 64);
 const INDEXED_COLOR = process.env.SF_COLOR_MODE === '256';
 const SF_UI_CELL = process.env.SF_UI === 'cell';   // dev escape hatch: crisp one-cell UI, no size gate
-// Terminal capability negotiation (graphics / kitty-keyboard / mouse / resize).
-// SF_CAPS=0 disables it entirely → pure legacy behaviour (instant rollback valve).
-const CAPS_ENABLED = process.env.SF_CAPS !== '0';
+// Terminal capability negotiation (graphics / kitty-keyboard / mouse / resize /
+// mode-2026). OFF by default — the default experience is the light, universal
+// octant renderer with the legacy input parser. Set SF_CAPS=1 to opt in.
+const CAPS_ENABLED = process.env.SF_CAPS === '1';
 
 // Optional pool of render worker threads (SF_RENDER_WORKERS>0). When enabled,
 // the heavy fight render runs off the main thread so the game uses every core;
@@ -587,16 +588,6 @@ export class Session {
     this.keyBindings = withBinding(this.keyBindings, action, binding);
     this.persistKeyBindings();
     this.trackEvent('key_binding_changed', { action, binding });
-  }
-
-  /** Switch (and persist) the view mode: 'octant' (sharp, Unicode-16) or 'quadrant'
-   *  (compatible 2x2 blocks that render on any terminal without drift). */
-  setViewMode(mode: RenderMode): void {
-    if (mode === this.renderMode) return;
-    this.renderMode = mode;
-    this.prevFrame = null; this.forceFull = true;
-    this.trackEvent('view_mode_changed', { mode });
-    if (!this.guest && this.fp) { db.setViewMode(this.fp, mode); this.player = db.getByFingerprint(this.fp) ?? this.player; }
   }
 
   /** 'v' cycles the visible renderer: graphics (if the terminal supports it) →
