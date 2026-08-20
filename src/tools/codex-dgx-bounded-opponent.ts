@@ -1,6 +1,7 @@
 #!/usr/bin/env node
-// One-match, incoming-challenge-only CODEX opponent runner. Importing this
-// module is side-effect free; executeRunner() is the only network/SSH seam.
+// Reusable incoming-challenge-only CODEX opponent runner, bounded to one match
+// per invocation. Importing is side-effect free; executeRunner() is the only
+// network/SSH seam.
 import { createHash } from 'node:crypto';
 import { spawn } from 'node:child_process';
 import {
@@ -13,17 +14,24 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import {
   AdaptiveCodexPolicy, DEFAULT_ADAPTIVE_CONFIG, type CombatObservation,
 } from '../bot/adaptive-codex-policy.js';
+import {
+  CODEX_RUNNER_IMPLEMENTATION_FILES, CURRENT_MAIN_BASE_COMMIT,
+  EXPECTED_CODEX_RUNNER_IMPLEMENTATION_HASH, EXPECTED_RUNTIME_PROFILE,
+  MECHANICS_REFERENCE_COMMIT,
+} from '../bot/codex-dgx-runner-provenance.js';
 import { specialMoveForAttack, specialMoveMotionCode } from '../game/moves.js';
 import { emptyInputs, type AttackKind, type Inputs, type MatchPhase } from '../game/types.js';
 
 type JsonObject = Record<string, unknown>;
 type Side = 'a' | 'b';
 
-export const TOOL_SOURCE_COMMIT = 'd71c67325912bc076ef6d6715a6845ca605ceafe';
-export const PINNED_ENGINE_COMMIT = TOOL_SOURCE_COMMIT;
-export const DEPLOYMENT_ATTESTATION = 'sf6-d71-UNCLOSE-17';
+export {
+  CODEX_RUNNER_IMPLEMENTATION_FILES, CURRENT_MAIN_BASE_COMMIT,
+  EXPECTED_CODEX_RUNNER_IMPLEMENTATION_HASH, EXPECTED_RUNTIME_PROFILE,
+  MECHANICS_REFERENCE_COMMIT,
+} from '../bot/codex-dgx-runner-provenance.js';
 export const EXPECTED_ENGINE_VERSION = 'sf-6';
-export const RUNNER_SCHEMA = 'codex-dgx-bounded-opponent/v1';
+export const RUNNER_SCHEMA = 'codex-dgx-bounded-opponent/v2';
 export const CONTROLLER_ID = 'adaptive-codex-fable-v2';
 export const OWN_HANDLE = 'CODEX_DGX';
 export const OWN_CHARACTER = 'CODEX';
@@ -43,6 +51,7 @@ const MAX_LOUNGE_ROSTER_ENTRIES = 256;
 const ACK_TIMEOUT_FRAMES = 30;
 const RETRY_AFTER_FRAMES = 3;
 const MAX_EDGE_ATTEMPTS = 2;
+export const EDGE_RECOVERY_TIMEOUT_FRAMES = 90;
 const MAX_TOKEN_OUTPUT_BYTES = 32 * 1024;
 export const TOKEN_MINT_TIMEOUT_MS = 15_000;
 export const LOUNGE_PING_INTERVAL_MS = 30_000;
@@ -199,7 +208,7 @@ export function validateHealth(payload: unknown): asserts payload is HealthPaylo
 export function validatePinnedRoster(value: unknown): asserts value is string[] {
   if (!Array.isArray(value) || value.length !== PINNED_ROSTER.length
       || value.some((entry, index) => entry !== PINNED_ROSTER[index])) {
-    throw new Error(`deployment attestation mismatch: expected exact ${DEPLOYMENT_ATTESTATION} ${PINNED_ROSTER.length}-fighter roster`);
+    throw new Error(`runtime profile mismatch: expected exact ${EXPECTED_RUNTIME_PROFILE} ${PINNED_ROSTER.length}-fighter roster`);
   }
 }
 
@@ -217,20 +226,53 @@ export function computeRunnerSourceHash(): string {
   return sha256(readFileSync(fileURLToPath(import.meta.url)));
 }
 
+export function computeRunnerImplementationHash(): string {
+  const sourceDirectory = fileURLToPath(new URL('../', import.meta.url));
+  const digest = createHash('sha256');
+  for (const relative of CODEX_RUNNER_IMPLEMENTATION_FILES) {
+    digest.update(`src/${relative}`).update('\0');
+    digest.update(readFileSync(resolve(sourceDirectory, relative))).update('\0');
+  }
+  return digest.digest('hex');
+}
+
+export function validateRunnerProvenance(
+  actualHash = computeRunnerImplementationHash(),
+): string {
+  if (CURRENT_MAIN_BASE_COMMIT !== '3caedf3435c12996cf4d34fb5ac76c7cd7b75076'
+      || MECHANICS_REFERENCE_COMMIT !== CURRENT_MAIN_BASE_COMMIT
+      || EXPECTED_RUNTIME_PROFILE !== 'sf-6/current17-unclose') {
+    throw new Error('CODEX runner base/mechanics/runtime profile pin drifted');
+  }
+  if (actualHash !== EXPECTED_CODEX_RUNNER_IMPLEMENTATION_HASH) {
+    throw new Error(
+      `CODEX runner implementation hash mismatch: expected ${EXPECTED_CODEX_RUNNER_IMPLEMENTATION_HASH}, got ${actualHash}`,
+    );
+  }
+  return actualHash;
+}
+
 export function validateControllerProvenance(): void {
+  validateRunnerProvenance();
   if (computePolicySourceHash() !== POLICY_SOURCE_SHA256) throw new Error('adaptive CODEX policy source hash drifted');
   if (sha256(stable(DEFAULT_ADAPTIVE_CONFIG)) !== POLICY_CONFIG_SHA256) throw new Error('adaptive CODEX config hash drifted');
 }
 
 export function runnerManifest(options: RunnerOptions): JsonObject {
   validateControllerProvenance();
+  const implementationHash = computeRunnerImplementationHash();
   return {
     schema: RUNNER_SCHEMA,
-    toolSourceCommit: TOOL_SOURCE_COMMIT,
+    currentMainBaseCommit: CURRENT_MAIN_BASE_COMMIT,
     runnerSourceSha256: computeRunnerSourceHash(),
-    pinnedEngineCommit: PINNED_ENGINE_COMMIT,
+    mechanicsReferenceCommit: MECHANICS_REFERENCE_COMMIT,
+    implementationFiles: [...CODEX_RUNNER_IMPLEMENTATION_FILES],
+    implementationHash,
+    expectedImplementationHash: EXPECTED_CODEX_RUNNER_IMPLEMENTATION_HASH,
     expectedEngineVersion: EXPECTED_ENGINE_VERSION,
-    deploymentAttestation: DEPLOYMENT_ATTESTATION,
+    expectedRuntimeProfile: EXPECTED_RUNTIME_PROFILE,
+    runtimeProfileEvidence: 'ringside/sf-6 health plus exact authenticated welcome roster',
+    deployedCommitAttested: false,
     pinnedRoster: [...PINNED_ROSTER],
     pinnedRosterHash: PINNED_ROSTER_HASH,
     controllerId: CONTROLLER_ID,
@@ -372,6 +414,13 @@ interface PendingEdge {
   sentFrame: number;
 }
 
+interface EdgeRecovery {
+  startedFrame: number;
+  sourceSeq: number;
+  expectedAttack: AttackKind | 'unknown';
+  reason: 'acked-edge-cleared-during-hitstop-or-hitstun';
+}
+
 export interface ControllerIo {
   send(message: JsonObject): void;
   close(): void;
@@ -400,6 +449,7 @@ export function createRunnerController(options: RunnerOptions, health: HealthPay
   let localSeq = 0;
   let lastAck = 0;
   let pending: PendingEdge | null = null;
+  let edgeRecovery: EdgeRecovery | null = null;
   let lastPhase: MatchPhase | null = null;
   let needsMotionReset = false;
   let motionResetSeq: number | null = null;
@@ -571,7 +621,8 @@ export function createRunnerController(options: RunnerOptions, health: HealthPay
     if (ack < lastAck || ack > localSeq) return finish(false, `invalid ack progression ${lastAck}->${ack}/${localSeq}`);
     lastAck = ack;
     const observation = asObservation(message);
-    io.audit.append('state', { mid, role, ack, hitStop: message.hitStop, observation });
+    const hitStop = Number(message.hitStop);
+    io.audit.append('state', { mid, role, ack, hitStop, observation });
     const phase = observation.phase;
     if (phase !== 'fight') {
       if (pending) {
@@ -580,6 +631,13 @@ export function createRunnerController(options: RunnerOptions, health: HealthPay
           expectedAttack: pending.expectedAttack, attempt: pending.attempt, sentSeq: pending.sentSeq,
         });
         pending = null;
+      }
+      if (edgeRecovery) {
+        io.audit.append('edge-recovery-abandoned', {
+          frame: observation.frame, fromPhase: lastPhase, toPhase: phase,
+          sourceSeq: edgeRecovery.sourceSeq, expectedAttack: edgeRecovery.expectedAttack,
+        });
+        edgeRecovery = null;
       }
       if (phase === 'round-over') needsMotionReset = true;
       lastPhase = phase;
@@ -604,6 +662,25 @@ export function createRunnerController(options: RunnerOptions, health: HealthPay
       motionResetSeq = null;
     }
 
+    // The coordinator acknowledges on receipt, then clears one-shot buttons
+    // after every tick. During hit-stop the engine returns before consuming
+    // them; a simultaneous hit can then leave us in hitstun with the edge gone.
+    // That is an expected transport/mechanics outcome, not an invariant breach.
+    if (pending && ack >= pending.sentSeq && observation.you.attack === 'none'
+        && (hitStop > 0 || observation.you.stun > 0)) {
+      edgeRecovery = {
+        startedFrame: observation.frame,
+        sourceSeq: pending.sentSeq,
+        expectedAttack: pending.expectedAttack,
+        reason: 'acked-edge-cleared-during-hitstop-or-hitstun',
+      };
+      io.audit.append('edge-recovery-started', {
+        frame: observation.frame, ack, hitStop, stun: observation.you.stun,
+        sourceSeq: pending.sentSeq, expectedAttack: pending.expectedAttack,
+      });
+      pending = null;
+    }
+
     if (pending && ack >= pending.sentSeq
         && pending.acceptedAttacks.includes(observation.you.attack)) {
       io.audit.append('attack-confirmed', {
@@ -624,7 +701,25 @@ export function createRunnerController(options: RunnerOptions, health: HealthPay
       return finish(false, `${kind} at frame ${observation.frame}`);
     }
 
-    const hitStop = Number(message.hitStop);
+    if (edgeRecovery) {
+      if (observation.frame - edgeRecovery.startedFrame >= EDGE_RECOVERY_TIMEOUT_FRAMES) {
+        return finish(false, `cleared edge recovery timeout at frame ${observation.frame}`);
+      }
+      if (observation.you.attack !== 'none') {
+        return finish(false, `unexpected attack during cleared edge recovery: ${observation.you.attack}`);
+      }
+      if (hitStop > 0 || observation.you.stun > 0) {
+        sendInput(withoutEdges(emptyInputs()), null, observation,
+          hitStop > 0 ? 'hitstop-cleared-edge-recovery' : 'hitstun-cleared-edge-recovery');
+        return;
+      }
+      io.audit.append('edge-recovery-complete', {
+        frame: observation.frame, sourceSeq: edgeRecovery.sourceSeq,
+        expectedAttack: edgeRecovery.expectedAttack,
+      });
+      edgeRecovery = null;
+    }
+
     if (pending) {
       // Do not send even a neutral motion behind an unacknowledged edge. A
       // server state generated before that edge can arrive after our write;
@@ -705,9 +800,10 @@ export function createRunnerController(options: RunnerOptions, health: HealthPay
           if (message.channel !== 'bot-api') return finish(false, 'authenticated channel mismatch');
           validatePinnedRoster(message.roster);
           welcomed = true;
-          io.audit.append('deployment-attested', {
+          io.audit.append('runtime-profile-attested', {
             health,
-            deploymentAttestation: DEPLOYMENT_ATTESTATION,
+            expectedRuntimeProfile: EXPECTED_RUNTIME_PROFILE,
+            deployedCommitAttested: false,
             roster: message.roster,
             rosterHash: PINNED_ROSTER_HASH,
             authenticatedIdentity: { name: message.name, elo: message.elo, channel: message.channel },
@@ -845,6 +941,7 @@ export function createRunnerController(options: RunnerOptions, health: HealthPay
     status: () => ({
       hiReceived, welcomed, inLounge, joinSent, challengeAccepted, matchStarted, matchEnded,
       stopped, completed, mid, role, localSeq, lastAck, pending, lastPhase,
+      edgeRecovery,
       needsMotionReset, motionResetSeq,
       cachedLoungeRoster: latestLoungeRoster?.map((entry) => ({ ...entry })) ?? null,
       pendingIncoming: pendingIncoming ? { ...pendingIncoming } : null,
@@ -1201,7 +1298,7 @@ Hard bindings:
   authenticated player  ${OWN_HANDLE}
   fighter               ${OWN_CHARACTER}
   sole challenger       ${TARGET_HANDLE}/${TARGET_CHARACTER}
-  match limit           exactly one incoming direct-Lounge match
+  match limit           exactly one incoming direct-Lounge match per invocation
 
 Required:
   --identity KEY       dedicated SSH private key (never logged)

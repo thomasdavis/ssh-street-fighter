@@ -12,14 +12,17 @@ import type { Fighter, Inputs, Match } from './game/types.js';
 import { MatchCoordinator, type WorkerRef } from './cluster/coordinator.js';
 import type { P2W } from './cluster/messages.js';
 import {
+  CODEX_RUNNER_IMPLEMENTATION_FILES, computeRunnerImplementationHash,
   CONTROLLER_HASH, CONTROLLER_ID, createRunnerController, createSshTransport,
-  DEPLOYMENT_ATTESTATION, executeRunner, LOUNGE_PING_INTERVAL_MS,
+  CURRENT_MAIN_BASE_COMMIT, EDGE_RECOVERY_TIMEOUT_FRAMES, executeRunner,
+  EXPECTED_CODEX_RUNNER_IMPLEMENTATION_HASH, EXPECTED_RUNTIME_PROFILE,
+  LOUNGE_PING_INTERVAL_MS,
   LOUNGE_PONG_TIMEOUT_MS, mintApiToken, OWN_CHARACTER, OWN_HANDLE, parseArgs,
   PINNED_ROSTER, PINNED_ROSTER_HASH, POLICY_CONFIG_SHA256, POLICY_SOURCE_SHA256,
-  PINNED_ENGINE_COMMIT, TOOL_SOURCE_COMMIT,
+  MECHANICS_REFERENCE_COMMIT,
   redact, runnerManifest, SecureJsonlAudit, TARGET_CHARACTER, TARGET_HANDLE,
   TOKEN_MINT_TIMEOUT_MS, validateControllerProvenance, validateHealth,
-  validatePinnedRoster,
+  validatePinnedRoster, validateRunnerProvenance,
   type AuditSink, type HealthPayload, type RunnerOptions, type RunnerTransport,
   type SshChild, type TokenChild,
 } from './tools/codex-dgx-bounded-opponent.js';
@@ -192,7 +195,7 @@ function coordinatorWireState(match: Match, role: 'a' | 'b', ack: number): Messa
   };
 }
 
-async function coordinatorActuationHarness(role: 'a' | 'b') {
+async function coordinatorActuationHarness(role: 'a' | 'b', deferInputs = false) {
   const coordinator = new MatchCoordinator();
   const codexWorker = new CoordinatorWorker(71);
   const xenonWorker = new CoordinatorWorker(72);
@@ -218,6 +221,7 @@ async function coordinatorActuationHarness(role: 'a' | 'b') {
   const sent: Message[] = [];
   const audit = new MemoryAudit();
   let wireSeq = 0;
+  const deferredInputs: Array<Extract<Parameters<MatchCoordinator['handle']>[1], { t: 'input' }>> = [];
   const controller = createRunnerController(options(), health, {
     audit,
     close: () => {},
@@ -226,10 +230,12 @@ async function coordinatorActuationHarness(role: 'a' | 'b') {
       sent.push(message);
       if (message.t !== 'input') return;
       const { t: _type, ...rawInput } = message;
-      coordinator.handle(codexWorker, {
+      const inputMessage = {
         t: 'input', mid: start.mid, sid: codexSid,
         input: rawInput as unknown as Inputs, seq: ++wireSeq,
-      });
+      } as const;
+      if (deferInputs) deferredInputs.push(inputMessage);
+      else coordinator.handle(codexWorker, inputMessage);
     },
   });
   await controller.handle({ t: 'hi', service: 'ringside-bot', send_hello_with: 'proof' });
@@ -246,7 +252,13 @@ async function coordinatorActuationHarness(role: 'a' | 'b') {
   });
   coordinator.tick();
   const relayed = codexWorker.latest('state');
-  return { coordinator, controller, codexWorker, sent, audit, match: relayed.m, role, wireSeq: () => wireSeq };
+  return {
+    coordinator, controller, codexWorker, sent, audit, match: relayed.m, role,
+    wireSeq: () => wireSeq,
+    flushInputs: () => {
+      for (const input of deferredInputs.splice(0)) coordinator.handle(codexWorker, input);
+    },
+  };
 }
 
 validateHealth(health);
@@ -259,16 +271,29 @@ assert.match(POLICY_SOURCE_SHA256, /^[0-9a-f]{64}$/);
 assert.match(POLICY_CONFIG_SHA256, /^[0-9a-f]{64}$/);
 assert.match(CONTROLLER_HASH, /^[0-9a-f]{64}$/);
 assert.equal(CONTROLLER_ID, 'adaptive-codex-fable-v2');
-assert.equal(DEPLOYMENT_ATTESTATION, 'sf6-d71-UNCLOSE-17');
-assert.equal(TOOL_SOURCE_COMMIT, 'd71c67325912bc076ef6d6715a6845ca605ceafe');
-assert.equal(PINNED_ENGINE_COMMIT, TOOL_SOURCE_COMMIT);
+assert.equal(EXPECTED_RUNTIME_PROFILE, 'sf-6/current17-unclose');
+assert.equal(CURRENT_MAIN_BASE_COMMIT, '3caedf3435c12996cf4d34fb5ac76c7cd7b75076');
+assert.equal(MECHANICS_REFERENCE_COMMIT, CURRENT_MAIN_BASE_COMMIT);
+assert.deepEqual(CODEX_RUNNER_IMPLEMENTATION_FILES, [
+  'tools/codex-dgx-bounded-opponent.ts',
+  'bot/adaptive-codex-policy.ts',
+  'game/moves.ts',
+  'game/engine.ts',
+  'game/types.ts',
+  'api/bot-server.ts',
+  'cluster/messages.ts',
+  'cluster/coordinator.ts',
+]);
+assert.equal(validateRunnerProvenance(), computeRunnerImplementationHash());
+assert.equal(computeRunnerImplementationHash(), EXPECTED_CODEX_RUNNER_IMPLEMENTATION_HASH);
+assert.throws(() => validateRunnerProvenance('0'.repeat(64)), /implementation hash mismatch/);
 assert.throws(() => validateHealth({ ok: true, service: 'ringside', engine: 'sf-7' }));
 assert.throws(() => validatePinnedRoster(PINNED_ROSTER.slice(0, -1)));
 assert.throws(() => validatePinnedRoster(PINNED_ROSTER.map((entry, index) => index === 16 ? 'SUBSTITUTE' : entry)));
 assert.throws(() => validatePinnedRoster([
   ...PINNED_ROSTER.slice(0, -2), PINNED_ROSTER.at(-1)!, PINNED_ROSTER.at(-2)!,
 ]));
-console.log('PASS  exact sf6-d71-UNCLOSE-17 profile rejects old16, substitution, order drift, and source/config drift');
+console.log('PASS  current17 runtime profile and local implementation/mechanics digest fail closed on drift');
 
 const protocolEvents = [
   { t: 'joinedLounge', char: OWN_CHARACTER },
@@ -515,6 +540,75 @@ for (const role of ['a', 'b'] as const) {
   assert.equal(conversion.controller.status().pending, null);
 }
 console.log('PASS  real coordinator+engine confirms airborne kick→jumpkick and pre-ack Context→Weight conversion on both seats');
+
+for (const role of ['a', 'b'] as const) {
+  const recovery = await coordinatorActuationHarness(role, true);
+  const recoveryFighters = prepareActuationMatch(recovery.match, role);
+  Object.assign(recoveryFighters.opp, {
+    x: 115, attack: 'kick', attackFrame: 5, attackHit: false,
+  });
+
+  await recovery.controller.handle(coordinatorWireState(recovery.match, role, recovery.wireSeq()));
+  assert.equal(recovery.sent.at(-1)?.kick, true);
+  assert.ok(recovery.controller.status().pending);
+
+  // Let the real opposing kick create hit-stop and hitstun before the delayed
+  // CODEX edge reaches the coordinator, matching the cross-direction race.
+  recovery.coordinator.tick();
+  let relay = recovery.codexWorker.latest('state');
+  assert.ok(relay.m.hitStop > 0);
+  assert.ok((role === 'a' ? relay.m.a : relay.m.b).stun > 0);
+  assert.equal(relay.ack, 0);
+  await recovery.controller.handle(coordinatorWireState(relay.m, role, relay.ack));
+
+  // The edge now arrives before a frozen tick. Ack advances, stepMatch returns
+  // for hit-stop, and the coordinator's real clearEdges consumes the kick.
+  recovery.flushInputs();
+  recovery.coordinator.tick();
+  relay = recovery.codexWorker.latest('state');
+  assert.equal(relay.ack, 1);
+  assert.equal((role === 'a' ? relay.m.a : relay.m.b).attack, 'none');
+  await recovery.controller.handle(coordinatorWireState(relay.m, role, relay.ack));
+  assert.equal(recovery.controller.status().pending, null);
+  assert.ok(recovery.controller.status().edgeRecovery);
+
+  for (let ticks = 0; ticks < 40 && recovery.controller.status().edgeRecovery; ticks++) {
+    recovery.flushInputs();
+    recovery.coordinator.tick();
+    relay = recovery.codexWorker.latest('state');
+    await recovery.controller.handle(coordinatorWireState(relay.m, role, relay.ack));
+  }
+  assert.equal(recovery.controller.status().stopped, false);
+  assert.equal(recovery.controller.status().edgeRecovery, null);
+  assert.equal(recovery.sent.some((message) => message.t === 'leave'), false);
+  assert.ok(recovery.audit.rows.some((row) => row.event === 'edge-recovery-started'));
+  assert.ok(recovery.audit.rows.some((row) => row.event === 'edge-recovery-complete'));
+}
+console.log('PASS  both seats safely recover when an acknowledged edge is cleared by hit-stop then hitstun');
+
+const recoveryBound = harness();
+await enterMatch(recoveryBound);
+await recoveryBound.controller.handle(state({
+  frame: 10,
+  you: fighter({ y: 30, vy: -2 }),
+  opp: fighter({ x: 115, facing: -1 }),
+}));
+assert.ok(recoveryBound.controller.status().pending);
+await recoveryBound.controller.handle(state({
+  frame: 11, ack: 1, hitStop: 1,
+  you: fighter({ y: 30, vy: -2, stun: 15 }),
+  opp: fighter({ x: 115, facing: -1 }),
+}));
+assert.ok(recoveryBound.controller.status().edgeRecovery);
+await recoveryBound.controller.handle(state({
+  frame: 11 + EDGE_RECOVERY_TIMEOUT_FRAMES, ack: 2,
+  you: fighter({ y: 20, vy: -1, stun: 1 }),
+  opp: fighter({ x: 115, facing: -1 }),
+}));
+assert.equal(recoveryBound.controller.status().stopped, true);
+assert.equal(recoveryBound.sent.at(-1)?.t, 'leave');
+assert.match(JSON.stringify(recoveryBound.audit.rows), /cleared edge recovery timeout/);
+console.log('PASS  cleared-edge recovery remains frame-bounded and fails closed if safety never returns');
 
 async function deterministicTrace(): Promise<string> {
   const h = harness('a');
@@ -769,6 +863,13 @@ assert.equal(manifest.ownHandle, OWN_HANDLE);
 assert.equal(manifest.targetHandle, TARGET_HANDLE);
 assert.equal(manifest.matchLimit, 1);
 assert.equal(manifest.quickQueueAllowed, false);
+assert.equal(manifest.currentMainBaseCommit, CURRENT_MAIN_BASE_COMMIT);
+assert.equal(manifest.mechanicsReferenceCommit, MECHANICS_REFERENCE_COMMIT);
+assert.equal(manifest.expectedRuntimeProfile, EXPECTED_RUNTIME_PROFILE);
+assert.equal(manifest.implementationHash, EXPECTED_CODEX_RUNNER_IMPLEMENTATION_HASH);
+assert.equal(manifest.deployedCommitAttested, false);
+assert.equal('deploymentAttestation' in manifest, false);
+assert.equal('pinnedEngineCommit' in manifest, false);
 assert.match(String(manifest.residualRisk), /forfeit/);
 
 for (const file of [securePath, dryOutput, keyPath]) {
