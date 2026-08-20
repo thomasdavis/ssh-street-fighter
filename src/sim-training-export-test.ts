@@ -1,4 +1,5 @@
 import { exportSimTrainingData } from './tools/training-export.js';
+import { ENGINE_VERSION } from './telemetry/recorder.js';
 
 let pass = true;
 const check = (name: string, ok: boolean, detail = '') => {
@@ -13,7 +14,9 @@ async function fixture(): Promise<Record<string, unknown>[]> {
     matches: 1, seed: 73, sourceCommit: 'fixture-commit', sourceDirty: false,
   }, (episode) => episodes.push(episode));
   check('summary reports one match and two perspectives', summary.matches === 1 && summary.episodes === 2);
-  check('summary pins engine and fixture source', summary.engineVersion === 'sf-5' && summary.engineCommit === 'fixture-commit');
+  // Regression for #26: simulator exports must report the CURRENT runtime engine
+  // version (they run the current engine), never a stale independent label.
+  check('summary pins the current engine + fixture source', summary.engineVersion === ENGINE_VERSION && summary.engineCommit === 'fixture-commit', `engineVersion=${summary.engineVersion} expected=${ENGINE_VERSION}`);
   return episodes;
 }
 

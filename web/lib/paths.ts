@@ -1,6 +1,6 @@
 import { resolve } from 'path';
 
-// The streetfighter repo root (this web app lives in <root>/web).
+// The sshfighter repo root (this web app lives in <root>/web).
 export const SF_ROOT = process.env.SF_ROOT ? resolve(process.env.SF_ROOT) : resolve(process.cwd(), '..');
 export const SPRITES_DIR = resolve(SF_ROOT, 'assets/sprites');
 export const DB_PATH = process.env.SF_DB ? resolve(process.env.SF_DB) : resolve(SF_ROOT, 'data/streetfighter.db');

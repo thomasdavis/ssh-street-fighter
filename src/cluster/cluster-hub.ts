@@ -18,9 +18,9 @@ export class ClusterHub implements Hub {
         case 'matchStart': s.startRemoteVersus(m.mid, m.role, m.yourCursor, m.oppName, m.oppCursor, m.stage); break;
         case 'state': s.applyRemoteState(m.mid, m.m, m.ack); break;
         case 'matchEnd': s.endRemoteVersus(m.mid, m.result); break;
-        case 'lounge': s.loungeRoster = m.roster; s.loungeChat = m.chat; s.prevFrame = null; break;
-        case 'notice': s.loungeNotice = m.notice; s.prevFrame = null; break;
-        case 'challengeState': s.incoming = m.incoming; s.outgoing = m.outgoing; s.prevFrame = null; break;
+        case 'lounge': s.loungeRoster = m.roster; s.loungeChat = m.chat; s.forceRedraw(); break;
+        case 'notice': s.loungeNotice = m.notice; s.forceRedraw(); break;
+        case 'challengeState': s.incoming = m.incoming; s.outgoing = m.outgoing; s.forceRedraw(); break;
       }
     });
   }

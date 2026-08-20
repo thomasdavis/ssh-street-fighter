@@ -1,54 +1,87 @@
 import type { Frame } from '../render/frame.js';
 import type { Key } from '../ui/key.js';
 import type { Session } from '../net/session.js';
-import { composeSelectStage, SELECT_STAGE, fighterSlot } from '../game/select-scene.js';
+import type { RGB } from '../render/pixel.js';
+import type { MouseEvent } from '../net/caps.js';
+import { composeSelectStage, selectLayout, SELECT_COLS } from '../game/select-scene.js';
 import { makeSurface } from '../ui/surface.js';
 import { hints, centerText } from '../ui/widgets.js';
 import { THEME } from '../ui/theme.js';
-import { ROSTER, characterAt } from '../game/roster.js';
+import { ROSTER, characterAt, type Character } from '../game/roster.js';
 import * as db from '../db/db.js';
+
+const DIFF_COLOR: Record<Character['difficulty'], RGB> = {
+  Beginner: THEME.good, Intermediate: THEME.accent, Advanced: THEME.bad,
+};
+
+function confirm(s: Session): void {
+  if (!s.guest && s.fp) db.setMainChar(s.fp, s.cursor);
+  s.trackEvent('fighter_selected', { fighter: characterAt(s.cursor).name, mode: s.selectMode });
+  if (s.selectMode === 'practice') s.startPractice(s.cursor);
+  else s.joinLobby();
+}
 
 export const select = {
   render(s: Session, f: Frame): void {
     const pw = f.cols * 2, ph = f.rows * 4;
-    // rendered fighter sprites go in the pixel layer at full resolution; the
-    // pixel-font overlay draws on top of the same layer (makeSurface reuses it).
+    // The SF2-style scene (spotlit hero + framed portrait grid) is the pixel layer;
+    // crisp names/hints are overlaid in the text surface, aligned to the same geometry.
     f.usePixel(composeSelectStage(s.cursor, s.frame, pw, ph));
     const ui = makeSurface(f);
-    const scale = Math.min(pw / SELECT_STAGE.W, ph / SELECT_STAGE.H);
-    const ox = (pw - SELECT_STAGE.W * scale) / 2, oy = (ph - SELECT_STAGE.H * scale) / 2;
-    const toUX = (lx: number) => ui.unitX(ox + lx * scale);
-    const toUY = (ly: number) => ui.unitY(oy + ly * scale);
-
-    ui.heading(0, 'SELECT FIGHTER', THEME.accent, 1);
-    centerText(ui, ui.headingHeight(1), s.selectMode === 'practice' ? 'PRACTICE - PICK A FIGHTER' : 'VERSUS LOBBY - PICK A FIGHTER', { color: THEME.accent2 });
-
     const n = ROSTER.length;
     const sel = ((s.cursor % n) + n) % n;
+    const L = selectLayout(pw, ph, n);
+
+    ui.heading(0, 'SELECT YOUR FIGHTER', THEME.accent, 1);
+    centerText(ui, ui.headingHeight(1), s.selectMode === 'practice' ? 'PRACTICE - PICK YOUR FIGHTER' : 'VERSUS - PICK YOUR FIGHTER', { color: THEME.accent2 });
+
+    // A name tag under each portrait, truncated to the box width; the pick is gold.
     for (let i = 0; i < n; i++) {
-      const c = characterAt(i);
-      const slot = fighterSlot(i, n);
-      const cx = toUX(slot.x);
-      const nameRow = Math.round(toUY(slot.baseline + 6));
+      const b = L.boxes[i]!;
       const isSel = i === sel;
-      ui.text(cx - c.name.length / 2, nameRow, c.name, { color: isSel ? THEME.accent : THEME.textDim, bold: isSel });
-      if (isSel) ui.text(cx - 3, nameRow + 1, '▲ PICK', { color: THEME.accent, bold: true });
+      const cxu = ui.unitX(b.x + b.w / 2);
+      const maxCh = Math.max(3, Math.floor(ui.unitX(b.w)) + 1);   // may overhang a touch into the cell gap
+      const label = characterAt(i).name.slice(0, maxCh);
+      ui.text(cxu - label.length / 2, ui.unitY(L.nameY[i]!), label, { color: isSel ? THEME.accent : THEME.textDim, bold: isSel });
     }
 
-    const chosen = characterAt(sel);
-    centerText(ui, ui.rows - 2, chosen.tagline.toUpperCase(), { color: THEME.text });
-    hints(ui, ui.rows - 1, [['A/D', 'CHOOSE'], ['ENTER', 'START'], ['ESC', 'BACK']]);
+    // Nameplate banner across the top of the hero portrait.
+    const c = characterAt(sel);
+    const heroCxU = ui.unitX(L.hero.cx);
+    const plate = ` ${c.name} `;
+    ui.text(heroCxU - plate.length / 2, ui.unitY(L.hero.y) + 0.2, plate, { color: THEME.selectText, bg: THEME.select, bold: true });
+
+    // Bottom band: tagline, difficulty/archetype, controls.
+    centerText(ui, ui.rows - 3, `· ${c.tagline.toUpperCase()} ·`, { color: THEME.text });
+    centerText(ui, ui.rows - 2, `${c.difficulty.toUpperCase()} · ${c.archetype.toUpperCase()}`, { color: DIFF_COLOR[c.difficulty], bold: true });
+    hints(ui, ui.rows - 1, [['WASD', 'MOVE'], ['ENTER', 'START'], ['ESC', 'BACK']]);
   },
 
   onKey(s: Session, k: Key): void {
-    if (k.t === 'left' || (k.t === 'char' && k.ch.toLowerCase() === 'a')) s.cursor = (s.cursor - 1 + ROSTER.length) % ROSTER.length;
-    else if (k.t === 'right' || (k.t === 'char' && k.ch.toLowerCase() === 'd')) s.cursor = (s.cursor + 1) % ROSTER.length;
-    else if (k.t === 'esc' || (k.t === 'char' && k.ch.toLowerCase() === 'q')) s.goTo('menu');
-    else if (k.t === 'enter' || (k.t === 'char' && (k.ch === 'j' || k.ch === ' '))) {
-      if (!s.guest && s.fp) db.setMainChar(s.fp, s.cursor);
-      s.trackEvent('fighter_selected', { fighter: characterAt(s.cursor).name, mode: s.selectMode });
-      if (s.selectMode === 'practice') s.startPractice(s.cursor);
-      else s.joinLobby();
+    const n = ROSTER.length;
+    const isCh = (ch: string): boolean => k.t === 'char' && k.ch.toLowerCase() === ch;
+    if (k.t === 'left' || isCh('a')) s.cursor = (s.cursor - 1 + n) % n;
+    else if (k.t === 'right' || isCh('d')) s.cursor = (s.cursor + 1) % n;
+    else if (k.t === 'up' || isCh('w')) { const t = s.cursor - SELECT_COLS; if (t >= 0) s.cursor = t; }
+    else if (k.t === 'down' || isCh('s')) { const t = s.cursor + SELECT_COLS; if (t < n) s.cursor = t; }
+    else if (k.t === 'esc' || isCh('q')) s.goTo('menu');
+    else if (k.t === 'enter' || (k.t === 'char' && (k.ch === 'j' || k.ch === ' '))) confirm(s);
+  },
+
+  // Click a portrait to select it; click the already-selected one to start.
+  onMouse(s: Session, e: MouseEvent, pw: number, ph: number): void {
+    if (e.kind !== 'down') return;
+    const n = ROSTER.length;
+    const cx = (e.col - 0.5) * 2;   // cell → pixel-layer coords (each cell is 2x4 subpixels)
+    const cy = (e.row - 0.5) * 4;
+    const L = selectLayout(pw, ph, n);
+    for (let i = 0; i < n; i++) {
+      const b = L.boxes[i]!;
+      if (cx >= b.x && cx < b.x + b.w && cy >= b.y && cy < b.y + b.h) {
+        if (i === ((s.cursor % n) + n) % n) confirm(s);
+        else s.cursor = i;
+        return;
+      }
     }
   },
 };

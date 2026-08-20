@@ -1,21 +1,21 @@
 <div align="center">
 
-# SSH Street Fighter
+# SSH Fighter
 
 ### A real-time arcade fighter streamed through your terminal.
 
-[![CI](https://github.com/thomasdavis/ssh-street-fighter/actions/workflows/ci.yml/badge.svg)](https://github.com/thomasdavis/ssh-street-fighter/actions/workflows/ci.yml)
+[![CI](https://github.com/thomasdavis/sshfighter.com/actions/workflows/ci.yml/badge.svg)](https://github.com/thomasdavis/sshfighter.com/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-f7d94c.svg)](LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-strict-28c6e5.svg)](tsconfig.json)
-[![Play over SSH](https://img.shields.io/badge/play-ssh%20--p%202223-ef4452.svg)](#play-now)
+[![Play over SSH](https://img.shields.io/badge/play-ssh%20sshfighter.com-ef4452.svg)](#play-now)
 
 No download. No browser. No account. Just SSH in, choose a fighter, and throw hands.
 
 ```console
-ssh -p 2223 streetfighter.blah.dev
+ssh sshfighter.com
 ```
 
-[Play now](#play-now) · [Browse fighter guides & sprites](https://streetfighter.blah.dev) · [How it works](docs/ARCHITECTURE.md) · [Contribute](CONTRIBUTING.md)
+[Play now](#play-now) · [Browse fighter guides & sprites](https://sshfighter.com) · [How it works](docs/ARCHITECTURE.md) · [Contribute](CONTRIBUTING.md)
 
 <img src="docs/screenshots/gameplay.png" alt="BYU fighting MEN beneath the responsive terminal-native HUD" width="100%">
 
@@ -23,9 +23,9 @@ ssh -p 2223 streetfighter.blah.dev
 
 ## Why this is fun
 
-SSH Street Fighter is a full two-player fighting game rendered with 24-bit ANSI color and Unicode half-block pixels. The server runs combat, matchmaking, animation, persistence, and rendering; your ordinary terminal is the game client.
+SSH Fighter is a full two-player fighting game rendered with 24-bit ANSI color and Unicode block pixels (octant / quadrant / half, picked for your terminal). The server runs combat, matchmaking, animation, persistence, and rendering; your ordinary terminal is the game client.
 
-- **Thirteen complete fighters**, each with three character-specific special moves
+- **Seventeen complete fighters**, each with three character-specific special moves
 - **Six animated arenas** with rain, surf, mist, steam, petals, runway lights, and other stage-bound motifs
 - **Real motion inputs** with a packet-safe input buffer for split SSH escape sequences
 - **Best-of-three online fights**, solo practice, direct challenges, and a quick-match queue
@@ -41,7 +41,7 @@ SSH Street Fighter is a full two-player fighting game rendered with 24-bit ANSI 
     <td width="50%"><img src="docs/screenshots/lounge.png" alt="Fight Lounge with persistent chat and direct challenges"></td>
   </tr>
   <tr>
-    <td align="center"><strong>Eleven distinct move sets</strong></td>
+    <td align="center"><strong>Seventeen distinct move sets</strong></td>
     <td align="center"><strong>Chat, presence, and direct challenges</strong></td>
   </tr>
 </table>
@@ -51,7 +51,7 @@ SSH Street Fighter is a full two-player fighting game rendered with 24-bit ANSI 
 Any terminal with SSH and truecolor support works:
 
 ```console
-ssh -p 2223 streetfighter.blah.dev
+ssh sshfighter.com
 ```
 
 Your public-key fingerprint becomes your identity. Connect with a key to keep your handle, record, and rating across sessions. Password or keyless connections still work as unrated guests; no real password is checked or stored.
@@ -105,7 +105,7 @@ Choose **Controls** on the main menu to rebind every combat direction, both jump
 The terminal has no diagonal key events, so specials use compact four-direction motions. Inputs are relative to the direction your fighter is facing.
 
 <details>
-<summary><strong>All 39 special moves</strong></summary>
+<summary><strong>All 51 special moves</strong></summary>
 
 | Fighter | Special moves |
 |---|---|
@@ -122,6 +122,10 @@ The terminal has no diagonal key events, so specials use compact four-direction 
 | **OMEGA** | `↓ → + W` Final Testimony · `← → + E` Null Step · `↓ ← + W` Entropy Well |
 | **CODEX** | `↓ ↑ + W` Context Ascent · `← → + E` Branchwalk · `↓ → + E` Weight of Evidence (also during Context descent) |
 | **FABLE** | `↓ ↑ + W` Story Arc · `← → + E` Plot Twist · `↓ ← + W` Ink Tempest |
+| **MNEME** | `↓ ← + W` Turret · `↓ → + W` Spread Shot · `↓ ↑ + E` Nova Burst |
+| **AJAX** | `↓ → + E` Boomerang · `← → + W` Iron Brace · `↓ ← + E` Lasso |
+| **XENON** | `← → + E` Phase Dash · `↓ ↑ + W` Reflect · `↓ ← + W` Blink Strike |
+| **UNCLOSE** | `↓ → + W` Token Stream · `↓ ← + W` Waveform · `↓ ← + E` Free Tier |
 
 </details>
 
@@ -136,8 +140,8 @@ Each arena is a packed 240×160 RGBA scene with its own bounded procedural motif
 Requirements: Node.js 22+, pnpm 9+, and `ssh-keygen`.
 
 ```bash
-git clone https://github.com/thomasdavis/ssh-street-fighter.git
-cd ssh-street-fighter
+git clone https://github.com/thomasdavis/sshfighter.com.git
+cd sshfighter
 pnpm install --frozen-lockfile
 pnpm run keygen
 pnpm start
@@ -152,11 +156,31 @@ The server listens on `0.0.0.0:2223` by default. Configuration is entirely envir
 | `SF_DB` | `data/streetfighter.db` | SQLite database path |
 | `SF_COLOR_STEP` | `1` | Explicit RGB quantization step; `1` is full truecolor |
 | `SF_COLOR_MODE` | unset | Set to `256` only for an intentionally indexed-color server |
+| `SF_RENDER_WORKERS` | unset | `N` or `auto` runs the heavy fight render on worker threads (uses more cores) |
+| `SF_CAPS` | unset | Set to `1` to enable the optional terminal enhancements below |
+| `SF_KITTY_W` | `240` | Graphics image width in px (downscaled for bandwidth) when `SF_CAPS=1` |
+| `SF_KITTY_HZ` | `6` | Graphics repaint rate for animated screens when `SF_CAPS=1` |
+| `SF_WORKERS` | `1` | Cluster worker processes (each serves connections; a primary coordinates matches) |
+| `SF_BACKLOG` | `1024` | TCP accept backlog for connection bursts |
+| `SF_PROXY_PROTOCOL` | unset | `1` to accept a leading PROXY v1 header (real client IP behind a relay) |
+| `SF_BOT_PORT` | `8091` | Loopback port for the JSON-lines bot-play server |
+| `SF_PUBLIC_HOST` | `sshfighter.com` | Host shown in bot onboarding messages |
 | `SF_DISCORD_WEBHOOK` | unset | Optional best-effort Discord destination for vital community events only |
 
 All events are recorded locally in the append-only `analytics_events` SQLite table for the planned analytics site. Discord receives only quick-match waiting, match start/result, forfeit, and lounge chat events. Inputs, special moves, screen views, connections, and terminal resolution changes never go to Discord. See [the analytics contract](docs/ANALYTICS.md).
 
 Copy [`.env.example`](.env.example) as a starting point. Never commit a webhook, host key, database, or gallery admin token.
+
+### Optional terminal enhancements
+
+For modern terminals (Ghostty, Kitty, WezTerm, VS Code, and others), `SF_CAPS=1` turns on an experimental capability layer, negotiated per connection so anything unsupported degrades silently:
+
+- **Kitty graphics** — the whole scene as a true-colour image instead of block glyphs. Heavier over SSH, so it stays opt-in per player: press `V` to cycle `quadrant → octant → graphics`. Tune bandwidth with `SF_KITTY_W` / `SF_KITTY_HZ`.
+- **Precise fight input** — the kitty keyboard protocol gives real key press/release, so holds/blocks/charges land exactly (instead of an auto-repeat expiry window).
+- **Mouse** — click a portrait on the select screen, wheel-scroll the lounge chat.
+- **No tearing** — synchronized output (mode 2026) paints each frame atomically.
+
+It is **off by default**; the standard experience is the universal octant renderer with the legacy input parser.
 
 ### Fighter dossiers and sprite gallery
 
@@ -179,7 +203,7 @@ The renderer preserves color and detail while limiting transport work:
 - changed-cell ANSI diffs instead of full-frame redraws
 - SSH zlib compression, slow-client backpressure, and obsolete-frame coalescing
 - bounded sprite and stage caches
-- a `300×120` terminal safety cap
+- a `900×360` terminal safety cap
 - native truecolor (`38;2` / `48;2`) unless the operator explicitly opts into indexed mode
 
 See [the architecture guide](docs/ARCHITECTURE.md) for the render and session pipelines.
@@ -207,16 +231,18 @@ pnpm export:sim-training --output training-data\sim.jsonl --fighter CODEX --oppo
 
 `export:training` validates public replay inputs against the published track and keyframes, emits privacy-minimized transitions, and quarantines mismatched matches in a manifest. `export:sim-training` runs the pinned local engine and emits two perspective-specific episodes per match with full state, exact applied inputs, controller hashes, engine commit, and terminal outcome. Simulator-only fields such as blocking and internal timers are auxiliary targets, not live-policy inputs. Generated `training-data/` files are intentionally ignored by Git.
 
-The asset contract verifies all thirteen complete dossiers, all 39 explained special-move definitions, every required fighter pose, and all six stage payloads. CI also rebuilds the authoritative fighter catalog and the Next.js site.
+The asset contract verifies all seventeen complete dossiers, all 51 explained special-move definitions, every required fighter pose, and all six stage payloads. CI also rebuilds the authoritative fighter catalog and the Next.js site.
 
 ## Project map
 
 ```text
 src/
   game/       deterministic 30 Hz combat, moves, roster, stages, sprites
-  render/     RGB pixel grids, terminal-cell conversion, exact ANSI diffs
+  render/     RGB pixel grids, octant/kitty render backends, exact ANSI diffs
   screens/    menu, select, lounge, fight HUD, help, results, leaderboard
-  net/        SSH authentication, sessions, matchmaking, challenges
+  net/        SSH authentication, sessions, the Terminal I/O boundary, matchmaking, challenges
+  input/      key bindings + the fight input parser (legacy + optional kitty keyboard)
+  cluster/    optional multi-worker match coordinator
   db/         additive SQLite schema, players, controls, ELO, match/chat/event history
   telemetry/  local analytics plus vital-only non-blocking Discord delivery
 assets/

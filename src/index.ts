@@ -54,7 +54,7 @@ if (WORKERS > 1 && cluster.isPrimary) {
   // (so workers don't race on ALTER TABLE).
   ensureHostKey();
   initDb();
-  console.log(`SSH Street Fighter primary (pid ${process.pid}): forking ${WORKERS} workers`);
+  console.log(`SSH Fighter primary (pid ${process.pid}): forking ${WORKERS} workers`);
   track('cluster_started', { workers: WORKERS, pid: process.pid });
   for (let i = 0; i < WORKERS; i++) cluster.fork();
   // the primary owns global matchmaking + runs every versus simulation

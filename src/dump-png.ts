@@ -30,13 +30,18 @@ function fake(o: Record<string, unknown>): any {
     player: db.getByFingerprint('fp:tom'), fp: 'fp:tom', menuIndex: 0, cursor: 2,
     keyBindings: DEFAULT_KEY_BINDINGS, controlsCursor: 5, bindingCapture: null, controlsNotice: 'PUNCH SET TO J',
     selectMode: 'lobby', leader: db.leaderboard(10), result: null,
-    loungeFocus: 'players', loungeCursor: 0, chatBuf: 'run it back?', loungeNotice: 'SELECT A PLAYER AND PRESS ENTER',
-    incomingChallenge: null, outgoingChallenge: null,
-    loungeMessages: () => db.chatHistory(100),
-    loungePlayers: () => [
-      { displayName: 'ADA', cursor: 3, player: db.getByFingerprint('fp:ada') },
-      { displayName: 'KAI', cursor: 2, player: db.getByFingerprint('fp:kai') },
-      { displayName: 'RIVAL_7', cursor: 6, player: null },
+    loungeFocus: 'players', loungeCursor: 0, loungeChatScroll: 0, chatBuf: 'run it back?', loungeNotice: 'SELECT A PLAYER AND PRESS ENTER',
+    incoming: null, outgoing: null,
+    loungeRoster: [
+      { id: '1', name: 'ADA', cursor: 3, elo: 1240 },
+      { id: '2', name: 'KAI', cursor: 2, elo: 1190 },
+      { id: '3', name: 'RIVAL_7', cursor: 6, elo: null },
+      { id: '4', name: 'NOVA_STORM', cursor: 10, elo: 1305 },
+    ],
+    loungeChat: [
+      { username: 'ADA', message: 'gg, that was close — run it back?' },
+      { username: 'KAI', message: 'i am in. monsoon stage, no excuses.' },
+      { username: 'THOMAS', message: 'winner stays on.' },
     ],
     ...o };
 }

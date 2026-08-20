@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // ============================================================================
-// SSH Street Fighter — example bot
+// SSH Fighter — example bot
 // ----------------------------------------------------------------------------
 // A bot is an ordinary player that reaches the game over an API instead of a
 // terminal. Give each bot its own SSH key if its identity and rating should be

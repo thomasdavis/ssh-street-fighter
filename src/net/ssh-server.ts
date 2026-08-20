@@ -58,7 +58,7 @@ function mintTokenOverSsh(stream: Duplex, fingerprint: string | null, username: 
     const player = getByFingerprint(fingerprint);
     track('bot_token_minted', { connection_id: connectionId, username, has_player: !!player });
     end(
-      '\n== SSH STREET FIGHTER — BOT ACCESS ==\n\n' +
+      '\n== SSH FIGHTER — BOT ACCESS ==\n\n' +
       `player  : ${player?.username ?? username}\n` +
       `api key : ${key}\n\n` +
       `PLAY (recommended — all over SSH, key-verified):\n` +
@@ -116,7 +116,7 @@ export function startServer(port: number, host: string, hostKeyPath: string): ne
   const server = new Server(
     {
       hostKeys: [hostKey],
-      banner: 'SSH STREET FIGHTER\r\n',
+      banner: 'SSH FIGHTER\r\n',
       // Force zlib: drop 'none' from the compression list so every client
       // negotiates compression. Terminal ANSI compresses ~4-5x (lossless).
       algorithms: { compress: ['zlib@openssh.com', 'zlib'] },
@@ -209,7 +209,7 @@ export function startServer(port: number, host: string, hostKeyPath: string): ne
   // of being refused while handshakes are processed (default is only 511).
   const backlog = parseInt(process.env.SF_BACKLOG ?? '1024', 10) || 1024;
   const onListen = (): void => {
-    console.log(`SSH Street Fighter listening on ${host}:${port}${PROXY_PROTOCOL ? ' (PROXY protocol)' : ''}`);
+    console.log(`SSH Fighter listening on ${host}:${port}${PROXY_PROTOCOL ? ' (PROXY protocol)' : ''}`);
     track('service_started', { host, port, pid: process.pid, node: process.version, proxy_protocol: PROXY_PROTOCOL });
   };
 

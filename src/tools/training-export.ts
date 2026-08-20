@@ -14,8 +14,11 @@ import {
   gymFighterView, gymInputs, gymStyles, knownGymFighter, loadGymPolicy,
   seededGymRandom, type GymPolicy,
 } from './omega-gym.js';
+import { ENGINE_VERSION } from '../telemetry/recorder.js';
 
-const ENGINE_VERSION = 'sf-5';
+// Simulator exports run the CURRENT engine source, so they must carry the same
+// engine version the runtime records (`recorder.ENGINE_VERSION`) — never a stale
+// hard-coded label. See issue #26.
 const CAP = 30 * 75;
 
 export interface SimTrainingExportOptions {

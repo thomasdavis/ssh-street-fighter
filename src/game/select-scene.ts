@@ -8,7 +8,7 @@
 import { createGrid, fillRect, blit, resizeGridH, rgb, type PixelGrid, type RGB } from '../render/pixel.js';
 import { drawFighter } from './sprites.js';
 import { WORLD_W, WORLD_H, GROUND_Y } from './engine.js';
-import { ROSTER, characterAt } from './roster.js';
+import { ROSTER, characterAt, type Character } from './roster.js';
 import { SPRITES } from './sprite-set.js';
 import { STAGES } from './stage-set.js';
 import type { FighterPalette } from './types.js';
@@ -75,42 +75,190 @@ function stageBackdrop(g: PixelGrid, pw: number, ph: number, stageId: string, di
   }
 }
 
-export interface SelectSlot { x: number; baseline: number; standH: number; }
-export function fighterSlot(i: number, n: number): SelectSlot {
-  if (n <= 4) return { x: Math.round((WORLD_W / n) * i + WORLD_W / n / 2), baseline: SELECT_FLOOR, standH: 52 };
-  const cols = Math.ceil(n / 2);
-  const row = Math.floor(i / cols), col = i % cols;
-  const rowCount = Math.min(cols, n - row * cols);
-  const crowded = n > 8;
-  return {
-    x: Math.round((WORLD_W / rowCount) * col + WORLD_W / rowCount / 2),
-    baseline: row === 0 ? (crowded ? 80 : 72) : (crowded ? 128 : 124),
-    standH: crowded ? 44 : 48,
-  };
-}
-
 // --- sprite-only stages (no pixel text; crisp text is overlaid by the screen) ---
 export const SELECT_STAGE = { W: WORLD_W, H: WORLD_H, floor: SELECT_FLOOR };
 
+// ── SF2-style character select ───────────────────────────────────────────────
+// The highlighted fighter poses large on a spotlit stage (left); the whole roster
+// sits in a grid of framed face portraits (right). Geometry is computed once
+// (selectLayout) so the pixel scene and the crisp text overlay agree on it.
+export const SELECT_COLS = 5;                   // portrait-grid columns
+const CELL_PAD_FRAC = 0.10;                     // padding inside each grid cell
+const BUST_HEAD_FRAC = 0.46;                    // fraction of a full figure a bust box shows
+
+export interface Rect { x: number; y: number; w: number; h: number; }
+export interface HeroBox extends Rect { cx: number; feetY: number; standH: number; }
+export interface SelectLayout {
+  cols: number; rows: number;
+  hero: HeroBox;
+  boxes: Rect[];        // framed portrait rect for each fighter (framebuffer px)
+  nameY: number[];      // top (framebuffer px) of each fighter's name strip
+}
+
+/** Compute the select-screen geometry (all in framebuffer pixels). */
+export function selectLayout(pw: number, ph: number, n: number): SelectLayout {
+  // Reserve the top/bottom bands by the overlaid text's ACTUAL metrics (a fixed
+  // number of rows), not a fraction of height — otherwise the big heading/hints
+  // overlap the grid on shorter terminals. Mirrors PixelSurface's line height.
+  const lh = 9 * Math.max(1, Math.round(ph * 0.0040));   // sub-pixels per text row
+  const topPx = Math.round(4.6 * lh);           // heading (3) + subheading (1) + margin
+  const botPx = Math.round(3.5 * lh);           // tagline + difficulty + hints
+  const contentY = topPx;
+  const contentH = Math.max(8, ph - topPx - botPx);
+  const heroX = Math.round(pw * 0.02);
+  const heroW = Math.round(pw * 0.38);
+  const gridX = heroX + heroW + Math.round(pw * 0.04);
+  const gridW = Math.max(8, pw - gridX - Math.round(pw * 0.02));
+  const cols = SELECT_COLS;
+  const rows = Math.max(1, Math.ceil(n / cols));
+  const cellW = gridW / cols;
+  const cellH = contentH / rows;
+  const pad = Math.min(cellW, cellH) * CELL_PAD_FRAC;
+  const nameH = Math.min(cellH * 0.24, Math.max(7, ph * 0.03));
+  const boxes: Rect[] = [];
+  const nameY: number[] = [];
+  for (let i = 0; i < n; i++) {
+    const row = Math.floor(i / cols), col = i % cols;
+    const rowCount = Math.min(cols, n - row * cols);
+    const rowOff = ((cols - rowCount) * cellW) / 2;   // centre a short final row
+    const cellX = gridX + rowOff + col * cellW;
+    const cellY = contentY + row * cellH;
+    boxes.push({ x: cellX + pad, y: cellY + pad, w: cellW - 2 * pad, h: cellH - 2 * pad - nameH });
+    nameY.push(cellY + cellH - nameH);
+  }
+  const hero: HeroBox = {
+    x: heroX, y: contentY, w: heroW, h: contentH,
+    cx: heroX + heroW / 2,
+    feetY: contentY + contentH * 0.9,
+    standH: contentH * 0.78,
+  };
+  return { cols, rows, hero, boxes, nameY };
+}
+
+const mix = (a: number, b: number, t: number): number => Math.round(a + (b - a) * t);
+
+/** Feet-anchored sprite draw in framebuffer pixels (hero + bust fallbacks). */
+function drawSpritePx(g: PixelGrid, name: string, palette: FighterPalette, feetX: number, feetY: number, standH: number, bob: number, pose = 'idle_1', facing: 1 | -1 = 1): void {
+  const targetH = Math.max(8, Math.round(standH));
+  const spr = SPRITES.getScaled(name, pose, facing, targetH) ?? (pose !== 'idle_1' ? SPRITES.getScaled(name, 'idle_1', facing, targetH) : null);
+  if (spr) { blit(g, spr.grid, Math.round(feetX - spr.anchorX), Math.round(feetY + bob - spr.anchorY), false); return; }
+  const { grid } = resizeGridH(drawFighter('idle', palette, 0), targetH);
+  const gw = grid[0]?.length ?? 0, gh = grid.length;
+  blit(g, grid, Math.round(feetX - gw / 2), Math.round(feetY + bob - gh), facing === -1);
+}
+
+/** Bounding box of the non-transparent pixels in a grid (null if fully empty). */
+function contentBBox(grid: PixelGrid): { x0: number; y0: number; x1: number; y1: number } | null {
+  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+  for (let y = 0; y < grid.length; y++) {
+    const row = grid[y]!;
+    for (let x = 0; x < row.length; x++) if (row[x]) { if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; }
+  }
+  return x1 < x0 ? null : { x0, y0, x1, y1 };
+}
+
+/** Blit a sprite, writing only into the clip rectangle [cx0,cx1) x [cy0,cy1). */
+function blitClipped(bg: PixelGrid, sprite: PixelGrid, offX: number, offY: number, cx0: number, cy0: number, cx1: number, cy1: number): void {
+  for (let y = 0; y < sprite.length; y++) {
+    const ty = y + offY;
+    if (ty < cy0 || ty >= cy1) continue;
+    const trow = bg[ty], srow = sprite[y];
+    if (!trow || !srow) continue;
+    for (let x = 0; x < srow.length; x++) {
+      const px = srow[x]; if (!px) continue;
+      const tx = x + offX;
+      if (tx < cx0 || tx >= cx1 || tx < 0 || tx >= trow.length) continue;
+      trow[tx] = px;
+    }
+  }
+}
+
+/** Blend one pixel toward `c` by alpha `a` (keeps the backdrop showing through). */
+function blendPx(g: PixelGrid, x: number, y: number, c: RGB, a: number): void {
+  const row = g[y]; if (!row || x < 0 || x >= row.length) return;
+  const base = row[x] ?? { r: 0, g: 0, b: 0 };
+  row[x] = { r: mix(base.r, c.r, a), g: mix(base.g, c.g, a), b: mix(base.b, c.b, a) };
+}
+
+/** Soft blended ellipse — spotlight pools, contact shadows, back-glow. */
+function ellipseBlend(g: PixelGrid, cx: number, cy: number, rx: number, ry: number, c: RGB, a: number, feather = 0.5): void {
+  if (rx < 1 || ry < 1) return;
+  const x0 = Math.max(0, Math.floor(cx - rx)), x1 = Math.ceil(cx + rx);
+  const y0 = Math.max(0, Math.floor(cy - ry)), y1 = Math.ceil(cy + ry);
+  for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
+    const dx = (x - cx) / rx, dy = (y - cy) / ry, d = Math.sqrt(dx * dx + dy * dy);
+    if (d > 1) continue;
+    const fall = d < feather ? 1 : 1 - (d - feather) / (1 - feather);
+    blendPx(g, x, y, c, a * fall);
+  }
+}
+
+/** A framed head-and-shoulders bust, clipped into a portrait box. */
+function drawBust(g: PixelGrid, name: string, palette: FighterPalette, bx: number, by: number, bw: number, bh: number): void {
+  const fullH = Math.max(12, Math.round(bh / BUST_HEAD_FRAC));
+  const grid = SPRITES.getScaled(name, 'idle_1', 1, fullH)?.grid ?? resizeGridH(drawFighter('idle', palette, 0), fullH).grid;
+  const bb = contentBBox(grid);
+  if (!bb) return;
+  const headroom = Math.round(bh * 0.08);
+  const drawX = Math.round(bx + bw / 2 - (bb.x0 + bb.x1) / 2);
+  const drawY = Math.round(by + headroom - bb.y0);
+  blitClipped(g, grid, drawX, drawY, Math.round(bx), Math.round(by), Math.round(bx + bw), Math.round(by + bh));
+}
+
+/** One framed roster portrait (tinted plaque + bust + arcade-cursor frame). */
+function drawPortrait(g: PixelGrid, c: Character, box: Rect, selected: boolean, pulse: number): void {
+  const bx = Math.round(box.x), by = Math.round(box.y), bw = Math.round(box.w), bh = Math.round(box.h);
+  if (bw < 2 || bh < 2) return;
+  const pal = c.palette;
+  for (let y = 0; y < bh; y++) {           // plaque: dark gradient washed with the fighter colour up top
+    const t = y / Math.max(1, bh - 1), wash = 0.16 * (1 - t);
+    fillRect(g, bx, by + y, bw, 1, {
+      r: mix(mix(40, 12, t), pal.gi.r, wash),
+      g: mix(mix(34, 10, t), pal.gi.g, wash),
+      b: mix(mix(60, 20, t), pal.gi.b, wash),
+    });
+  }
+  ellipseBlend(g, bx + bw / 2, by + bh * 0.52, bw * 0.52, bh * 0.6, pal.gi, 0.22, 0.15);   // back-glow
+  drawBust(g, c.name, pal, bx, by, bw, bh);
+  const border = selected ? { r: 255, g: mix(196, 255, pulse), b: mix(60, 150, pulse) } : rgb(96, 84, 132);
+  const bt = selected ? Math.max(2, Math.round(bh * 0.05)) : 1;
+  fillRect(g, bx, by, bw, bt, border); fillRect(g, bx, by + bh - bt, bw, bt, border);
+  fillRect(g, bx, by, bt, bh, border); fillRect(g, bx + bw - bt, by, bt, bh, border);
+  if (selected) {                          // gold arcade-cursor L-brackets on the corners
+    const tk = Math.max(2, Math.round(Math.min(bw, bh) * 0.18));
+    fillRect(g, bx - 1, by - 1, tk, bt, GOLD); fillRect(g, bx - 1, by - 1, bt, tk, GOLD);
+    fillRect(g, bx + bw + 1 - tk, by - 1, tk, bt, GOLD); fillRect(g, bx + bw + 1 - bt, by - 1, bt, tk, GOLD);
+    fillRect(g, bx - 1, by + bh + 1 - bt, tk, bt, GOLD); fillRect(g, bx - 1, by + bh + 1 - tk, bt, tk, GOLD);
+    fillRect(g, bx + bw + 1 - tk, by + bh + 1 - bt, tk, bt, GOLD); fillRect(g, bx + bw + 1 - bt, by + bh + 1 - tk, bt, tk, GOLD);
+  }
+}
+
+/** The highlighted fighter, posing large on a spotlit stage. */
+function drawHero(g: PixelGrid, c: Character, hero: HeroBox, frame: number): void {
+  const px = Math.round(hero.x), py = Math.round(hero.y), pw2 = Math.round(hero.w), ph2 = Math.round(hero.h);
+  const { cx, feetY, standH } = hero;
+  ellipseBlend(g, cx, py + ph2 * 0.45, pw2 * 0.55, ph2 * 0.6, rgb(120, 112, 168), 0.14, 0);          // focal lift
+  ellipseBlend(g, cx, feetY - standH * 0.5, pw2 * 0.42, standH * 0.58, c.palette.gi, 0.24, 0.12);     // tinted back-glow
+  const floorY = Math.round(feetY + standH * 0.02);
+  ellipseBlend(g, cx, floorY, pw2 * 0.34, Math.max(2, standH * 0.055), rgb(250, 242, 205), 0.34, 0.05); // spotlight pool
+  ellipseBlend(g, cx, floorY, pw2 * 0.2, Math.max(1, standH * 0.035), SHADOW, 0.55, 0.25);             // contact shadow
+  drawSpritePx(g, c.name, c.palette, cx, feetY, standH, Math.round(Math.sin(frame / 9) * 1.5), 'menu', 1);
+  const fr = rgb(150, 128, 210);           // thin VS-portrait frame + gold top ticks
+  fillRect(g, px, py, pw2, 1, fr); fillRect(g, px, py + ph2 - 1, pw2, 1, fr);
+  fillRect(g, px, py, 1, ph2, fr); fillRect(g, px + pw2 - 1, py, 1, ph2, fr);
+  const gt = Math.max(2, Math.round(pw2 * 0.06));
+  fillRect(g, px, py, gt, 2, GOLD); fillRect(g, px + pw2 - gt, py, gt, 2, GOLD);
+}
+
 export function composeSelectStage(cursor: number, frame: number, pw: number, ph: number): PixelGrid {
-  const v = makeView(pw, ph);
-  const g = createGrid(pw, ph, rgb(0, 0, 0));
-  stageBackdrop(g, pw, ph, SELECT_BG, 0.4);   // dimmed stage so the roster pops
   const n = ROSTER.length;
   const sel = ((cursor % n) + n) % n;
-  const bob = Math.round(Math.sin(frame / 5) * 2);
-  for (let i = 0; i < n; i++) {
-    const c = characterAt(i);
-    const slot = fighterSlot(i, n);
-    const isSel = i === sel;
-    if (isSel) {
-      wrect(g, v, slot.x - 24, slot.baseline - slot.standH - 6, 48, slot.standH + 6, rgb(70, 56, 104));
-      wrect(g, v, slot.x - 22, slot.baseline - 2, 44, 4, GOLD);
-    }
-    wrect(g, v, slot.x - 16, slot.baseline - 1, 32, 2, SHADOW);
-    drawIdleAt(g, v, c.name, c.palette, slot.x, slot.baseline, slot.standH, isSel ? bob : 0);
-    if (isSel) { const ay = slot.baseline - slot.standH - 7; for (let k = 0; k < 4; k++) wrect(g, v, slot.x - k, ay + k, 1 + k * 2, 1, GOLD); }
-  }
+  const g = createGrid(pw, ph, rgb(0, 0, 0));
+  stageBackdrop(g, pw, ph, SELECT_BG, 0.32);   // dimmed stage so the roster pops
+  const L = selectLayout(pw, ph, n);
+  const pulse = 0.5 + 0.5 * Math.sin(frame / 6);
+  drawHero(g, characterAt(sel), L.hero, frame);
+  for (let i = 0; i < n; i++) drawPortrait(g, characterAt(i), L.boxes[i]!, i === sel, pulse);
   return g;
 }
 

@@ -23,7 +23,7 @@ export const LAB_SCHEMA = 'xenon-policy-lab/v1';
 // the mechanics of any fighter this lab evaluates (XENON vs OMEGA/MNEME/AJAX/FABLE),
 // so the search evidence is unchanged; only the source-file hash moved.
 export const EXPECTED_MECHANICS_HASH = '3f16939a536d16534d89fd3525a9ca9d25bd1247fe321f74e6e8f1eef4d92af7';
-const EXPECTED_ENGINE_VERSION = 'sf-6';
+const EXPECTED_ENGINE_VERSION = 'sf-6';   // intentional pin: validates external inputs against this attested profile (bump with ENGINE_VERSION)
 const MECHANICS_FILES = ['game/engine.ts', 'game/moves.ts', 'game/types.ts'] as const;
 const POLICY_SOURCE_VERSION = 'xenon-policy-lab-policies/v1';
 const DEFAULT_TRAIN_SEEDS = [101, 211, 307];

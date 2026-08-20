@@ -33,7 +33,7 @@ export function Footer() {
           <Link href="/fighters">Fighters</Link>
           <Link href="/bots">Build a bot</Link>
           <Link href="/status">Server status</Link>
-          <a href="https://github.com/thomasdavis/ssh-street-fighter" target="_blank" rel="noreferrer">GitHub</a>
+          <a href="https://github.com/thomasdavis/sshfighter.com" target="_blank" rel="noreferrer">GitHub</a>
           <span style={{ marginLeft: 'auto' }}>Jump in — <code style={{ color: 'var(--cyan)' }}>ssh sshfighter.com</code></span>
         </div>
       </div>

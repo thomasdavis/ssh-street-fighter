@@ -1,6 +1,8 @@
 import type { Duplex } from 'stream';
-import { HIDE_CURSOR, SHOW_CURSOR, CLEAR_SCREEN, RESET } from '../render/pixel.js';
-import { Frame, diffCells, type RenderMode, type Cell } from '../render/frame.js';
+import { HIDE_CURSOR, CLEAR_SCREEN } from '../render/pixel.js';
+import { Frame, type RenderMode } from '../render/frame.js';
+import { Terminal, NOWRAP } from './terminal.js';
+import type { MouseEvent, KittyKey } from './caps.js';
 import { parseKeys, type Key } from '../ui/key.js';
 import { InputState } from '../input/keys.js';
 import {
@@ -31,12 +33,11 @@ import { drawFightHud } from '../screens/fight-hud.js';
 import { actorRef, eventId, track, type TelemetryFields } from '../telemetry/discord.js';
 
 const MAX_RENDER_HZ = 15; // visual refresh rate (sim/input stay at TICK_HZ = 30)
-const MAX_COLS = 300, MAX_ROWS = 120;
-const NOWRAP = '\x1b[?7l';
-const WRAP = '\x1b[?7h';
+// Graphics sends a full image per changed frame (heavy over SSH), so animated
+// screens repaint at this lower rate. Static screens transmit nothing when idle.
+const GRAPHICS_HZ = Math.max(2, Math.min(15, parseInt(process.env.SF_KITTY_HZ ?? '6', 10) || 6));
+const MAX_COLS = 900, MAX_ROWS = 360;
 const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
-const COLOR_STEP = clamp(parseInt(process.env.SF_COLOR_STEP ?? '1', 10) || 1, 1, 64);
-const INDEXED_COLOR = process.env.SF_COLOR_MODE === '256';
 const SF_UI_CELL = process.env.SF_UI === 'cell';   // dev escape hatch: crisp one-cell UI, no size gate
 
 // Optional pool of render worker threads (SF_RENDER_WORKERS>0). When enabled,
@@ -63,22 +64,19 @@ export class Session {
   guest: boolean;
   player: db.Player | null = null;
 
-  // transport
+  // transport — the Terminal owns the SSH stream, capability negotiation, and the
+  // render backends; the Session drives it and reads its cols/rows.
   cols = 120; rows = 40;
   region = 'XX';           // coarse continent for region-aware matchmaking
-  private lastWriteAt = Date.now();  // for the idle keepalive
-  prevFrame: Cell[] | null = null;
-  // two persistent cell buffers; render ping-pongs between them so steady-state
-  // rendering reuses them in place (zero per-frame allocation, minimal GC).
-  private cellsA: Cell[] | null = null;
-  private cellsB: Cell[] | null = null;
+  private terminal: Terminal;
+  graphics = false;                              // true → render via kitty graphics (opt-in)
+  private wantsGraphics = false;                 // remembered opt-in (default off — octant is lighter over SSH)
   private static nextSid = 1;
   readonly sid = Session.nextSid++;      // stable id for render-worker affinity
   private renderInFlight = false;         // a pooled fight frame is being rendered
   private forceFull = false;              // next pooled render must be a full redraw
   alive = true;
   private loopTimer: NodeJS.Timeout | null = null;
-  private outputBlocked = false;
   private screenInputGuardUntil = 0;
 
   // ui state
@@ -104,6 +102,7 @@ export class Session {
   result: MatchResult | null = null;
   loungeFocus: 'chat' | 'players' = 'chat';
   loungeCursor = 0;
+  loungeChatScroll = 0;    // display-lines scrolled up from the latest (0 = bottom)
   chatBuf = '';
   loungeNotice = '';
   // lounge caches, filled by the hub (never Session references, so they work
@@ -147,7 +146,8 @@ export class Session {
     if (fp) {
       this.player = db.touchOrCreate(fp);
       this.keyBindings = parseKeyBindings(this.player.key_bindings_json);
-      if (this.player.view_mode === 'octant') this.renderMode = 'octant';   // remembered view preference (else stays quadrant)
+      if (this.player.view_mode === 'graphics') this.wantsGraphics = true;   // opt-in HD, applied once the probe confirms support
+      else if (this.player.view_mode === 'octant') this.renderMode = 'octant';   // remembered view preference (else stays quadrant)
       if (this.player.username) { this.username = this.player.username; landing = 'menu'; this.cursor = this.player.main_char; }
       else landing = 'username'; // registered key without a handle yet
     } else {
@@ -158,6 +158,18 @@ export class Session {
     this.postCalibrate = landing;
     this.screen = 'calibrate';
     this.fightInput = new InputState(this.keyBindings);
+    this.terminal = new Terminal(this.stream, {
+      onKeys: (rest) => this.onKeys(rest),
+      onMouse: (e) => this.onMouse(e),
+      onKittyKey: (e) => this.onKittyKey(e),
+      onResize: (cols, rows) => this.resize(cols, rows),
+      onProbe: (c) => {
+        this.graphics = c.graphics && this.wantsGraphics;   // opt-in: default stays on the lighter octant renderer
+        this.forceFull = true;
+        this.trackEvent('terminal_caps', { graphics: c.graphics, kitty_keyboard: c.kittyKeyboard, client: this.clientSoftware });
+      },
+      onClose: () => this.close(),
+    });
     HUB.register(this);
   }
 
@@ -174,75 +186,70 @@ export class Session {
 
   start(): void {
     this.trackEvent('game_session_started', { identity: this.guest ? 'guest' : 'verified_key', client: this.clientSoftware });
-    this.write(HIDE_CURSOR + NOWRAP + CLEAR_SCREEN);
-    this.stream.on('data', (d: Buffer) => this.onData(d));
-    this.stream.on('close', () => this.close());
-    this.stream.on('error', () => this.close());
+    this.terminal.start();
     this.loopTimer = setInterval(() => this.tick(), Math.round(1000 / TICK_HZ));
   }
 
-  write(s: string): void {
-    if (!this.alive || this.outputBlocked) return;
-    this.lastWriteAt = Date.now();
-    try {
-      if (!this.stream.write(s)) {
-        // Never queue an unbounded history of obsolete animation frames for a
-        // slow SSH client. Wait for drain, then diff from the last queued frame.
-        this.outputBlocked = true;
-        this.stream.once('drain', () => { this.outputBlocked = false; });
-      }
-    } catch { /* ignore */ }
+  resize(cols: number, rows: number): void {
+    const c = cols > 0 ? cols : this.cols;
+    const r = rows > 0 ? rows : this.rows;
+    if (c === this.cols && r === this.rows) return;   // SSH window-change + in-band 2048 both fire — dedupe
+    this.cols = c; this.rows = r;
+    this.forceFull = true;
+    this.terminal.forceRedraw();
+    this.terminal.clear();
   }
 
-  resize(cols: number, rows: number): void {
-    if (cols > 0) this.cols = cols;
-    if (rows > 0) this.rows = rows;
-    this.prevFrame = null;
-    this.forceFull = true;
-    this.write(CLEAR_SCREEN);
-  }
+  /** Force a full repaint on the next tick — hub/screen callers use this after
+   *  mutating displayed state (lounge roster, challenge banners, help overlay). */
+  forceRedraw(): void { this.forceFull = true; this.terminal.forceRedraw(); }
 
   goTo(screen: ScreenName): void {
     const previous = this.screen;
+    if (previous === 'fight' && screen !== 'fight') this.fightKeyboard(false);   // pop kitty keyboard on exit
     if (this.screen === 'lounge' && screen !== 'lounge') HUB.leaveLounge(this);
     this.screen = screen;
     this.menuIndex = 0;
     this.errorMsg = '';
-    this.prevFrame = null;
+    this.terminal.forceRedraw();
     if (previous !== screen) this.screenInputGuardUntil = Date.now() + 120;
-    this.write(CLEAR_SCREEN);
+    this.terminal.clear();
     if (screen === 'leaderboard') this.leader = db.leaderboard(10);
     if (screen === 'controls') { this.bindingCapture = null; this.controlsNotice = ''; }
     if (previous !== screen) this.trackEvent('screen_view', { from: previous, to: screen });
   }
 
   // ---------- input ----------
-  private onData(d: Buffer): void {
+  // Real keystrokes (terminal replies/events already stripped by the Terminal).
+  private onKeys(rest: Buffer): void {
     if (!this.alive) return;
     // Some clients split CRLF across packets. Ignore a trailing newline-only
     // packet immediately after a transition instead of pressing Enter again.
-    if (Date.now() < this.screenInputGuardUntil && /^[\r\n]+$/.test(d.toString('latin1'))) return;
-    if (this.helpOpen) { this.helpOpen = false; this.prevFrame = null; this.forceFull = true; return; }
-    let data = d;
-    // 'v' cycles the view mode — sharp octant pixels <-> compatible cell text —
-    // so players whose terminal can't render octant can switch to something legible
-    // (and it's remembered). Not while typing a name or in the lounge chat.
+    if (Date.now() < this.screenInputGuardUntil && /^[\r\n]+$/.test(rest.toString('latin1'))) return;
+    if (this.helpOpen) { this.helpOpen = false; this.terminal.forceRedraw(); this.forceFull = true; return; }
+    let data = rest;
+    // 'v' cycles the view mode — graphics (if supported) → sharp octant → compatible
+    // quadrant — so players can pick what renders best. Not while typing a name or
+    // in the lounge chat.
     if (this.screen !== 'username' && this.screen !== 'lounge' && /[vV]/.test(data.toString('latin1'))) {
-      this.setViewMode(this.renderMode === 'octant' ? 'quadrant' : 'octant');
+      this.cycleView();
       data = Buffer.from(data.toString('latin1').replace(/[vV]/g, ''), 'latin1');
       if (data.length === 0) return;
     }
     if (this.screen === 'fight') {
+      // With kitty keyboard active, fight keys arrive as CSI events via onKittyKey,
+      // so nothing is left to feed here.
+      if (this.terminal.kittyKeyActive) return;
       // Fight controls use their own hold/motion parser, so handle the overlay
       // key here before forwarding bytes. Any key closes help without also
       // becoming an accidental punch, kick, movement, or quit input.
-      if (data.toString('latin1').includes('?')) { this.helpOpen = true; this.prevFrame = null; this.trackEvent('move_help_opened', { fighter: this.ownFighterName() }); return; }
+      if (data.toString('latin1').includes('?')) { this.helpOpen = true; this.terminal.forceRedraw(); this.trackEvent('move_help_opened', { fighter: this.ownFighterName() }); return; }
       this.fightInput.feed(data);
       return;
     }
     for (const key of parseKeys(data)) {
-      if (this.helpOpen) { this.helpOpen = false; this.prevFrame = null; this.forceFull = true; continue; }
-      if (key.t === 'help' && !(this.screen === 'controls' && this.bindingCapture)) { this.helpOpen = true; this.prevFrame = null; this.trackEvent('help_opened', { screen: this.screen }); continue; }
+      if (this.helpOpen) { this.helpOpen = false; this.terminal.forceRedraw(); this.forceFull = true; continue; }
+      if (key.t === 'help' && !(this.screen === 'controls' && this.bindingCapture)) { this.helpOpen = true; this.terminal.forceRedraw(); this.trackEvent('help_opened', { screen: this.screen }); continue; }
       if (key.t === 'quit') { this.close(); return; }
       const screenBefore: ScreenName = this.screen;
       SCREENS[this.screen].onKey(this, key);
@@ -268,7 +275,7 @@ export class Session {
         // No quitting a ranked match — you win or you lose. (Disconnecting still
         // forfeits.) 'q' is ignored here so an accidental press can't drop you.
         if (this.match && this.match.phase === 'fight') predictLocal(this.match, this.role, inp);
-        if (this.alive && !this.outputBlocked) this.renderCurrent();
+        if (this.alive && !this.terminal.blocked) this.renderCurrent();
         return; // rendered the predicted frame; skip the throttled render below
       } else if (this.practice) this.stepPractice();
       else if (this.isStepper && this.match && this.peer && this.peer.alive) {
@@ -283,18 +290,34 @@ export class Session {
     // sim + input run at TICK_HZ (responsive); rendering is throttled to
     // RENDER_HZ to cut the streamed bytes without hurting input latency.
     const renderCells = clamp(this.cols || 120, 24, MAX_COLS) * clamp(this.rows || 40, 12, MAX_ROWS);
-    const renderHz = renderCells > 30_000 ? 8 : renderCells > 16_000 ? 10 : renderCells > 8_000 ? 12 : MAX_RENDER_HZ;
+    let renderHz = renderCells > 30_000 ? 8 : renderCells > 16_000 ? 10 : renderCells > 8_000 ? 12 : MAX_RENDER_HZ;
+    if (this.graphics && this.screen !== 'fight') renderHz = Math.min(renderHz, GRAPHICS_HZ);   // full-image frames are heavy
     this.renderAccum += renderHz;
     if (this.renderAccum >= TICK_HZ) {
       this.renderAccum -= TICK_HZ;
-      if (!this.outputBlocked) this.renderCurrent();
+      if (!this.terminal.blocked) this.renderCurrent();
     }
     // Idle keepalive: a static screen (menu/lounge) writes nothing, so a relay
-    // or NAT could drop the connection. Re-send the (invisible, idempotent)
-    // hide-cursor sequence if we've been silent, to keep the TCP flow alive.
-    if (!this.outputBlocked && Date.now() - this.lastWriteAt > 25_000) this.write(HIDE_CURSOR);
+    // or NAT could drop the connection — the Terminal re-sends an invisible,
+    // idempotent hide-cursor if we've been silent, keeping the TCP flow alive.
+    this.terminal.keepalive();
   }
   private renderAccum = 0;
+
+  /** Build the Frame for the current screen (fight scene + HUD, or screen UI).
+   *  Both the octant and the graphics backends render from this same pixel layer. */
+  private composeFrame(cols: number, rows: number): Frame {
+    const f = new Frame(cols, rows, this.renderMode);
+    if (this.screen === 'fight' && this.match) {
+      f.usePixel(composeSceneCached(this.match, cols * 2, rows * 4, this.practice));
+      drawFightHud(f, this.match, this.practice, this.keyBindings);
+    } else {
+      SCREENS[this.screen].render(this, f);
+    }
+    if (this.helpOpen) SCREENS.help.render(this, f);
+    if (DEBUG_ON) drawDebugOverlay(f);
+    return f;
+  }
 
   renderCurrent(): void {
     const cols = clamp(this.cols || 120, 24, MAX_COLS);
@@ -305,10 +328,14 @@ export class Session {
       const f = new Frame(cols, rows, this.renderMode);
       drawTooSmall(f);
       if (DEBUG_ON) drawDebugOverlay(f);
-      const next = f.toCells(COLOR_STEP);
-      const out = diffCells(this.prevFrame, next, cols, rows, INDEXED_COLOR);
-      if (out) this.write(out);
-      this.prevFrame = next; this.cellsA = this.cellsB = null;
+      this.terminal.paintOctant(f, cols, rows);
+      return;
+    }
+    // Graphics backend: the whole pixel layer as one kitty image. Opt-in, and only
+    // for the (mostly static) menus/select/lounge — NOT the fight, whose constant
+    // motion is far cheaper as an octant cell-diff. Bypasses the render pool.
+    if (this.graphics && this.screen !== 'fight') {
+      this.terminal.paintGraphics(this.composeFrame(cols, rows), cols, rows);
       return;
     }
     // Fast path: offload the (expensive) fight render to a worker thread. Menus,
@@ -320,32 +347,11 @@ export class Session {
       this.renderInFlight = true;
       const full = this.forceFull; this.forceFull = false;
       RENDER_POOL.render(this.sid, this.match, cols, rows, this.renderMode, this.practice, this.keyBindings, full)
-        .then((bytes) => { this.renderInFlight = false; if (this.alive && bytes) this.write(bytes); })
+        .then((bytes) => { this.renderInFlight = false; if (this.alive && bytes) this.terminal.paintBytes(bytes); })
         .catch(() => { this.renderInFlight = false; this.forceFull = true; });
       return;
     }
-    const f = new Frame(cols, rows, this.renderMode);
-    if (this.screen === 'fight' && this.match) {
-      // Render the stage at native pixel resolution. Critical HUD information
-      // is a separate text-cell overlay, so font zoom never scales it below one
-      // readable terminal glyph per character.
-      f.usePixel(composeSceneCached(this.match, cols * 2, rows * 4, this.practice));
-      drawFightHud(f, this.match, this.practice, this.keyBindings);
-    } else {
-      SCREENS[this.screen].render(this, f);
-    }
-    if (this.helpOpen) SCREENS.help.render(this, f);
-    if (DEBUG_ON) drawDebugOverlay(f);
-    // fill the buffer that ISN'T the current prevFrame (double-buffer); toCells
-    // reuses it in place when the size matches, else allocates a fresh one.
-    const reuse = this.prevFrame === this.cellsA ? this.cellsB : this.prevFrame === this.cellsB ? this.cellsA : null;
-    const nextCells = f.toCells(COLOR_STEP, reuse ?? undefined);
-    if (nextCells !== this.cellsA && nextCells !== this.cellsB) {
-      if (this.prevFrame === this.cellsA) this.cellsB = nextCells; else this.cellsA = nextCells;
-    }
-    const out = diffCells(this.prevFrame, nextCells, cols, rows, INDEXED_COLOR);
-    if (out) this.write(out);
-    this.prevFrame = nextCells;
+    this.terminal.paintOctant(this.composeFrame(cols, rows), cols, rows);
   }
 
   // ---------- fight orchestration ----------
@@ -353,8 +359,10 @@ export class Session {
     this.match = match; this.role = role; this.peer = peer; this.isStepper = isStepper;
     this.practice = false; this.fightInput = new InputState(this.keyBindings);
     this.lastAttackA = 'none'; this.lastAttackB = 'none';
-    this.screen = 'fight'; this.prevFrame = null; this.forceFull = true;
-    this.write(CLEAR_SCREEN + HIDE_CURSOR + NOWRAP);
+    this.screen = 'fight'; this.forceFull = true;
+    this.terminal.forceRedraw();
+    this.terminal.write(CLEAR_SCREEN + HIDE_CURSOR + NOWRAP);
+    this.fightKeyboard(true);
   }
 
   startPractice(charIdx: number): void {
@@ -378,8 +386,10 @@ export class Session {
       });
     } catch { this.practiceRec = null; }
     this.trackEvent('practice_started', { fighter: you.name, dummy: dummy.name, stage: m.stage, match_id: mid });
-    this.screen = 'fight'; this.prevFrame = null; this.forceFull = true;
-    this.write(CLEAR_SCREEN + HIDE_CURSOR + NOWRAP);
+    this.screen = 'fight'; this.forceFull = true;
+    this.terminal.forceRedraw();
+    this.terminal.write(CLEAR_SCREEN + HIDE_CURSOR + NOWRAP);
+    this.fightKeyboard(true);
   }
 
   /** Flush the current practice recording to the Ringside store (best-effort). */
@@ -472,8 +482,10 @@ export class Session {
     this.fightInput = new InputState(this.keyBindings);
     this.lastAttackA = 'none'; this.lastAttackB = 'none';
     this.trackEvent('quick_match_paired', { fighter: ca.name, opponent: oppName });
-    this.screen = 'fight'; this.prevFrame = null; this.forceFull = true;
-    this.write(CLEAR_SCREEN + HIDE_CURSOR + NOWRAP);
+    this.screen = 'fight'; this.forceFull = true;
+    this.terminal.forceRedraw();
+    this.terminal.write(CLEAR_SCREEN + HIDE_CURSOR + NOWRAP);
+    this.fightKeyboard(true);
   }
   applyRemoteState(mid: string, m: Match, ack: number): void {
     if (mid !== this.remoteMid) return;
@@ -493,6 +505,7 @@ export class Session {
 
   enterLounge(): void {
     this.loungeRoster = []; this.loungeChat = []; this.incoming = null; this.outgoing = null;
+    this.loungeChatScroll = 0;
     this.goTo('lounge');
     HUB.enterLounge(this);
     this.loungeNotice = 'ESC RETURNS TO MAIN MENU  ·  TAB SWITCHES PANELS';
@@ -506,6 +519,7 @@ export class Session {
     if (now - this.lastChatAt < 700) { this.loungeNotice = 'SLOW DOWN - ONE MESSAGE AT A TIME'; return; }
     this.lastChatAt = now;
     this.chatBuf = '';
+    this.loungeChatScroll = 0;   // jump back to the latest after sending
     HUB.sendChat(this, message);
   }
   challengeSelected(): void {
@@ -523,14 +537,43 @@ export class Session {
     this.trackEvent('key_binding_changed', { action, binding });
   }
 
-  /** Switch (and persist) the view mode: 'octant' (sharp, Unicode-16) or 'quadrant'
-   *  (compatible 2x2 blocks that render on any terminal without drift). */
-  setViewMode(mode: RenderMode): void {
-    if (mode === this.renderMode) return;
-    this.renderMode = mode;
-    this.prevFrame = null; this.forceFull = true;
+  /** 'v' cycles the visible renderer: graphics (if the terminal supports it) →
+   *  octant → quadrant → back around. Graphics is not persisted; octant/quadrant is. */
+  private cycleView(): void {
+    // quadrant → octant → graphics (if the terminal supports it) → quadrant
+    let mode: 'quadrant' | 'octant' | 'graphics';
+    if (this.graphics) mode = 'quadrant';
+    else if (this.renderMode === 'quadrant') mode = 'octant';
+    else mode = this.terminal.graphicsSupported ? 'graphics' : 'quadrant';
+    const wasGraphics = this.graphics;
+    if (mode === 'graphics') { this.graphics = true; this.wantsGraphics = true; this.renderMode = 'quadrant'; }
+    else { this.graphics = false; if (mode === 'octant' || mode === 'quadrant') this.renderMode = mode; this.wantsGraphics = false; }
+    if (wasGraphics && !this.graphics) this.terminal.deleteGraphicsImage();
+    this.forceFull = true; this.terminal.forceRedraw(); this.terminal.clear();
     this.trackEvent('view_mode_changed', { mode });
     if (!this.guest && this.fp) { db.setViewMode(this.fp, mode); this.player = db.getByFingerprint(this.fp) ?? this.player; }
+  }
+
+  /** Enable/disable the kitty keyboard protocol around a fight, so held keys give
+   *  real press/release events (precise blocking, holds, charges). No-op when the
+   *  terminal doesn't support it — the InputState then matches the active mode. */
+  private fightKeyboard(on: boolean): void {
+    const active = this.terminal.fightKeyboard(on);
+    this.fightInput.setKittyMode(active);
+  }
+
+  private onMouse(e: MouseEvent): void {
+    if (!this.alive || this.helpOpen) return;
+    const pw = clamp(this.cols || 120, 24, MAX_COLS) * 2;
+    const ph = clamp(this.rows || 40, 12, MAX_ROWS) * 4;
+    SCREENS[this.screen].onMouse?.(this, e, pw, ph);
+  }
+
+  private onKittyKey(e: KittyKey): void {
+    if (!this.alive || this.screen !== 'fight') return;
+    if (this.helpOpen) { if (e.event === 'press') { this.helpOpen = false; this.terminal.forceRedraw(); this.forceFull = true; } return; }
+    if (e.ch === '?') { if (e.event === 'press') { this.helpOpen = true; this.terminal.forceRedraw(); this.trackEvent('move_help_opened', { fighter: this.ownFighterName() }); } return; }
+    this.fightInput.applyKittyKey(e);
   }
 
   resetKeyBindings(): void {
@@ -572,7 +615,7 @@ export class Session {
       other.match = null; other.peer = null; other.isStepper = false;
       other.goTo('results');
     }
-    try { this.stream.write(SHOW_CURSOR + WRAP + RESET + '\r\n'); this.stream.end(); } catch { /* ignore */ }
+    this.terminal.shutdown();   // undo caps, restore cursor/wrap, end the stream
   }
 
   private ownFighterName(): string {
