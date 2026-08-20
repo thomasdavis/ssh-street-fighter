@@ -104,6 +104,7 @@ export class Session {
   result: MatchResult | null = null;
   loungeFocus: 'chat' | 'players' = 'chat';
   loungeCursor = 0;
+  loungeChatScroll = 0;    // display-lines scrolled up from the latest (0 = bottom)
   chatBuf = '';
   loungeNotice = '';
   // lounge caches, filled by the hub (never Session references, so they work
@@ -493,6 +494,7 @@ export class Session {
 
   enterLounge(): void {
     this.loungeRoster = []; this.loungeChat = []; this.incoming = null; this.outgoing = null;
+    this.loungeChatScroll = 0;
     this.goTo('lounge');
     HUB.enterLounge(this);
     this.loungeNotice = 'ESC RETURNS TO MAIN MENU  ·  TAB SWITCHES PANELS';
@@ -506,6 +508,7 @@ export class Session {
     if (now - this.lastChatAt < 700) { this.loungeNotice = 'SLOW DOWN - ONE MESSAGE AT A TIME'; return; }
     this.lastChatAt = now;
     this.chatBuf = '';
+    this.loungeChatScroll = 0;   // jump back to the latest after sending
     HUB.sendChat(this, message);
   }
   challengeSelected(): void {

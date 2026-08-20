@@ -47,7 +47,13 @@ function drawMessages(s: Session, ui: Surface, r: Rect): void {
     lines.push({ prefix, indent: 0, text: wrapped[0] ?? '' });
     for (let j = 1; j < wrapped.length; j++) lines.push({ indent: 2, text: wrapped[j]! });
   }
-  const visible = lines.slice(-capacity);
+  // Scroll: `loungeChatScroll` is display-lines up from the latest (0 = bottom).
+  // Clamp against what's actually renderable and write it back so held keys settle.
+  const maxScroll = Math.max(0, lines.length - capacity);
+  const scroll = clamp(s.loungeChatScroll, 0, maxScroll);
+  s.loungeChatScroll = scroll;
+  const endIdx = lines.length - scroll;
+  const visible = lines.slice(Math.max(0, endIdx - capacity), endIdx);
   for (let i = 0; i < visible.length; i++) {
     const line = visible[i]!, ly = r.y + i * pitch;
     if (line.prefix) {
@@ -55,6 +61,7 @@ function drawMessages(s: Session, ui: Surface, r: Rect): void {
       ui.text(x + line.prefix.length, ly, line.text, { color: THEME.text });
     } else ui.text(x + line.indent, ly, line.text, { color: THEME.text });
   }
+  if (scroll > 0) ui.text(x + iw - 2, r.y + (capacity - 1) * pitch, '↓↓', { color: THEME.accent2, bold: true });   // more (newer) below
 }
 
 function drawPlayers(s: Session, ui: Surface, r: Rect, active: boolean): void {
@@ -143,7 +150,7 @@ export const lounge = {
     const keyhints: [string, string][] = s.incoming
       ? [['Y', 'ACCEPT'], ['N', 'DECLINE']]
       : focusChat
-        ? [['TYPE', 'CHAT'], ['ENTER', 'SEND'], ['TAB', 'PLAYERS'], ['ESC', 'MENU']]
+        ? [['↑↓', 'SCROLL'], ['ENTER', 'SEND'], ['TAB', 'PLAYERS'], ['ESC', 'MENU']]
         : [['↑↓', 'PICK'], ['ENTER', 'FIGHT'], ['TAB', 'CHAT'], ['ESC', 'MENU']];
     hints(ui, ui.rows - 1, keyhints);
   },
@@ -156,9 +163,16 @@ export const lounge = {
     }
     if (s.outgoing && k.t === 'char' && k.ch.toLowerCase() === 'x') { s.cancelChallenge(); return; }
     if (k.t === 'esc') { s.goTo('menu'); return; }
-    if (k.t === 'tab') { s.loungeFocus = s.loungeFocus === 'chat' ? 'players' : 'chat'; s.loungeNotice = s.loungeFocus === 'chat' ? 'TYPE A MESSAGE' : 'SELECT A PLAYER AND PRESS ENTER'; return; }
+    if (k.t === 'tab') {
+      s.loungeFocus = s.loungeFocus === 'chat' ? 'players' : 'chat';
+      if (s.loungeFocus === 'chat') s.loungeChatScroll = 0;   // land on the latest messages
+      s.loungeNotice = s.loungeFocus === 'chat' ? 'TYPE A MESSAGE' : 'SELECT A PLAYER AND PRESS ENTER';
+      return;
+    }
     if (s.loungeFocus === 'chat') {
-      if (k.t === 'backspace') s.chatBuf = s.chatBuf.slice(0, -1);
+      if (k.t === 'up') s.loungeChatScroll++;                         // scroll into history
+      else if (k.t === 'down') s.loungeChatScroll = Math.max(0, s.loungeChatScroll - 1);
+      else if (k.t === 'backspace') s.chatBuf = s.chatBuf.slice(0, -1);
       else if (k.t === 'enter') s.sendChat();
       else if (k.t === 'char' && s.chatBuf.length < 140) s.chatBuf += k.ch;
       return;
