@@ -104,7 +104,7 @@ export class Session {
   renderMode: RenderMode = 'quadrant';
   leader: db.LeaderRow[] = [];
   leaderScope: db.LeaderboardScope = 'humans';
-  quickOpponentPool: Exclude<OpponentPool, 'all'> = 'bots';
+  quickOpponentPool: Exclude<OpponentPool, 'all'> = 'humans';
   result: MatchResult | null = null;
   loungeFocus: 'chat' | 'players' = 'chat';
   loungeCursor = 0;
@@ -151,7 +151,7 @@ export class Session {
     let landing: ScreenName = 'username';
     if (fp) {
       this.player = db.touchOrCreate(fp);
-      this.quickOpponentPool = this.player.match_pool === 'humans' ? 'humans' : 'bots';
+      this.quickOpponentPool = this.player.match_pool === 'bots' ? 'bots' : 'humans';
       this.leaderScope = this.player.is_bot ? 'all' : 'humans';
       this.keyBindings = parseKeyBindings(this.player.key_bindings_json);
       if (this.player.view_mode === 'graphics') this.wantsGraphics = true;   // opt-in HD, applied once the probe confirms support
