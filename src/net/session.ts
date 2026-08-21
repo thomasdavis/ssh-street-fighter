@@ -38,7 +38,7 @@ const MAX_RENDER_HZ = 15; // visual refresh rate (sim/input stay at TICK_HZ = 30
 // Graphics sends a full image per changed frame (heavy over SSH), so animated
 // screens repaint at this lower rate. Static screens transmit nothing when idle.
 const GRAPHICS_HZ = Math.max(2, Math.min(15, parseInt(process.env.SF_KITTY_HZ ?? '6', 10) || 6));
-const MAX_COLS = 300, MAX_ROWS = 120;
+const MAX_COLS = 900, MAX_ROWS = 360;
 const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
 const SF_UI_CELL = process.env.SF_UI === 'cell';   // dev escape hatch: crisp one-cell UI, no size gate
 
