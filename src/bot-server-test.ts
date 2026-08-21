@@ -12,6 +12,7 @@ for (const suffix of ['', '-wal', '-shm']) {
 }
 
 const db = await import('./db/db.js');
+const store = await import('./telemetry/store.js');
 const { MatchCoordinator } = await import('./cluster/coordinator.js');
 const { createBotServer } = await import('./api/bot-server.js');
 const { VERSION_INFO } = await import('./version.js');
@@ -19,6 +20,9 @@ const { VERSION_INFO } = await import('./version.js');
 db.initDb();
 db.touchOrCreate('fp-alpha'); db.setUsername('fp-alpha', 'AGENT_ALPHA');
 db.touchOrCreate('fp-bravo'); db.setUsername('fp-bravo', 'AGENT_BRAVO');
+db.touchOrCreate('fp-blocked'); db.setUsername('fp-blocked', 'AGENT_BLOCKED');
+db.blockBotAccess('fp-blocked', 'protocol test');
+const blockedKey = store.mintApiKey('fp-blocked', 'protocol test');
 
 type Message = Record<string, any>;
 interface Client { socket: Socket; messages: Message[]; buf: string }
@@ -86,6 +90,23 @@ check('SSH-vouched identities authenticate with build provenance', await waitFor
   && latest(alpha, 'welcome')?.playerType === 'bot'));
 check('bot protocol authentication persistently classifies both SSH identities',
   db.getByFingerprint('fp-alpha')?.is_bot === 1 && db.getByFingerprint('fp-bravo')?.is_bot === 1);
+
+const blocked = await openClient();
+send(blocked, { t: 'hello', trustedFp: 'fp-blocked' });
+check('operator block rejects an SSH-vouched bot identity', await waitFor(() =>
+  latest(blocked, 'error')?.code === 'access_blocked' && !latest(blocked, 'welcome')));
+blocked.socket.destroy();
+const blockedByKey = await openClient();
+send(blockedByKey, { t: 'hello', key: blockedKey });
+check('operator block also rejects the same identity through an API key', await waitFor(() =>
+  latest(blockedByKey, 'error')?.code === 'access_blocked' && !latest(blockedByKey, 'welcome')));
+blockedByKey.socket.destroy();
+db.unblockBotAccess('fp-blocked');
+const restored = await openClient();
+send(restored, { t: 'hello', trustedFp: 'fp-blocked' });
+check('removing the block restores the same identity without credential changes', await waitFor(() =>
+  latest(restored, 'welcome')?.name === 'AGENT_BLOCKED'));
+restored.socket.destroy();
 
 send(alpha, { t: 'joinLounge', char: 'FABLE' });
 send(bravo, { t: 'joinLounge', char: 'OMEGA' });

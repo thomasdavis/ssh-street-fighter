@@ -10,7 +10,7 @@ import { emptyInputs, type Inputs, type Match, type Fighter } from '../game/type
 import { attackActive, specialMoveStats } from '../game/engine.js';
 import { SPECIAL_ATTACK_KINDS, type SpecialAttack } from '../game/moves.js';
 import { ROSTER } from '../game/roster.js';
-import { markPlayerAsBot } from '../db/db.js';
+import { isBotAccessBlocked, markPlayerAsBot } from '../db/db.js';
 import { apiKeyLookup } from '../telemetry/store.js';
 import { normalizeOpponentPool } from '../net/matchmaking.js';
 import { VERSION_INFO } from '../version.js';
@@ -158,6 +158,10 @@ export function createBotServer(coord: MatchCoordinator): Server {
       if (msg.trustedFp && isLoopback(c.socket.remoteAddress)) fp = String(msg.trustedFp);   // SSH `play` pipe (key already verified)
       else { const row = apiKeyLookup(String(msg.key ?? '')); if (row) fp = row.fp; }
       if (!fp) return void write(c, { t: 'error', msg: 'invalid api key — mint one with: ssh host token' });
+      if (isBotAccessBlocked(fp)) {
+        write(c, { t: 'error', code: 'access_blocked', msg: 'bot access temporarily disabled by the operator' });
+        return void c.socket.end();
+      }
       const player = markPlayerAsBot(fp);
       c.authed = true; c.fp = fp; c.name = player?.username ?? 'BOT'; c.elo = player?.elo ?? 1200;
       return write(c, {

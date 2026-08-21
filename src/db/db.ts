@@ -164,6 +164,11 @@ export function initDb(): void {
       created_at INTEGER NOT NULL, last_used INTEGER
     );
     CREATE INDEX IF NOT EXISTS idx_api_keys_fp ON api_keys(fp);
+    CREATE TABLE IF NOT EXISTS bot_access_blocks (
+      fingerprint TEXT PRIMARY KEY,
+      reason TEXT NOT NULL DEFAULT 'operator',
+      created_at INTEGER NOT NULL
+    );
   `);
   // Additive migrations for databases created before ratings were introduced.
   const ensureColumn = (table: string, column: string, sql: string): void => {
@@ -262,6 +267,24 @@ export function setCalibrated(fp: string): void {
 
 export function setMatchPool(fp: string, pool: 'bots' | 'humans'): void {
   db.prepare('UPDATE players SET match_pool = ? WHERE fingerprint = ?').run(pool, fp);
+}
+
+/** A reversible operator block keyed to the same SSH fingerprint used for bot
+ * authentication. Credentials remain intact, so deleting the row restores
+ * access without rotating a key or changing historical identity. */
+export function blockBotAccess(fp: string, reason = 'operator'): void {
+  db.prepare(`INSERT INTO bot_access_blocks (fingerprint, reason, created_at)
+    VALUES (?, ?, ?)
+    ON CONFLICT(fingerprint) DO UPDATE SET reason=excluded.reason, created_at=excluded.created_at`)
+    .run(fp, reason, Date.now());
+}
+
+export function unblockBotAccess(fp: string): void {
+  db.prepare('DELETE FROM bot_access_blocks WHERE fingerprint = ?').run(fp);
+}
+
+export function isBotAccessBlocked(fp: string): boolean {
+  return !!db.prepare('SELECT 1 FROM bot_access_blocks WHERE fingerprint = ?').get(fp);
 }
 
 /** Bot identity is sticky to the SSH fingerprint. Repairing historical flags

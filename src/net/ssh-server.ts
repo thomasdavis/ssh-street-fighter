@@ -4,7 +4,7 @@ import { readFileSync } from 'fs';
 import type { Duplex } from 'stream';
 import { Session } from './session.js';
 import { fingerprintOf, verifyPubkey } from './identity.js';
-import { addAnalyticsEvent, initDb, getByFingerprint } from '../db/db.js';
+import { addAnalyticsEvent, initDb, getByFingerprint, isBotAccessBlocked } from '../db/db.js';
 import { eventId, setAnalyticsSink, track } from '../telemetry/discord.js';
 import { parseProxyV1 } from './proxy-protocol.js';
 import { mintApiKey } from '../telemetry/store.js';
@@ -141,7 +141,14 @@ export function startServer(port: number, host: string, hostKeyPath: string): ne
           // record identity; verify signature on the signed attempt
           const candidate = fingerprintOf(ctx.key.data);
           if (ctx.signature) {
-            if (verifyPubkey(ctx)) { fingerprint = candidate; authMethod = 'publickey'; return ctx.accept(); }
+            if (verifyPubkey(ctx)) {
+              if (isBotAccessBlocked(candidate)) {
+                track('ssh_auth_rejected', { connection_id: connectionId, ip: clientIp, username, method: 'publickey', reason: 'bot_access_blocked' });
+                fingerprint = null;
+                return ctx.reject();
+              }
+              fingerprint = candidate; authMethod = 'publickey'; return ctx.accept();
+            }
             track('ssh_auth_rejected', { connection_id: connectionId, ip: clientIp, username, method: 'publickey', reason: 'invalid_signature' });
             return ctx.reject();
           }
