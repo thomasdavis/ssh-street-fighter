@@ -27,9 +27,9 @@ const trainingStages = [
 
 const evidence = [
   ['Implemented', 'The production path is a single-layer GRU actor trained in PyTorch and evaluated by a handwritten C implementation of the same gate equations. The live artifact contains no Python or Torch runtime.'],
-  ['Operational', 'ajax-bot-ultra is an active resident service. The current ULM2 artifact was loaded on August 21, 2026 at 05:38:58 UTC and is used for 30 Hz wire decisions.'],
-  ['Measured', 'The automated release record for the current promotion reported 60/60 head-to-head wins and a 100% fundamentals result. These are small operational gate samples, not publication-grade estimates.'],
-  ['Not established', 'The gate does not yet report matched random seeds, confidence intervals, per-matchup floors or fresh-exploiter robustness. Ultra’s recurrent state resets between rounds, so this version is not evidence of cross-round opponent adaptation.'],
+  ['Operational', 'ajax-bot-ultra is an active resident service. The current ULM2 artifact is used for 30 Hz wire decisions by the native runtime, whose compiler now covers all 51 specials across 17 fighters.'],
+  ['Measured', 'A release-audit invariant exposed seat bias in the legacy evaluator: an identical checkpoint scored 100% against itself. The repaired evaluator scores self-play at 50%; its first live challenger also scored 50% and was correctly held.'],
+  ['Not established', 'Legacy promotion percentages are therefore withdrawn as strength evidence. The repaired gate does not yet report per-matchup confidence intervals or fresh-exploiter robustness, and Ultra’s state still resets between rounds.'],
 ];
 
 function UltraDiagram() {
@@ -88,7 +88,7 @@ export default function UltraPage() {
               <p>Ultra is deliberately smaller and more conventional than TISSUE-0. Its learned controller is one 384-unit gated recurrent layer followed by a linear policy head. Character identity enters as an observation feature; movement and combat leave through a shared semantic vocabulary. The same actor can therefore rotate through every fighter without maintaining 17 unrelated policies.</p>
               <p>The current live artifact is ULM2 despite retaining the historical filename <code>ultra.ulm1</code>. It is 1,932,364 bytes and has SHA-256 <code>d34e7eab…02c3d8</code>. The deployed actor has 483,088 parameters. Training adds a 385-parameter value head, bringing the actor–critic to 483,473 trainable parameters; that critic is not exported to production.</p>
             </div>
-            <p className="bots-note">Ultra’s design documents describe richer projectile encoders, slower opponent memory, action masks and offline search distillation. Those are research directions, not claims about the checkpoint currently fighting on the ladder.</p>
+            <p className="bots-note">Ultra’s design documents describe richer projectile encoders, slower opponent memory, action masks and offline search distillation. Those remain research directions. Full 17-fighter special compilation is implemented in the current native runtime.</p>
           </div>
         </section>
 
@@ -140,7 +140,7 @@ export default function UltraPage() {
             <div className="bots-control-flow" aria-label="Ultra control flow" role="group" tabIndex={0}>
               <span>28 features</span><i>→</i><span>GRU 384</span><i>→</i><span>9 + 7 logits</span><i>→</i><span>two argmax choices</span><i>→</i><span>SSH input</span>
             </div>
-            <p className="bots-note">The current special-motion table covers OMEGA, XENON, AJAX, CODEX, FABLE and MNEME. For the other eleven fighters, ordinary movement, punch, kick and throw remain available, but a special-slot decision cannot yet compile a character-specific motion. The runtime also lacks a learned or rule-based legal-action mask.</p>
+            <p className="bots-note">The native table now compiles three canonical specials for each of all 17 fighters, including multi-step FDF and FDB motions. The runtime still lacks a learned or rule-based legal-action mask, so it can spend probability on a move that cannot take effect in the current body state.</p>
           </div>
         </section>
 
@@ -169,8 +169,8 @@ export default function UltraPage() {
               <code>r_terminal += won · (1.0 if naturally complete, otherwise 0.4 at the 750-step cap)</code>
             </div>
             <div className="bots-training-grid">
-              <article><span>Exploration</span><p>The learner samples both heads with temperature during data collection. Temperature anneals toward 0.85 as global iterations increase.</p></article>
-              <article><span>Entropy</span><p>An entropy coefficient begins near 0.040 and decays toward 0.005, preserving early action diversity while allowing later concentration.</p></article>
+              <article><span>Exploration</span><p>The learner samples both heads with temperature during data collection. Full-roster specials triggered a deliberate re-anneal at iteration 393 from 1.10 toward 0.85.</p></article>
+              <article><span>Entropy</span><p>The special-expansion curriculum similarly restarted entropy near 0.040 and decays toward 0.005, forcing the policy to revisit newly effective action slots.</p></article>
               <article><span>Learning rate</span><p>Adam starts at approximately 3 × 10⁻⁴ and linearly anneals to a floor of 1 × 10⁻⁴.</p></article>
               <article><span>Opponent action</span><p>Historical opponents act greedily while the candidate samples, keeping the sampled policy likelihood attributable to the learner alone.</p></article>
             </div>
@@ -182,11 +182,11 @@ export default function UltraPage() {
           <div>
             <p className="bots-overline">Automated challenger-to-incumbent release</p>
             <h2>A checkpoint must defeat what is already live</h2>
-            <p>The release loop evaluates a candidate against the current deployed artifact over 60 head-to-head games and separately runs a 40-game fundamentals suite. Promotion requires head-to-head win rate above 55% and fundamentals at or above 40%. A 36-minute cooldown bounds service churn, and the outgoing artifact is copied into the champion archive before replacement.</p>
+            <p>The release loop now evaluates a candidate over 100 paired-seat head-to-head games and separately runs a 40-game fundamentals suite. Every character pairing is repeated with candidate and incumbent exchanging seats; draws are half a point. Promotion requires paired score at or above 60% and fundamentals at or above 40%. A 36-minute cooldown bounds service churn, and the outgoing artifact is copied into the champion archive before replacement.</p>
             <div className="bots-gates">
               <span>Current operational gate</span>
               <ul>
-                <li>candidate H2H &gt; 55% over 60 games</li>
+                <li>candidate paired H2H ≥ 60% over 100 games</li>
                 <li>fundamentals score ≥ 40% over 40 games</li>
                 <li>native artifact loads before restart</li>
                 <li>outgoing live model retained as champion</li>
@@ -194,7 +194,7 @@ export default function UltraPage() {
                 <li>persistent service reconnects to the public queue</li>
               </ul>
             </div>
-            <p className="bots-note">The current artifact’s recorded 100% / 100% gate pass is evidence that the release mechanism ran, not a claim of a true 100% win probability. Forty and sixty games produce wide uncertainty, and the evaluator does not yet publish paired seeds or matchup-stratified confidence intervals.</p>
+            <p className="bots-note">The earlier stream of 100% results is retired: candidate always occupied seat A, and self-versus-self incorrectly scored 100%. The repaired invariant is self-versus-self = 50%. Requiring 60/100 gives a Wilson 95% lower bound just above 50% when games are treated as independent, but matchup clustering still demands a stronger future analysis.</p>
           </div>
         </section>
 
@@ -240,9 +240,9 @@ export default function UltraPage() {
             <h2>The dossier is a specification for falsification</h2>
             <div className="bots-training-grid">
               <article><span>Projectile blindness</span><p>A universal fighter cannot be called complete while the live encoder ignores the projectile array. Add permutation-invariant projectile features, then test zoner matchups separately.</p></article>
-              <article><span>Partial special support</span><p>Only six character motion tables are implemented. Full-roster claims should report ordinary-action and special-capable slices until all seventeen compile correctly.</p></article>
+              <article><span>Unmasked commitments</span><p>All 51 specials compile, but logits are not masked by the current body state. Measure wasted-action rate, then apply the same mask during rollout sampling and PPO likelihood evaluation.</p></article>
               <article><span>Round amnesia</span><p>Resetting hidden state protects stability but prevents opponent habits learned in one round from influencing the next. Evaluate a second slow state before adopting it.</p></article>
-              <article><span>Noisy promotion</span><p>A 60-game winner can be lucky or schedule-specific. Promotion needs paired seeds, uncertainty bounds, matchup floors and rollback based on live regressions.</p></article>
+              <article><span>Noisy promotion</span><p>Even 100 paired-seat games can be matchup-clustered or schedule-specific. Promotion still needs slice intervals, matchup floors and rollback based on live regressions.</p></article>
             </div>
             <p className="bots-note">Ultra is currently the pragmatic bot: small enough to train continuously, simple enough to export exactly, and strong enough to serve as a moving baseline. Its technical value comes from closing the full self-play-to-native-deployment loop—not from pretending the remaining evaluation gaps are solved.</p>
           </div>
