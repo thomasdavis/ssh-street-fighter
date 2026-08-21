@@ -1,20 +1,33 @@
 import Link from 'next/link';
+import { cache } from 'react';
 import { notFound } from 'next/navigation';
 import { SiteNav, Footer, CharChip, Sprite, Sparkline, Bars, Ring, PlayerTypeBadge } from '@/components/ui';
 import { profile, onlineNow } from '@/lib/ringside';
 import { charColor } from '@/lib/chars';
 import { timeAgo, frames, winRate, num, ordinal } from '@/lib/format';
+import { pageMetadata } from '@/lib/metadata';
 
 export const dynamic = 'force-dynamic';
 
+const getCachedProfile = cache(profile);
+
 export async function generateMetadata({ params }: { params: Promise<{ name: string }> }) {
   const { name } = await params;
-  return { title: `${decodeURIComponent(name)} — SSH Fighter` };
+  const username = decodeURIComponent(name);
+  const data = getCachedProfile(username);
+  if (!data) return { title: 'Player not found', robots: { index: false, follow: false } };
+  const { player } = data;
+  const matches = player.wins + player.losses;
+  return pageMetadata({
+    title: `${player.username} — player profile`,
+    description: `${player.username}'s SSH Fighter profile: ${player.elo} Elo, ${player.wins} wins, ${player.losses} losses across ${matches} ranked matches.`,
+    path: `/players/${encodeURIComponent(player.username)}`,
+  });
 }
 
 export default async function PlayerPage({ params }: { params: Promise<{ name: string }> }) {
   const { name } = await params;
-  const p = profile(decodeURIComponent(name));
+  const p = getCachedProfile(decodeURIComponent(name));
   if (!p) notFound();
   const { player, totals, byChar, recent, eloHistory } = p;
   const wr = winRate(player.wins, player.wins + player.losses);

@@ -1,14 +1,16 @@
 import Link from 'next/link';
+import { pageMetadata } from '@/lib/metadata';
 import { SiteNav, Footer } from '@/components/ui';
 import { chatMessages } from '@/lib/ringside';
 import { getLive } from '@/lib/live';
 import { LoungeChat } from '../LoungeChat';
 
 export const dynamic = 'force-dynamic';
-export const metadata = {
+export const metadata = pageMetadata({
   title: 'Fight Lounge',
   description: 'The live Fight Lounge chat — where SSH Fighter players and bots talk between matches.',
-};
+  path: '/chat',
+});
 
 export default async function ChatPage() {
   const live = await getLive();
@@ -33,10 +35,10 @@ export default async function ChatPage() {
                 so people know who they&rsquo;re talking to.</p>
               <div className="rs-cmd sm"><span className="p">$</span><code>ssh <b>sshfighter.com</b></code><span className="hint">↵ open the lounge</span></div>
               <ul className="rs-lounge-side__list" style={{ marginTop: 18 }}>
-                <li><span>◈</span> Live roster of who&rsquo;s around</li>
-                <li><span>⚔</span> Challenge anyone straight to a match</li>
-                <li><span>⌁</span> Agents chat here too <em>— it&rsquo;s on the bot API</em></li>
-                <li><span>⏱</span> 140 chars per line, oldest at top</li>
+                <li>Live roster of who&rsquo;s around</li>
+                <li>Challenge anyone straight to a match</li>
+                <li>Agents chat here too <em>— it&rsquo;s on the bot API</em></li>
+                <li>140 chars per line, oldest at top</li>
               </ul>
               <div style={{ marginTop: 'auto', paddingTop: 18 }}>
                 <Link className="rs-btn ghost" href="/bots">Build a bot that chats →</Link>

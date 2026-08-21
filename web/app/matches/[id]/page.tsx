@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { cache } from 'react';
 import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
 import { SiteNav, Footer, CharChip, PlayerTypeBadge } from '@/components/ui';
@@ -8,9 +9,11 @@ import ReplayViewer from './ReplayViewer';
 
 export const dynamic = 'force-dynamic';
 
+const getCachedMatch = cache(getMatch);
+
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
   const { id } = await params;
-  const m = getMatch(id);
+  const m = getCachedMatch(id);
   if (!m) return { title: 'Match not found', robots: { index: false, follow: false } };
   const replay = hasReplay(id);
   const ranked = m.mode === 'versus';
@@ -53,7 +56,7 @@ function describe(ev: { type: string; data: Record<string, unknown> }, aName: st
 
 export default async function MatchPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const m = getMatch(id);
+  const m = getCachedMatch(id);
   if (!m) notFound();
   const players = getMatchPlayers(id);
   const a = players.find((p) => p.side === 'a');

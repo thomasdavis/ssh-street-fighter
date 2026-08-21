@@ -1,9 +1,14 @@
 import { SiteNav, Footer, CharChip, Bars } from '@/components/ui';
 import { characterStats, matchupGrid, onlineNow } from '@/lib/ringside';
 import { charColor, rosterNames } from '@/lib/chars';
+import { pageMetadata } from '@/lib/metadata';
 
 export const dynamic = 'force-dynamic';
-export const metadata = { title: 'Character stats', description: 'Pick rates, win rates and the matchup grid.' };
+export const metadata = pageMetadata({
+  title: 'Character stats',
+  description: 'Explore SSH Fighter character pick rates, ranked win rates, and head-to-head matchup data.',
+  path: '/characters',
+});
 
 function winColor(pct: number): string {
   // red (low) → amber (even) → green (high)

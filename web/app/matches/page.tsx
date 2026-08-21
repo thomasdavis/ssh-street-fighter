@@ -2,9 +2,14 @@ import Link from 'next/link';
 import { SiteNav, Footer, CharChip, PlayerTypeBadge } from '@/components/ui';
 import { recentMatches, matchCount, onlineNow, hasReplay } from '@/lib/ringside';
 import { timeAgo, frames } from '@/lib/format';
+import { pageMetadata } from '@/lib/metadata';
 
 export const dynamic = 'force-dynamic';
-export const metadata = { title: 'Matches', description: 'Every recorded match. Drill in for the box score and replay.' };
+export const metadata = pageMetadata({
+  title: 'Matches and replays',
+  description: 'Browse recorded SSH Fighter matches, ranked results, box scores, and full watchable replays.',
+  path: '/matches',
+});
 
 const PER = 40;
 

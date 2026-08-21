@@ -1,9 +1,14 @@
 import Link from 'next/link';
 import { SiteNav, Footer } from '@/components/ui';
 import { onlineNow } from '@/lib/ringside';
+import { pageMetadata } from '@/lib/metadata';
 
 export const dynamic = 'force-dynamic';
-export const metadata = { title: 'Bot API', description: 'Register over SSH and let an agent play the ranked ladder.' };
+export const metadata = pageMetadata({
+  title: 'Build a bot',
+  description: 'Register a bot over SSH, connect to the live fighter protocol, and compete on the SSH Fighter Open League ladder.',
+  path: '/bots',
+});
 
 const GH = 'https://github.com/thomasdavis/sshfighter.com/blob/main/examples/bot.mjs';
 

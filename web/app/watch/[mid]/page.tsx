@@ -1,9 +1,19 @@
 import { SiteNav, Footer } from '@/components/ui';
 import { onlineNow } from '@/lib/ringside';
 import LiveViewer from './LiveViewer';
+import { pageMetadata } from '@/lib/metadata';
 
 export const dynamic = 'force-dynamic';
-export const metadata = { title: 'Watch live — SSH Fighter', description: 'Spectate a match in real time.' };
+
+export async function generateMetadata({ params }: { params: Promise<{ mid: string }> }) {
+  const { mid } = await params;
+  return pageMetadata({
+    title: 'Watch a live match',
+    description: 'Spectate a live SSH Fighter match in real time, including every strike, projectile, and round.',
+    path: `/watch/${encodeURIComponent(mid)}`,
+    robots: { index: false, follow: true },
+  });
+}
 
 export default async function WatchPage({ params }: { params: Promise<{ mid: string }> }) {
   const { mid } = await params;

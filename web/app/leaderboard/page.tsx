@@ -2,9 +2,21 @@ import Link from 'next/link';
 import { SiteNav, Footer, CharChip, PlayerTypeBadge } from '@/components/ui';
 import { topPlayers, onlineNow, summary } from '@/lib/ringside';
 import { winRate } from '@/lib/format';
+import { pageMetadata } from '@/lib/metadata';
 
 export const dynamic = 'force-dynamic';
-export const metadata = { title: 'Leaderboard', description: 'The ranked Elo ladder.' };
+
+export async function generateMetadata({ searchParams }: { searchParams: Promise<{ division?: string }> }) {
+  const { division } = await searchParams;
+  const open = division === 'open';
+  return pageMetadata({
+    title: open ? 'Open League leaderboard' : 'Human League leaderboard',
+    description: open
+      ? 'Ranked Elo standings for every SSH Fighter competitor, with automated players clearly marked.'
+      : 'Ranked Elo standings for human SSH Fighter players competing from their terminals.',
+    path: open ? '/leaderboard?division=open' : '/leaderboard',
+  });
+}
 
 export default async function LeaderboardPage({ searchParams }: { searchParams: Promise<{ division?: string }> }) {
   const { division } = await searchParams;

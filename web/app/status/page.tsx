@@ -2,9 +2,14 @@ import { SiteNav, Footer, Sparkline } from '@/components/ui';
 import { AutoRefresh } from '@/components/AutoRefresh';
 import { opsLatest, opsTotalSeries, workerBreakdown, onlineNow, summary } from '@/lib/ringside';
 import { num } from '@/lib/format';
+import { pageMetadata } from '@/lib/metadata';
 
 export const dynamic = 'force-dynamic';
-export const metadata = { title: 'Server status', description: 'Live concurrency, load and process metrics.' };
+export const metadata = pageMetadata({
+  title: 'Server status',
+  description: 'See live SSH Fighter player concurrency, active matches, matchmaking queues, uptime, and server load.',
+  path: '/status',
+});
 
 function uptime(s: number): string {
   if (!s) return '—';

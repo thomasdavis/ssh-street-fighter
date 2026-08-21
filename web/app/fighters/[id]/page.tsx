@@ -1,14 +1,17 @@
-import type { CSSProperties } from 'react';
+import { cache, type CSSProperties } from 'react';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { fighterSlugs, getFighterProfile } from '@/lib/fighters';
 import { listPoses, spriteMtime } from '@/lib/sprites';
 import AnimatedSprite from './AnimatedSprite';
+import { pageMetadata } from '@/lib/metadata';
 
 interface PageProps {
   params: Promise<{ id: string }>;
 }
+
+const getCachedFighterProfile = cache(getFighterProfile);
 
 export const dynamic = 'force-dynamic';
 
@@ -18,17 +21,19 @@ export function generateStaticParams() {
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { id } = await params;
-  const profile = getFighterProfile(id);
-  if (!profile) return { title: 'Fighter not found — SSH Fighter' };
-  return {
-    title: `${profile.character.name} — ${profile.character.tagline} | SSH Fighter`,
+  const profile = getCachedFighterProfile(id);
+  if (!profile) return { title: 'Fighter not found', robots: { index: false, follow: false } };
+  return pageMetadata({
+    title: `${profile.character.name} — ${profile.character.tagline}`,
     description: `${profile.character.name} fighter guide: background story, animated sprites, special-move inputs, damage, frame data, and tactics.`,
-  };
+    path: `/fighters/${id}`,
+    imageAlt: `${profile.character.name}, a playable pixel-art fighter in SSH Fighter`,
+  });
 }
 
 export default async function FighterPage({ params }: PageProps) {
   const { id } = await params;
-  const profile = getFighterProfile(id);
+  const profile = getCachedFighterProfile(id);
   if (!profile) notFound();
   const { character } = profile;
   const style = { '--fighter-accent': profile.accent } as CSSProperties;

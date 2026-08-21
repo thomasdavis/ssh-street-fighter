@@ -1,11 +1,12 @@
 import Link from 'next/link';
 import { Footer, SiteNav } from '@/components/ui';
+import { pageMetadata } from '@/lib/metadata';
 
-export const metadata = {
+export const metadata = pageMetadata({
   title: 'TISSUE-0 bot',
   description: 'A technical explanation of TISSUE-0, the morphogenetic immune control policy fighting live on SSH Fighter.',
-  alternates: { canonical: '/bots/list/tissue' },
-};
+  path: '/bots/list/tissue',
+});
 
 const runtimeState = [
   ['Fine tissue', '12 × 12 × 64', 'Fast electrical state shared by local cell updates'],
