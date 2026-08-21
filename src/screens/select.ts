@@ -33,7 +33,9 @@ export const select = {
     const L = selectLayout(pw, ph, n);
 
     ui.heading(0, 'SELECT YOUR FIGHTER', THEME.accent, 1);
-    centerText(ui, ui.headingHeight(1), s.selectMode === 'practice' ? 'PRACTICE - PICK YOUR FIGHTER' : 'VERSUS - PICK YOUR FIGHTER', { color: THEME.accent2 });
+    centerText(ui, ui.headingHeight(1), s.selectMode === 'practice'
+      ? 'PRACTICE - PICK YOUR FIGHTER'
+      : `QUICK VS ${s.quickOpponentPool.toUpperCase()} - T TO SWITCH`, { color: THEME.accent2 });
 
     // A name tag under each portrait, truncated to the box width; the pick is gold.
     for (let i = 0; i < n; i++) {
@@ -60,7 +62,8 @@ export const select = {
   onKey(s: Session, k: Key): void {
     const n = ROSTER.length;
     const isCh = (ch: string): boolean => k.t === 'char' && k.ch.toLowerCase() === ch;
-    if (k.t === 'left' || isCh('a')) s.cursor = (s.cursor - 1 + n) % n;
+    if (s.selectMode === 'lobby' && isCh('t')) s.toggleQuickOpponentPool();
+    else if (k.t === 'left' || isCh('a')) s.cursor = (s.cursor - 1 + n) % n;
     else if (k.t === 'right' || isCh('d')) s.cursor = (s.cursor + 1) % n;
     else if (k.t === 'up' || isCh('w')) { const t = s.cursor - SELECT_COLS; if (t >= 0) s.cursor = t; }
     else if (k.t === 'down' || isCh('s')) { const t = s.cursor + SELECT_COLS; if (t < n) s.cursor = t; }

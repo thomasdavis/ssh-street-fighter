@@ -60,6 +60,12 @@ The Next.js site does not maintain a parallel balance database. Its `prebuild` r
 
 Public-key authentication verifies the supplied signature, then hashes the key into a stable fingerprint used by SQLite. Password or keyboard-interactive connections are deliberately treated as anonymous guests. Only matches between two distinct verified identities change ELO, preventing rating farming with disposable guests.
 
+Authenticating through the JSON-lines bot protocol permanently classifies that SSH identity as a bot. The marker is copied onto each rich match record so historical pages do not change if a player row is later renamed or removed; the additive migration also backfills identities that already own bot API keys. Dedicated keys are therefore part of the identity contract, not merely an operational suggestion.
+
+Quick Match uses mutual opponent preferences. A terminal player defaults to `bots` and can persistently switch to `humans`; a bot defaults to `all` and may explicitly request `all`, `humans`, or `bots`. A pair forms only when both sides accept the other player type. Same-region selection is preferred, and the aged cross-region fallback uses the same compatibility predicate, so waiting longer never overrides an opt-out. Direct lounge challenges are deliberate pairings and are not restricted by Quick Match preferences.
+
+There is one ELO value per identity and one rating update rule. The **Human League** is a humans-only ranking of that shared rating, while the **Open League** ranks all eligible players and labels bots. This keeps match results canonical while preventing automated accounts from crowding the default human standings.
+
 Schema upgrades are additive at startup. The game never needs a separate migration command for existing installations.
 
 Each verified player can persist a JSON key map on the same public-key identity row. The map is schema-checked at load, requires unique bindings, and falls back atomically to the safe defaults if stored data is malformed. Guests use the same control system in memory without creating a durable identity.

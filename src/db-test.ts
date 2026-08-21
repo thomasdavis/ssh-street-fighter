@@ -11,10 +11,17 @@ const assert = (ok: boolean, message: string): void => {
   else console.log(`PASS  ${message}`);
 };
 
+const matchColumns = db.getDb().prepare('PRAGMA table_info(matches)').all() as Array<{ name: string }>;
+assert(matchColumns.some((column) => column.name === 'engine_commit')
+  && matchColumns.some((column) => column.name === 'engine_dirty'), 'match schema stores exact engine build provenance');
+
 db.touchOrCreate('fp:a'); db.touchOrCreate('fp:b');
 assert(db.setUsername('fp:a', 'ALPHA'), 'create ALPHA');
 assert(db.setUsername('fp:b', 'BRAVO'), 'create BRAVO');
 assert(db.getByFingerprint('fp:a')?.elo === 1200 && db.getByFingerprint('fp:b')?.elo === 1200, 'new ratings start at 1200');
+assert(db.getByFingerprint('fp:a')?.match_pool === 'bots', 'new human identities default to bot opponents');
+db.setMatchPool('fp:a', 'humans');
+assert(db.getByFingerprint('fp:a')?.match_pool === 'humans', 'verified identities persist a human-only Quick Match choice');
 
 const customBindings = withBinding(DEFAULT_KEY_BINDINGS, 'punch', 'key:j');
 db.setKeyBindings('fp:a', serializeKeyBindings(customBindings));
@@ -34,6 +41,19 @@ assert(guest === null && db.getByFingerprint('fp:a')!.elo === beforeGuest, 'gues
 const board = db.leaderboard(10);
 assert(board[0]?.username === 'ALPHA' && board[0]?.elo === 1231, 'leaderboard is ordered by ELO');
 assert(db.playerRank('fp:a') === 1 && db.playerRank('fp:b') === 2, 'player rank follows ELO order');
+
+const sql = db.getDb();
+sql.prepare("INSERT INTO matches (id, mode, a_fp, b_fp, a_name, b_name, a_is_bot, b_is_bot, ended_at) VALUES ('bot-history','versus','fp:a','fp:b','ALPHA','BRAVO',0,0,?)").run(Date.now());
+sql.prepare("INSERT INTO match_players (match_id, side, fp, name, char, is_bot) VALUES ('bot-history','b','fp:b','BRAVO','MEN',0)").run();
+db.markPlayerAsBot('fp:b');
+assert(db.getByFingerprint('fp:b')?.is_bot === 1, 'bot protocol classification is sticky on the player identity');
+assert((sql.prepare("SELECT b_is_bot n FROM matches WHERE id='bot-history'").get() as { n: number }).n === 1
+  && (sql.prepare("SELECT is_bot n FROM match_players WHERE match_id='bot-history' AND side='b'").get() as { n: number }).n === 1,
+  'bot classification repairs historical match flags');
+assert(db.leaderboard(10, 'humans').every((p) => p.username !== 'BRAVO')
+  && db.leaderboard(10, 'bots')[0]?.username === 'BRAVO'
+  && db.leaderboard(10, 'all').some((p) => p.username === 'BRAVO'),
+  'human, bot, and open leaderboard scopes stay distinct');
 
 db.addAnalyticsEvent('special_move_used', { player: 'ALPHA', move: 'HADOUKEN', omitted: undefined }, new Date().toISOString());
 const event = db.analyticsEvents(1)[0];

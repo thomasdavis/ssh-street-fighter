@@ -60,8 +60,8 @@ if (WORKERS > 1 && cluster.isPrimary) {
   // the primary owns global matchmaking + runs every versus simulation
   const coord = runCoordinator();
   // Ringside services live in the primary (single instance, next to live state):
-  // the read-only REST API for the homepage, and the bot play server (bots pair
-  // through the coordinator as ordinary players).
+  // the read-only REST API for the homepage, and the bot play server (labeled
+  // bot identities pair through the coordinator using mutual pool choices).
   startApiServer(coord);
   startBotServer(coord);
 

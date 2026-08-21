@@ -20,6 +20,7 @@ export const menu = {
     ui.heading(1, 'STREET FIGHTER', THEME.accent, 1);
     const hy = 1 + ui.headingHeight(1) + 1;
     centerText(ui, hy, `WELCOME, ${s.displayName}`, { color: THEME.text });
+    ui.text(0, hy + 1, '@AJAXDAVIS  AJAXDAVIS.DEV', { color: THEME.accent2 });
 
     // MAIN MENU panel on the left, over the scene.
     const leftW = Math.min(36, Math.floor(ui.cols * 0.42));
@@ -28,7 +29,9 @@ export const menu = {
     const rowGap = ITEMS.length * 2 + 3 <= avail ? 1 : 0;
     const ph = Math.min(ITEMS.length * (1 + rowGap) + 3, avail);
     const menuInner = ui.panel(3, py, leftW, ph, { title: 'MAIN MENU' });
-    menuList(ui, menuInner.x, menuInner.y, menuInner.w, ITEMS, s.menuIndex, { gap: rowGap });
+    const items = [...ITEMS];
+    items[0] = `QUICK: ${s.quickOpponentPool === 'bots' ? 'BOTS' : 'HUMANS'}`;
+    menuList(ui, menuInner.x, menuInner.y, menuInner.w, items, s.menuIndex, { gap: rowGap });
 
     // Fighter nameplate: bottom-right, over the sprite. Height is computed from
     // the content (title + tagline + stat rows) so nothing bleeds past the box.

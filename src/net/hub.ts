@@ -20,9 +20,9 @@ import type { Inputs } from '../game/types.js';
 import { LocalHub } from './local-hub.js';
 import { ClusterHub } from '../cluster/cluster-hub.js';
 
-export interface RosterEntry { id: string; name: string; cursor: number; elo: number | null; }
+export interface RosterEntry { id: string; name: string; cursor: number; elo: number | null; isBot: boolean; }
 export interface ChatLine { username: string; message: string; }
-export interface ChallengePeer { id: string; name: string; }
+export interface ChallengePeer { id: string; name: string; isBot: boolean; }
 
 export interface Hub {
   register(s: Session): void;

@@ -13,13 +13,14 @@ import { makeFighter, makeMatch, stepMatch, TICK_HZ } from '../game/engine.js';
 import { emptyInputs, type Inputs, type Match } from '../game/types.js';
 import { characterAt } from '../game/roster.js';
 import * as db from '../db/db.js';
-import { MatchRecorder, ENGINE_VERSION } from '../telemetry/recorder.js';
+import { MatchRecorder } from '../telemetry/recorder.js';
+import { ENGINE_VERSION } from '../version.js';
 import { liveRender } from '../telemetry/replay-sim.js';
 import { startOpsSampler } from '../telemetry/ops.js';
 import { clearEdges, type P2W, type W2P } from './messages.js';
 import type { MatchResult } from '../net/session.js';
 import type { RosterEntry, ChatLine, ChallengePeer } from '../net/hub.js';
-import { sameRegionWaiter, agedPair } from '../net/matchmaking.js';
+import { bestWaiter, agedPair, normalizeOpponentPool, type OpponentPool } from '../net/matchmaking.js';
 
 // How often the primary ships match state to the workers. Relaying every sim
 // tick (30Hz) minimises how stale the opponent's state is when a worker renders;
@@ -40,7 +41,7 @@ export function mergeCoordinatorInput(destination: Inputs, incoming: Inputs): vo
   destination.throw ||= incoming.throw;
 }
 
-interface Player { worker: WorkerRef; sid: number; gid: string; name: string; fp: string | null; cursor: number; elo: number; region: string; queuedAt: number; isBot: boolean; }
+interface Player { worker: WorkerRef; sid: number; gid: string; name: string; fp: string | null; cursor: number; elo: number; region: string; queuedAt: number; isBot: boolean; opponentPool: OpponentPool; }
 interface LoungeMember extends Player { cid: string; incoming: string | null; outgoing: string | null; } // incoming/outgoing = peer gid
 interface ActiveMatch { mid: string; a: Player; b: Player; match: Match; pendA: Inputs; pendB: Inputs; relayAccum: number; ackA: number; ackB: number; rec: MatchRecorder | null; }
 
@@ -87,9 +88,16 @@ export class MatchCoordinator {
     // in a match. Without this, a re-queued player's own entry is a valid "waiter"
     // and they get paired with themselves.
     if (this.gidToMid.has(gid) || this.waiting.some((w) => w.gid === gid)) return;
-    const p: Player = { worker, sid: m.sid, gid, name: m.name, fp: m.fp, cursor: m.cursor, elo: m.elo, region: m.region, queuedAt: Date.now(), isBot: !!m.isBot };
+    const isBot = !!m.isBot;
+    const p: Player = {
+      worker, sid: m.sid, gid, name: m.name, fp: m.fp, cursor: m.cursor, elo: m.elo,
+      region: m.region, queuedAt: Date.now(), isBot,
+      // Missing is the rolling-upgrade compatibility path for older workers;
+      // current terminal and bot clients always send an explicit pool.
+      opponentPool: normalizeOpponentPool(m.opponentPool, 'all'),
+    };
     this.players.set(gid, p);
-    const idx = sameRegionWaiter(this.waiting, p.region);   // prefer a same-region opponent
+    const idx = bestWaiter(this.waiting, p);   // compatible pool first, then region
     if (idx >= 0) this.pair(this.waiting.splice(idx, 1)[0]!, p);
     else this.waiting.push(p);
   }
@@ -115,8 +123,8 @@ export class MatchCoordinator {
     } catch { rec = null; }
     this.matches.set(mid, { mid, a, b, match, pendA: emptyInputs(), pendB: emptyInputs(), relayAccum: 0, ackA: 0, ackB: 0, rec });
     this.gidToMid.set(a.gid, mid); this.gidToMid.set(b.gid, mid);
-    this.send(a, { t: 'matchStart', sid: a.sid, mid, role: 'a', yourCursor: a.cursor, oppName: b.name, oppCursor: b.cursor, stage: match.stage });
-    this.send(b, { t: 'matchStart', sid: b.sid, mid, role: 'b', yourCursor: b.cursor, oppName: a.name, oppCursor: a.cursor, stage: match.stage });
+    this.send(a, { t: 'matchStart', sid: a.sid, mid, role: 'a', yourCursor: a.cursor, oppName: b.name, oppCursor: b.cursor, oppIsBot: b.isBot, stage: match.stage });
+    this.send(b, { t: 'matchStart', sid: b.sid, mid, role: 'b', yourCursor: b.cursor, oppName: a.name, oppCursor: a.cursor, oppIsBot: a.isBot, stage: match.stage });
   }
 
   private sideOf(am: ActiveMatch, gid: string): 'a' | 'b' | null {
@@ -159,7 +167,8 @@ export class MatchCoordinator {
     const winF = aWon ? m.a : m.b, loseF = aWon ? m.b : m.a;
     const rating = db.recordMatch(winP.fp, loseP.fp, winP.name, loseP.name, winF.name, loseF.name, winF.wins);
     const result = (won: boolean): MatchResult => ({
-      winner: winP.name, loser: loseP.name, youWon: won, winnerChar: winF.name,
+      winner: winP.name, loser: loseP.name, winnerIsBot: winP.isBot, loserIsBot: loseP.isBot,
+      youWon: won, winnerChar: winF.name,
       rating: rating ? (won
         ? { before: rating.winnerBefore, after: rating.winnerAfter, delta: rating.delta }
         : { before: rating.loserBefore, after: rating.loserAfter, delta: -rating.delta }) : undefined,
@@ -190,7 +199,8 @@ export class MatchCoordinator {
     am.rec?.finish(am.match, { winner: winnerSide, endReason: 'forfeit', elo });
     this.send(other, {
       t: 'matchEnd', sid: other.sid, mid,
-      result: { winner: other.name, loser: leaver.name, youWon: true, winnerChar: otherF.name,
+      result: { winner: other.name, loser: leaver.name, winnerIsBot: other.isBot, loserIsBot: leaver.isBot,
+        youWon: true, winnerChar: otherF.name,
         rating: rating ? { before: rating.winnerBefore, after: rating.winnerAfter, delta: rating.delta } : undefined },
     });
   }
@@ -207,7 +217,7 @@ export class MatchCoordinator {
   private roster(excludeGid: string): RosterEntry[] {
     return [...this.lounge.values()].filter((m) => m.gid !== excludeGid)
       .sort((a, b) => a.name.localeCompare(b.name))
-      .map((m) => ({ id: m.cid, name: m.name, cursor: m.cursor, elo: m.elo }));
+      .map((m) => ({ id: m.cid, name: m.name, cursor: m.cursor, elo: m.elo, isBot: m.isBot }));
   }
   private chatLines(): ChatLine[] { return db.chatHistory(100).map((m) => ({ username: m.username, message: m.message })); }
   private broadcastLounge(): void {
@@ -215,12 +225,13 @@ export class MatchCoordinator {
     for (const m of this.lounge.values()) m.worker.send({ t: 'lounge', sid: m.sid, roster: this.roster(m.gid), chat });
   }
   private notice(m: LoungeMember, text: string): void { m.worker.send({ t: 'notice', sid: m.sid, notice: text }); }
-  private peer(gid: string | null): ChallengePeer | null { const p = gid ? this.lounge.get(gid) : null; return p ? { id: p.cid, name: p.name } : null; }
+  private peer(gid: string | null): ChallengePeer | null { const p = gid ? this.lounge.get(gid) : null; return p ? { id: p.cid, name: p.name, isBot: p.isBot } : null; }
   private pushChallenge(m: LoungeMember): void { m.worker.send({ t: 'challengeState', sid: m.sid, incoming: this.peer(m.incoming), outgoing: this.peer(m.outgoing) }); }
 
   private onLoungeJoin(worker: WorkerRef, m: Extract<W2P, { t: 'loungeJoin' }>): void {
     const gid = gidOf(worker.id, m.sid);
-    const mem: LoungeMember = { worker, sid: m.sid, gid, cid: m.cid, name: m.name, fp: m.fp, cursor: m.cursor, elo: m.elo, region: 'XX', queuedAt: 0, isBot: false, incoming: null, outgoing: null };
+    const isBot = !!m.isBot;
+    const mem: LoungeMember = { worker, sid: m.sid, gid, cid: m.cid, name: m.name, fp: m.fp, cursor: m.cursor, elo: m.elo, region: 'XX', queuedAt: 0, isBot, opponentPool: 'all', incoming: null, outgoing: null };
     this.lounge.set(gid, mem); this.cidToGid.set(m.cid, gid);
     this.notice(mem, 'TAB SWITCHES BETWEEN CHAT AND PLAYERS');
     this.broadcastLounge();
@@ -279,6 +290,8 @@ export class MatchCoordinator {
   // introspection for tests
   get activeMatches(): number { return this.matches.size; }
   get queued(): number { return this.waiting.length; }
+  get queuedHumans(): number { return this.waiting.filter((p) => !p.isBot).length; }
+  get queuedBots(): number { return this.waiting.filter((p) => p.isBot).length; }
   get loungeSize(): number { return this.lounge.size; }
   get playerCount(): number { return this.players.size; }
 
@@ -294,7 +307,7 @@ export class MatchCoordinator {
   /** Full per-frame render payload for one live match (web spectator), or null. */
   renderMatch(mid: string): object | null {
     const am = this.matches.get(mid);
-    return am ? liveRender(am.match, am.a.name, am.b.name) : null;
+    return am ? liveRender(am.match, am.a.name, am.b.name, am.a.isBot, am.b.isBot) : null;
   }
 }
 
@@ -318,6 +331,9 @@ export function runCoordinator(): MatchCoordinator {
   cluster.on('fork', attach);
   setInterval(() => coord.tick(), Math.round(1000 / TICK_HZ));
   // Primary observability: matchmaking + match load, plus hourly retention prune.
-  startOpsSampler(0, () => ({ matches: coord.activeMatches, queued: coord.queued, lounge: coord.loungeSize, players: coord.playerCount }), true);
+  startOpsSampler(0, () => ({
+    matches: coord.activeMatches, queued: coord.queued, queued_humans: coord.queuedHumans,
+    queued_bots: coord.queuedBots, lounge: coord.loungeSize, players: coord.playerCount,
+  }), true);
   return coord;
 }

@@ -17,7 +17,9 @@ export const results = {
     const hy = Math.max(1, Math.floor(ui.rows / 2) - 6);
     ui.heading(hy, big, col, 2);
     let y = hy + ui.headingHeight(2) + SP.section;
-    centerText(ui, y, `${r.winner} DEFEATED ${r.loser}`, { color: THEME.text }); y += SP.row + SP.gap;
+    const winner = `${r.winner}${r.winnerIsBot ? ' [BOT]' : ''}`;
+    const loser = `${r.loser}${r.loserIsBot ? ' [BOT]' : ''}`;
+    centerText(ui, y, `${winner} DEFEATED ${loser}`, { color: THEME.text }); y += SP.row + SP.gap;
     if (r.rating) {
       const sign = r.rating.delta >= 0 ? '+' : '';
       centerText(ui, y, `ELO  ${r.rating.before}  -  ${r.rating.after}  (${sign}${r.rating.delta})`, { color: r.rating.delta >= 0 ? THEME.good : THEME.bad });

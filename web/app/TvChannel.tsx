@@ -45,7 +45,7 @@ export function TvChannel({ replayPool }: { replayPool: { id: string; title: str
   const startLive = (m: any) => {
     kind.current = 'live'; liveMid.current = m.mid; track.current = null;
     prev.current = null; cur.current = null; metaRef.current = null;
-    setCap({ text: `${m.a.name} vs ${m.b.name}`, sub: `${m.a.char} vs ${m.b.char} · ${m.stage}`, href: `/watch/${m.mid}`, live: true });
+    setCap({ text: `${m.a.name}${m.a.bot ? ' [BOT]' : ''} vs ${m.b.name}${m.b.bot ? ' [BOT]' : ''}`, sub: `${m.a.char} vs ${m.b.char} · ${m.stage}`, href: `/watch/${m.mid}`, live: true });
   };
   const startReplay = async (r: { id: string; title: string }) => {
     kind.current = 'replay'; liveMid.current = null;

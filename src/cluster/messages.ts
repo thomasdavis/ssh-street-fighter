@@ -6,14 +6,15 @@
 import type { Inputs, Match } from '../game/types.js';
 import type { MatchResult } from '../net/session.js';
 import type { RosterEntry, ChatLine, ChallengePeer } from '../net/hub.js';
+import type { OpponentPool } from '../net/matchmaking.js';
 
 // worker -> primary
 export type W2P =
-  | { t: 'queue'; sid: number; cid: string; name: string; fp: string | null; cursor: number; elo: number; region: string; isBot?: boolean }
+  | { t: 'queue'; sid: number; cid: string; name: string; fp: string | null; cursor: number; elo: number; region: string; isBot?: boolean; opponentPool?: OpponentPool }
   | { t: 'dequeue'; sid: number }
   | { t: 'input'; mid: string; sid: number; input: Inputs; seq: number }
   | { t: 'leaveMatch'; mid: string; sid: number }
-  | { t: 'loungeJoin'; sid: number; cid: string; name: string; fp: string | null; cursor: number; elo: number }
+  | { t: 'loungeJoin'; sid: number; cid: string; name: string; fp: string | null; cursor: number; elo: number; isBot?: boolean }
   | { t: 'loungeLeave'; sid: number }
   | { t: 'chat'; sid: number; text: string }
   | { t: 'challenge'; sid: number; targetId: string }
@@ -22,7 +23,7 @@ export type W2P =
 
 // primary -> worker (worker routes to a local session by `sid`)
 export type P2W =
-  | { t: 'matchStart'; sid: number; mid: string; role: 'a' | 'b'; yourCursor: number; oppName: string; oppCursor: number; stage: string }
+  | { t: 'matchStart'; sid: number; mid: string; role: 'a' | 'b'; yourCursor: number; oppName: string; oppCursor: number; oppIsBot: boolean; stage: string }
   | { t: 'state'; sid: number; mid: string; m: Match; ack: number } // ack = last input seq the primary applied for this player
   | { t: 'matchEnd'; sid: number; mid: string; result: MatchResult }
   | { t: 'lounge'; sid: number; roster: RosterEntry[]; chat: ChatLine[] }

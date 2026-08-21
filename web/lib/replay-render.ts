@@ -14,6 +14,7 @@ export interface Frame {
 export interface CharMeta { idleH: number; ver?: number; frames: Record<string, Quad> }
 export interface RenderMeta {
   stage: string; aChar: string; bChar: string; aName: string; bName: string;
+  aBot?: boolean; bBot?: boolean;
   worldW: number; worldH: number; groundY: number; fighterH: number; stageLeft: number; stageRight: number;
   sprites: { a: CharMeta; b: CharMeta };
 }

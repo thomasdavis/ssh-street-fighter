@@ -10,14 +10,23 @@ import { emptyInputs, type Inputs, type Match, type Fighter } from '../game/type
 import { attackActive, specialMoveStats } from '../game/engine.js';
 import { SPECIAL_ATTACK_KINDS, type SpecialAttack } from '../game/moves.js';
 import { ROSTER } from '../game/roster.js';
-import { getByFingerprint } from '../db/db.js';
+import { markPlayerAsBot } from '../db/db.js';
 import { apiKeyLookup } from '../telemetry/store.js';
+import { normalizeOpponentPool } from '../net/matchmaking.js';
+import { VERSION_INFO } from '../version.js';
 import type { P2W } from '../cluster/messages.js';
 import type { MatchCoordinator, WorkerRef } from '../cluster/coordinator.js';
 
 const BOT_WORKER_ID = 900001;          // reserved id so bots don't collide with real workers (1..N)
 const MAX_LINE = 64 * 1024;
 const NAME_TO_IDX = new Map(ROSTER.map((c, i) => [c.name.toUpperCase(), i]));
+const BOT_BUILD = Object.freeze({
+  engine: VERSION_INFO.engine,
+  commit: VERSION_INFO.commit,
+  dirty: VERSION_INFO.dirty,
+  build: VERSION_INFO.build,
+  protocol: VERSION_INFO.botProtocol,
+});
 
 /** True for a connection from this host. The SSH `play` path pipes a key-verified
  *  SSH channel to this server over loopback and vouches for the fingerprint, so a
@@ -63,7 +72,7 @@ const HELP = {
   t: 'help',
   send: {
     hello: '{"t":"hello","key":"rk_..."}  authenticate (key from: ssh host token)',
-    queue: '{"t":"queue","char":"BYU"}   enter matchmaking as a character (name or index)',
+    queue: '{"t":"queue","char":"BYU","opponents":"all"}   enter matchmaking; opponents = all|humans|bots',
     input: '{"t":"input","moveX":-1|0|1,"down":bool,"jump":bool,"punch":bool,"kick":bool,"motion":"DR"}',
     joinLounge: '{"t":"joinLounge","char":"FABLE"}  join the live fight lounge',
     chat: '{"t":"chat","message":"hello"}  send lounge chat (140 printable ASCII chars; 700ms rate limit)',
@@ -76,8 +85,8 @@ const HELP = {
     ping: '{"t":"ping"}',
   },
   receive: {
-    welcome: 'sent after hello; includes your name, elo and the roster',
-    matchStart: '{"t":"matchStart","role":"a|b","stage":..,"oppName":..,"oppCursor":..}',
+    welcome: 'sent after hello; includes your name, elo, roster, engine, commit and build',
+    matchStart: '{"t":"matchStart","role":"a|b","stage":..,"oppName":..,"oppType":"human|bot","engine":..,"commit":..,"build":..}',
     state: 'every relayed tick: your fighter (you), opponent (opp), projectiles, phase, round',
     matchEnd: '{"t":"matchEnd","result":{...}}',
     lounge: '{"t":"lounge","roster":[...],"chat":[...]}  presence/chat snapshot after join and updates',
@@ -110,9 +119,16 @@ export function createBotServer(coord: MatchCoordinator): Server {
       switch (msg.t) {
         case 'matchStart':
           c.role = msg.role; c.mid = msg.mid; c.queued = false; c.inLounge = false;
-          return write(c, { t: 'matchStart', mid: msg.mid, role: msg.role, yourCursor: msg.yourCursor, stage: msg.stage, oppName: msg.oppName, oppCursor: msg.oppCursor });
+          return write(c, {
+            t: 'matchStart', mid: msg.mid, role: msg.role, yourCursor: msg.yourCursor,
+            stage: msg.stage, oppName: msg.oppName, oppCursor: msg.oppCursor,
+            oppType: msg.oppIsBot ? 'bot' : 'human', ...BOT_BUILD,
+          });
         case 'state': return write(c, stateFor(c, msg.m, msg.ack));
-        case 'matchEnd': c.mid = ''; return write(c, { t: 'matchEnd', result: msg.result });
+        case 'matchEnd':
+          c.mid = '';
+          c.elo = msg.result.rating?.after ?? c.elo;
+          return write(c, { t: 'matchEnd', result: msg.result });
         case 'lounge':
           return write(c, { t: 'lounge', roster: msg.roster, chat: msg.chat });
         case 'notice': return write(c, { t: 'notice', message: msg.notice });
@@ -142,9 +158,12 @@ export function createBotServer(coord: MatchCoordinator): Server {
       if (msg.trustedFp && isLoopback(c.socket.remoteAddress)) fp = String(msg.trustedFp);   // SSH `play` pipe (key already verified)
       else { const row = apiKeyLookup(String(msg.key ?? '')); if (row) fp = row.fp; }
       if (!fp) return void write(c, { t: 'error', msg: 'invalid api key — mint one with: ssh host token' });
-      const player = getByFingerprint(fp);
+      const player = markPlayerAsBot(fp);
       c.authed = true; c.fp = fp; c.name = player?.username ?? 'BOT'; c.elo = player?.elo ?? 1200;
-      return write(c, { t: 'welcome', fp: c.fp, name: c.name, elo: c.elo, roster: ROSTER.map((x) => x.name), channel: 'bot-api' });
+      return write(c, {
+        t: 'welcome', fp: c.fp, name: c.name, elo: c.elo,
+        roster: ROSTER.map((x) => x.name), channel: 'bot-api', playerType: 'bot', ...BOT_BUILD,
+      });
     }
     if (!c.authed) return write(c, { t: 'error', msg: 'send {"t":"hello","key":...} first' });
 
@@ -153,11 +172,15 @@ export function createBotServer(coord: MatchCoordinator): Server {
       if (c.inLounge) return error(c, 'in_lounge', 'leave the lounge before queueing');
       if (c.queued) return error(c, 'already_queued', 'already queued');
       const cursor = cursorFor(msg.char);
+      if (msg.opponents !== undefined && !['all', 'humans', 'bots'].includes(String(msg.opponents)))
+        return error(c, 'invalid_opponents', 'opponents must be all, humans, or bots');
+      const opponentPool = normalizeOpponentPool(msg.opponents, 'all');
       c.queued = true;
-      write(c, { t: 'queued', char: ROSTER[cursor]!.name });
-      // Queue as an ordinary player (no bot flag) so bots and humans pair together
-      // in the one global queue and are indistinguishable in matches and metrics.
-      coord.handle(botWorker, { t: 'queue', sid: c.sid, cid: `bot:${c.sid}`, name: c.name, fp: c.fp, cursor, elo: c.elo, region: 'XX' });
+      write(c, { t: 'queued', char: ROSTER[cursor]!.name, opponents: opponentPool });
+      coord.handle(botWorker, {
+        t: 'queue', sid: c.sid, cid: `bot:${c.sid}`, name: c.name, fp: c.fp,
+        cursor, elo: c.elo, region: 'XX', isBot: true, opponentPool,
+      });
       return;
     }
     if (t === 'dequeue') { leaveQueue(c); return write(c, { t: 'dequeued' }); }
@@ -169,7 +192,7 @@ export function createBotServer(coord: MatchCoordinator): Server {
       c.inLounge = true;
       coord.handle(botWorker, {
         t: 'loungeJoin', sid: c.sid, cid: `bot:${c.sid}`, name: c.name, fp: c.fp,
-        cursor, elo: c.elo,
+        cursor, elo: c.elo, isBot: true,
       });
       return write(c, { t: 'joinedLounge', char: ROSTER[cursor]!.name });
     }
@@ -231,7 +254,10 @@ export function createBotServer(coord: MatchCoordinator): Server {
     conns.set(c.sid, c);
     socket.setNoDelay(true);
     socket.setTimeout(120000, () => socket.destroy());   // drop idle bots
-    write(c, { t: 'hi', service: 'ringside-bot', send_hello_with: 'api key from `ssh host token`' });
+    write(c, {
+      t: 'hi', service: 'ringside-bot',
+      send_hello_with: 'api key from `ssh host token`', ...BOT_BUILD,
+    });
     socket.on('data', (chunk) => {
       c.buf += chunk.toString('utf8');
       if (c.buf.length > MAX_LINE) { write(c, { t: 'error', msg: 'line too long' }); socket.destroy(); return; }

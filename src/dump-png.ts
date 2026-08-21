@@ -29,14 +29,14 @@ function fake(o: Record<string, unknown>): any {
   return { frame: 6, displayName: 'THOMAS', usernameBuf: 'THOM', errorMsg: '', guest: false,
     player: db.getByFingerprint('fp:tom'), fp: 'fp:tom', menuIndex: 0, cursor: 2,
     keyBindings: DEFAULT_KEY_BINDINGS, controlsCursor: 5, bindingCapture: null, controlsNotice: 'PUNCH SET TO J',
-    selectMode: 'lobby', leader: db.leaderboard(10), result: null,
+    selectMode: 'lobby', quickOpponentPool: 'bots', leaderScope: 'humans', leader: db.leaderboard(10, 'humans'), result: null,
     loungeFocus: 'players', loungeCursor: 0, loungeChatScroll: 0, chatBuf: 'run it back?', loungeNotice: 'SELECT A PLAYER AND PRESS ENTER',
     incoming: null, outgoing: null,
     loungeRoster: [
-      { id: '1', name: 'ADA', cursor: 3, elo: 1240 },
-      { id: '2', name: 'KAI', cursor: 2, elo: 1190 },
-      { id: '3', name: 'RIVAL_7', cursor: 6, elo: null },
-      { id: '4', name: 'NOVA_STORM', cursor: 10, elo: 1305 },
+      { id: '1', name: 'ADA', cursor: 3, elo: 1240, isBot: false },
+      { id: '2', name: 'KAI', cursor: 2, elo: 1190, isBot: false },
+      { id: '3', name: 'RIVAL_7', cursor: 6, elo: null, isBot: true },
+      { id: '4', name: 'NOVA_STORM', cursor: 10, elo: 1305, isBot: false },
     ],
     loungeChat: [
       { username: 'ADA', message: 'gg, that was close — run it back?' },
@@ -49,7 +49,7 @@ function fake(o: Record<string, unknown>): any {
 const which = process.argv[2] ?? 'menu';
 const cols = parseInt(process.argv[3] ?? '96', 10), rows = parseInt(process.argv[4] ?? '30', 10);
 const f: any = new Frame(cols, rows, (process.env.SF_MODE as any) || 'octant');
-const s = fake(which === 'results' ? { result: { winner: 'THOMAS', loser: 'ADA', youWon: true } } : {});
+const s = fake(which === 'results' ? { result: { winner: 'THOMAS', loser: 'ADA', winnerIsBot: false, loserIsBot: false, youWon: true } } : {});
 if (which === 'fight' || which === 'fight-help') {
   const eng = await import('./game/engine.js');
   const scn = await import('./game/scene.js');

@@ -4,28 +4,9 @@
 import type { Match, Inputs, Fighter } from '../game/types.js';
 import { specialMoveForAttack } from '../game/moves.js';
 import { captureMatch, captureEvents, captureReplay, type MatchRecord, type MatchEvent, type SideRec } from './store.js';
+import { ENGINE_VERSION, VERSION_INFO } from '../version.js';
 
-/** The canonical engine version — the SINGLE source of truth. Everything that
- *  needs to state which engine produced data imports this (live recorder, the
- *  /api/health payload, and the simulator training exporter). Never hard-code a
- *  copy of the string elsewhere; a stale copy is exactly the bug #26 fixed.
- *
- *  Bump policy — bump this whenever a sim change would make older replays
- *  re-simulate differently (combat mechanics, roster, or the bot-wire observation
- *  contract). When you bump it, also update the intentionally-pinned attestation
- *  expectations in tools/xenon-policy-lab.ts and any external agent runner
- *  compatibility profiles.
- *  Caveat: the version is a coarse compatibility family, not a unique source id —
- *  materially different source snapshots have shared one label (e.g. pre- vs
- *  post-UNCLOSE both reported sf-6). For EXACT reproduction, pair it with the
- *  immutable provenance already recorded alongside exports (engineCommit / the
- *  xenon mechanics + roster hashes), not the version string alone.
- *
- *  History — sf-2: TESTIMONY beam nerf. sf-3: throw mechanic (F). sf-4/5: WoE +
- *  FABLE + throw rework. sf-6: MNEME/AJAX/XENON + their new specials (construct,
- *  nova, volley, boomerang [proper out-and-back], armor, phase, lasso, reflect,
- *  blink), universal flying kick, and victory poses. */
-export const ENGINE_VERSION = 'sf-6';
+export { ENGINE_VERSION } from '../version.js';
 
 const KEYFRAME_EVERY = 300;        // 10s at 30 Hz — seek points for the replayer
 const COMBO_WINDOW = 24;           // frames within which consecutive hits chain
@@ -133,6 +114,7 @@ export class MatchRecorder {
       const rec: MatchRecord = {
         id: this.id, mode: this.meta.mode, stage: this.meta.stage, seed: this.meta.seed,
         region: this.meta.region, engineVersion: this.meta.engineVersion,
+        engineCommit: VERSION_INFO.commit, engineDirty: VERSION_INFO.dirty,
         winner, endReason, durationFrames: this.f,
         aEloBefore: elo?.aBefore ?? null, aEloAfter: elo?.aAfter ?? null,
         bEloBefore: elo?.bBefore ?? null, bEloAfter: elo?.bAfter ?? null,
@@ -142,7 +124,13 @@ export class MatchRecorder {
       };
       captureMatch(rec);
       captureEvents(this.id, this.events);
-      const header = { motions: [...this.motions.keys()], sides: this.meta.sides, stage: this.meta.stage, seed: this.meta.seed, format: 'flags8+motion8/side' };
+      const header = {
+        motions: [...this.motions.keys()], sides: this.meta.sides, stage: this.meta.stage, seed: this.meta.seed,
+        format: 'flags8+motion8/side', engine: {
+          version: this.meta.engineVersion, commit: VERSION_INFO.commit,
+          dirty: VERSION_INFO.dirty, build: VERSION_INFO.build,
+        },
+      };
       captureReplay(this.id, header, Buffer.from(this.bytes), this.keyframes, this.bytes.length / 4);
     } catch (e) { console.error('[ringside] recorder.finish failed:', (e as Error).message); }
   }

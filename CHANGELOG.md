@@ -25,6 +25,5 @@ you play by SSH-ing into a terminal — no download, no browser, no account.
 - **Rebuilt Fight Lounge** — responsive two-panel layout (the players box no longer disappears at different zooms), word-wrapped chat, and arrow-key / wheel scrollback.
 - **New abstractions** — a `Terminal` I/O boundary and a `Renderer` backend seam extracted from the session.
 - **Optional terminal enhancements** (`SF_CAPS=1`, **off by default**) — kitty graphics, precise kitty-keyboard fight input, SGR mouse, and synchronized output; negotiated per connection and degrading silently.
-- **Provenance fix** — the simulator training exporter reports the canonical engine version instead of a stale hard-coded label, with a documented version-bump policy.
-
+- **Build provenance** — `/version`, health responses, bot handshakes, match starts, stored matches, and replay headers now report the engine family and exact source commit.
 [1.0.0]: https://github.com/thomasdavis/sshfighter.com/releases/tag/v1.0.0

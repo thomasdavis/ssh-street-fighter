@@ -19,8 +19,11 @@ export const lobbyWait = {
     const c = characterAt(s.cursor);
     ui.heading(1, c.name, THEME.accent, 1);
     const dots = '.'.repeat(1 + (Math.floor(s.frame / 10) % 3));
-    centerText(ui, toUY(SELECT_STAGE.floor + 10), `WAITING FOR OPPONENT${dots}`, { color: THEME.text, bold: true });
-    centerText(ui, toUY(SELECT_STAGE.floor + 10) + 2, 'HAVE A FRIEND SSH IN AND JOIN THE LOBBY', { color: THEME.textDim });
+    const target = s.quickOpponentPool === 'bots' ? 'BOT' : 'HUMAN CHALLENGER';
+    centerText(ui, toUY(SELECT_STAGE.floor + 10), `WAITING FOR ${target}${dots}`, { color: THEME.text, bold: true });
+    centerText(ui, toUY(SELECT_STAGE.floor + 10) + 2,
+      s.quickOpponentPool === 'bots' ? 'MATCHING ONLY WITH VERIFIED BOT ACCOUNTS' : 'MATCHING ONLY WITH HUMAN PLAYERS',
+      { color: THEME.textDim });
     hints(ui, ui.rows - 1, [['ESC', 'CANCEL']]);
   },
   onKey(s: Session, k: Key): void {

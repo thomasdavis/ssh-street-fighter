@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { SiteNav, Footer, CharChip } from '@/components/ui';
+import { SiteNav, Footer, CharChip, PlayerTypeBadge } from '@/components/ui';
 import { recentMatches, matchCount, onlineNow, hasReplay } from '@/lib/ringside';
 import { timeAgo, frames } from '@/lib/format';
 
@@ -42,9 +42,11 @@ export default async function MatchesPage({ searchParams }: { searchParams: Prom
                       <td>
                         <Link href={`/matches/${m.id}`} style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
                           <span style={{ color: aWon ? 'var(--gold)' : 'var(--text)', fontWeight: 700 }}>{m.a_name}</span>
+                          <PlayerTypeBadge isBot={m.a_is_bot} />
                           <CharChip char={m.a_char} sm />
                           <span style={{ color: 'var(--red)', fontSize: 11 }}>vs</span>
                           <span style={{ color: !aWon ? 'var(--gold)' : 'var(--text)', fontWeight: 700 }}>{m.b_name}</span>
+                          <PlayerTypeBadge isBot={m.b_is_bot} />
                           <CharChip char={m.b_char} sm />
                         </Link>
                       </td>

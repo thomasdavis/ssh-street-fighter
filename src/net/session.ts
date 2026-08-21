@@ -23,7 +23,8 @@ import { drawTooSmall } from '../ui/notice.js';
 import { MATCH_IDS } from './match-ids.js';
 import { regionOf } from './region.js';
 import { makeFighter, makeMatch, stepMatch, predictLocal, TICK_HZ } from '../game/engine.js';
-import { MatchRecorder, ENGINE_VERSION } from '../telemetry/recorder.js';
+import { MatchRecorder } from '../telemetry/recorder.js';
+import { ENGINE_VERSION } from '../version.js';
 import { emptyInputs, type Inputs, type Match } from '../game/types.js';
 import { characterAt } from '../game/roster.js';
 import { specialMovesFor } from '../game/moves.js';
@@ -31,6 +32,7 @@ import * as db from '../db/db.js';
 import { SCREENS, type ScreenName } from '../screens/index.js';
 import { drawFightHud } from '../screens/fight-hud.js';
 import { actorRef, eventId, track, type TelemetryFields } from '../telemetry/discord.js';
+import type { OpponentPool } from './matchmaking.js';
 
 const MAX_RENDER_HZ = 15; // visual refresh rate (sim/input stay at TICK_HZ = 30)
 // Graphics sends a full image per changed frame (heavy over SSH), so animated
@@ -53,6 +55,8 @@ const HUB = hub();
 export interface MatchResult {
   winner: string;
   loser: string;
+  winnerIsBot: boolean;
+  loserIsBot: boolean;
   youWon: boolean;
   winnerChar: string;
   rating?: { before: number; after: number; delta: number };
@@ -99,6 +103,8 @@ export class Session {
   // is remembered per player.
   renderMode: RenderMode = 'quadrant';
   leader: db.LeaderRow[] = [];
+  leaderScope: db.LeaderboardScope = 'humans';
+  quickOpponentPool: Exclude<OpponentPool, 'all'> = 'bots';
   result: MatchResult | null = null;
   loungeFocus: 'chat' | 'players' = 'chat';
   loungeCursor = 0;
@@ -145,6 +151,8 @@ export class Session {
     let landing: ScreenName = 'username';
     if (fp) {
       this.player = db.touchOrCreate(fp);
+      this.quickOpponentPool = this.player.match_pool === 'humans' ? 'humans' : 'bots';
+      this.leaderScope = this.player.is_bot ? 'all' : 'humans';
       this.keyBindings = parseKeyBindings(this.player.key_bindings_json);
       if (this.player.view_mode === 'graphics') this.wantsGraphics = true;   // opt-in HD, applied once the probe confirms support
       else if (this.player.view_mode === 'octant') this.renderMode = 'octant';   // remembered view preference (else stays quadrant)
@@ -174,6 +182,7 @@ export class Session {
   }
 
   get displayName(): string { return this.player?.username ?? this.username; }
+  get isBot(): boolean { return !!this.player?.is_bot; }
 
   trackEvent(event: string, fields: TelemetryFields = {}): void {
     track(event, {
@@ -214,7 +223,7 @@ export class Session {
     this.terminal.forceRedraw();
     if (previous !== screen) this.screenInputGuardUntil = Date.now() + 120;
     this.terminal.clear();
-    if (screen === 'leaderboard') this.leader = db.leaderboard(10);
+    if (screen === 'leaderboard') this.leader = db.leaderboard(10, this.leaderScope);
     if (screen === 'controls') { this.bindingCapture = null; this.controlsNotice = ''; }
     if (previous !== screen) this.trackEvent('screen_view', { from: previous, to: screen });
   }
@@ -381,7 +390,7 @@ export class Session {
     try {
       this.practiceRec = new MatchRecorder(mid, {
         mode: 'practice', stage: m.stage, seed: 0, region: this.region, engineVersion: ENGINE_VERSION,
-        sides: { a: { fp: this.fp, name: this.displayName, char: you.name, isBot: false },
+        sides: { a: { fp: this.fp, name: this.displayName, char: you.name, isBot: this.isBot },
                  b: { fp: null, name: dummy.name, char: dummy.name, isBot: true } },
       });
     } catch { this.practiceRec = null; }
@@ -433,7 +442,11 @@ export class Session {
       const ownRating = rating ? (won
         ? { before: rating.winnerBefore, after: rating.winnerAfter, delta: rating.delta }
         : { before: rating.loserBefore, after: rating.loserAfter, delta: -rating.delta }) : undefined;
-      sess.result = { winner: winSess.displayName, loser: loseSess.displayName, youWon: won, winnerChar: winner.name, rating: ownRating };
+      sess.result = {
+        winner: winSess.displayName, loser: loseSess.displayName,
+        winnerIsBot: winSess.isBot, loserIsBot: loseSess.isBot,
+        youWon: won, winnerChar: winner.name, rating: ownRating,
+      };
       sess.match = null; sess.peer = null; sess.isStepper = false;
       sess.goTo('results');
     }
@@ -449,7 +462,9 @@ export class Session {
       });
       if (other.fp) other.player = db.getByFingerprint(other.fp) ?? other.player;
       other.result = {
-        winner: other.displayName, loser: quitter.displayName, youWon: true, winnerChar: 'n/a',
+        winner: other.displayName, loser: quitter.displayName,
+        winnerIsBot: other.isBot, loserIsBot: quitter.isBot,
+        youWon: true, winnerChar: 'n/a',
         rating: rating ? { before: rating.winnerBefore, after: rating.winnerAfter, delta: rating.delta } : undefined,
       };
       other.match = null; other.peer = null; other.isStepper = false;
@@ -461,7 +476,7 @@ export class Session {
   private leaveFight(): void { this.flushPractice(); this.match = null; this.peer = null; this.isStepper = false; this.goTo('menu'); }
 
   joinLobby(): void {
-    this.trackEvent('quick_match_queued', { fighter: characterAt(this.cursor).name });
+    this.trackEvent('quick_match_queued', { fighter: characterAt(this.cursor).name, opponent_pool: this.quickOpponentPool });
     HUB.queue(this); // hub sends us to lobbyWait, then pairs (globally, across workers)
   }
   cancelLobby(): void {
@@ -469,8 +484,22 @@ export class Session {
     this.trackEvent('quick_match_cancelled'); this.goTo('menu');
   }
 
+  toggleQuickOpponentPool(): void {
+    this.quickOpponentPool = this.quickOpponentPool === 'bots' ? 'humans' : 'bots';
+    if (this.fp) db.setMatchPool(this.fp, this.quickOpponentPool);
+    this.trackEvent('quick_match_pool_changed', { opponent_pool: this.quickOpponentPool });
+    this.forceRedraw();
+  }
+
+  toggleLeaderboardScope(): void {
+    this.leaderScope = this.leaderScope === 'humans' ? 'all' : 'humans';
+    this.leader = db.leaderboard(10, this.leaderScope);
+    this.trackEvent('leaderboard_scope_changed', { scope: this.leaderScope });
+    this.forceRedraw();
+  }
+
   // ---- cluster remote versus (match simulated by the primary) ----
-  startRemoteVersus(mid: string, role: 'a' | 'b', yourCursor: number, oppName: string, oppCursor: number, stage: string): void {
+  startRemoteVersus(mid: string, role: 'a' | 'b', yourCursor: number, oppName: string, oppCursor: number, oppIsBot: boolean, stage: string): void {
     const aCursor = role === 'a' ? yourCursor : oppCursor;
     const bCursor = role === 'a' ? oppCursor : yourCursor;
     const ca = characterAt(aCursor), cb = characterAt(bCursor);
@@ -481,7 +510,7 @@ export class Session {
     this.pending = []; this.predSeq = 0;
     this.fightInput = new InputState(this.keyBindings);
     this.lastAttackA = 'none'; this.lastAttackB = 'none';
-    this.trackEvent('quick_match_paired', { fighter: ca.name, opponent: oppName });
+    this.trackEvent('quick_match_paired', { fighter: ca.name, opponent: oppName, opponent_type: oppIsBot ? 'bot' : 'human' });
     this.screen = 'fight'; this.forceFull = true;
     this.terminal.forceRedraw();
     this.terminal.write(CLEAR_SCREEN + HIDE_CURSOR + NOWRAP);
@@ -609,7 +638,9 @@ export class Session {
       });
       if (other.fp) other.player = db.getByFingerprint(other.fp) ?? other.player;
       other.result = {
-        winner: other.displayName, loser: this.displayName, youWon: true, winnerChar: 'n/a',
+        winner: other.displayName, loser: this.displayName,
+        winnerIsBot: other.isBot, loserIsBot: this.isBot,
+        youWon: true, winnerChar: 'n/a',
         rating: rating ? { before: rating.winnerBefore, after: rating.winnerAfter, delta: rating.delta } : undefined,
       };
       other.match = null; other.peer = null; other.isStepper = false;

@@ -2,9 +2,9 @@
 // ============================================================================
 // SSH Fighter — example bot
 // ----------------------------------------------------------------------------
-// A bot is an ordinary player that reaches the game over an API instead of a
-// terminal. Give each bot its own SSH key if its identity and rating should be
-// independent.
+// Bot identities are labeled automatically when they reach the game over this
+// protocol. Give every bot its own SSH key so its identity and rating remain
+// independent from a human account.
 //
 //   ssh-keygen -t ed25519 -f ~/.ssh/sshfighter-mybot -C sshfighter-mybot
 //   ssh -i ~/.ssh/sshfighter-mybot -o IdentitiesOnly=yes MYBOT@sshfighter.com
@@ -27,7 +27,7 @@ import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
 const VALUE_OPTIONS = new Set([
-  'identity', 'user', 'host', 'char', 'tcp', 'key', 'challenge', 'chat', 'matches',
+  'identity', 'user', 'host', 'char', 'tcp', 'key', 'opponents', 'challenge', 'chat', 'matches',
 ]);
 
 export function parseArgs(argv) {
@@ -52,6 +52,9 @@ export function parseArgs(argv) {
     if (!Number.isInteger(matches) || matches < 1) throw new Error('--matches must be a positive integer');
     args.matches = matches;
   }
+  if (args.opponents !== undefined && !['all', 'humans', 'bots'].includes(args.opponents)) {
+    throw new Error('--opponents must be all, humans, or bots');
+  }
   return args;
 }
 
@@ -66,6 +69,7 @@ Options:
   --char FIGHTER      Fighter to play (default: BYU).
   --tcp HOST:PORT     Use direct TCP instead of the recommended SSH transport.
   --key TOKEN         API key required by direct TCP.
+  --opponents POOL    Quick Match pool: all, humans, or bots (default: all).
   --lounge            Join Fight Lounge instead of Quick Match.
   --challenge PLAYER  Challenge a lounge player by case-insensitive handle or id.
   --accept            Automatically accept incoming lounge challenges.
@@ -108,6 +112,7 @@ export function decide(st) {
 /** Pure protocol driver. Tests inject send/close/schedule without opening a socket. */
 export function createBotController(options, io) {
   const char = options.char || 'BYU';
+  const opponents = options.opponents || 'all';
   const lounge = !!(options.lounge || options.challenge || options.accept || options.chat);
   const matchLimit = options.matches ?? Infinity;
   const challenge = options.challenge ? String(options.challenge) : '';
@@ -124,8 +129,22 @@ export function createBotController(options, io) {
   let chatSent = false;
   let acceptedId = '';
   let stopping = false;
+  let serverBuild = '';
 
-  const enter = () => send({ t: lounge ? 'joinLounge' : 'queue', char });
+  const observeBuild = (msg) => {
+    const label = typeof msg.build === 'string' && msg.build
+      ? msg.build
+      : (typeof msg.engine === 'string' && msg.engine ? `${msg.engine}@${String(msg.commit || 'unknown').slice(0, 12)}` : '');
+    if (label && label !== serverBuild) {
+      serverBuild = label;
+      log(`server build ${label}`);
+    }
+    return label || serverBuild;
+  };
+
+  const enter = () => send(lounge
+    ? { t: 'joinLounge', char }
+    : { t: 'queue', char, opponents });
   const stop = () => {
     if (stopping) return;
     stopping = true;
@@ -135,14 +154,16 @@ export function createBotController(options, io) {
   function handle(msg) {
     switch (msg.t) {
       case 'hi':
+        observeBuild(msg);
         if (options.key) send({ t: 'hello', key: options.key });
         break;
       case 'welcome':
+        observeBuild(msg);
         log(`connected as ${msg.name} (elo ${msg.elo}) — ${lounge ? 'joining lounge' : 'queueing'} as ${char}`);
         enter();
         break;
       case 'queued':
-        log(`in queue as ${msg.char}…`);
+        log(`in ${msg.opponents || opponents} queue as ${msg.char}…`);
         break;
       case 'joinedLounge':
         challengeSent = false;
@@ -176,9 +197,11 @@ export function createBotController(options, io) {
       case 'notice':
         log(`lounge: ${msg.message}`);
         break;
-      case 'matchStart':
-        log(`match! you are ${msg.role} on ${msg.stage} vs ${msg.oppName}`);
+      case 'matchStart': {
+        const build = observeBuild(msg);
+        log(`match! you are ${msg.role} on ${msg.stage} vs ${msg.oppName}${msg.oppType ? ` (${msg.oppType})` : ''}${build ? ` — ${build}` : ''}`);
         break;
+      }
       case 'state':
         if (!stopping) send(decide(msg));
         break;

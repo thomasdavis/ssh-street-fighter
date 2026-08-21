@@ -17,6 +17,8 @@ ssh sshfighter.com
 
 [Play now](#play-now) · [Browse fighter guides & sprites](https://sshfighter.com) · [How it works](docs/ARCHITECTURE.md) · [Contribute](CONTRIBUTING.md)
 
+Created by [@ajaxdavis on Twitter](https://twitter.com/ajaxdavis) · [ajaxdavis.dev](https://ajaxdavis.dev)
+
 <img src="docs/screenshots/gameplay.png" alt="BYU fighting MEN beneath the responsive terminal-native HUD" width="100%">
 
 </div>
@@ -58,9 +60,11 @@ Your public-key fingerprint becomes your identity. Connect with a key to keep yo
 
 > New to SSH? The command above is all you need on macOS, Linux, Windows Terminal, Termux, or another OpenSSH-compatible client.
 
-### Bot players and independent identities
+### Humans, bots, and independent identities
 
-Bots use the same matchmaking and ratings as terminal players. Because identity is the SSH public-key fingerprint, reuse of your normal SSH key also reuses your handle, ELO, and match history. Give each bot a dedicated key when those records should remain independent:
+Human Quick Match defaults to a bot opponent, which makes it easy to get a fight immediately; press `T` on fighter select to switch to the human-only pool. The selection is remembered for verified SSH players. Direct lounge challenges remain explicit and can cross player types.
+
+Bot play is detected automatically when an SSH identity authenticates on the JSON-lines play protocol, and that classification is sticky. Bots and humans use the same ELO calculation, but the public rankings expose a **Human League** (humans only) and an **Open League** (everyone, with bots labeled). Because identity is the SSH public-key fingerprint, reuse of your normal SSH key also reuses your handle, ELO, and match history—and permanently marks that identity as a bot. Give every bot a dedicated key:
 
 ```console
 ssh-keygen -t ed25519 -f ~/.ssh/sshfighter-mybot -C sshfighter-mybot
@@ -73,7 +77,17 @@ During that one interactive connection, choose the bot's handle. Then launch the
 node examples/bot.mjs --user MYBOT --host <host> --char BYU --identity ~/.ssh/sshfighter-mybot
 ```
 
+Bots enter the open opponent pool by default. They can request humans only or bots only with the protocol field `"opponents":"humans"` or `"opponents":"bots"`; the example client exposes the same choice as `--opponents all|humans|bots`.
+
 `--identity` also enables OpenSSH's `IdentitiesOnly=yes`, preventing fallback to a personal key. SSH bot play needs no API token. Mint one with `ssh -i <key> -o IdentitiesOnly=yes MYBOT@<host> token` only when using the REST API or optional direct TCP transport. See [`examples/bot.mjs`](examples/bot.mjs) for the protocol and a small example controller.
+
+Production bots should live in their own repositories and interact with SSH Fighter only through the documented SSH or HTTP APIs. This repository intentionally contains no bot policy, training, evaluation, or deployment code beyond the generic example client and protocol documentation.
+
+The opening `hi` and `welcome` messages, and every `matchStart`, include `engine`, `commit`, `dirty`, and a display-ready `build` such as `sf-6@a3d35dbbbe18`. Bots can also query the same canonical identity without authenticating:
+
+```console
+curl https://sshfighter.com/version
+```
 
 The same JSON-lines channel can join the live Fight Lounge instead of the quick-match queue. Lounge agents share presence, persistent chat, and direct challenges with terminal players:
 
@@ -99,6 +113,7 @@ The server emits `lounge` snapshots containing `roster` and `chat`, plus `notice
 | Character move card | `?` during a fight |
 | Exit practice | `Q` (a ranked match can't be quit — win, lose, or disconnect) |
 | Menus | `W` / `S`, arrows, Enter |
+| Quick Match opponent pool | `T` on fighter select — bots by default, or humans only |
 
 Choose **Controls** on the main menu to rebind every combat direction, both jump slots, punch, kick, and throw. Duplicate bindings are rejected before they can make a move unreachable. Verified SSH players keep their layout across reconnects; guest layouts last for the current session. `Q`, `V`, and `?` remain fixed so exiting practice, changing graphics mode, and opening the move card are always recoverable.
 
@@ -165,6 +180,8 @@ The server listens on `0.0.0.0:2223` by default. Configuration is entirely envir
 | `SF_PROXY_PROTOCOL` | unset | `1` to accept a leading PROXY v1 header (real client IP behind a relay) |
 | `SF_BOT_PORT` | `8091` | Loopback port for the JSON-lines bot-play server |
 | `SF_PUBLIC_HOST` | `sshfighter.com` | Host shown in bot onboarding messages |
+| `SF_COMMIT_SHA` | current Git `HEAD` | Source revision for deployments without a readable `.git` checkout |
+| `SF_BUILD_DIRTY` | auto-detected | Optional `true`/`false` override for build cleanliness |
 | `SF_DISCORD_WEBHOOK` | unset | Optional best-effort Discord destination for vital community events only |
 
 All events are recorded locally in the append-only `analytics_events` SQLite table for the planned analytics site. Discord receives only quick-match waiting, match start/result, forfeit, and lounge chat events. Inputs, special moves, screen views, connections, and terminal resolution changes never go to Discord. See [the analytics contract](docs/ANALYTICS.md).
@@ -214,22 +231,10 @@ See [the architecture guide](docs/ARCHITECTURE.md) for the render and session pi
 pnpm typecheck
 pnpm test                 # combat, assets, persistence, ANSI reconstruction
 pnpm test:e2e             # lounge, challenge, matchmaking, and practice over real SSH
-pnpm gym --fighter CODEX --seed 42 --matches 20 --json
 pnpm exec tsx src/dump-png.ts fight 112 36
 ```
 
-The deterministic sparring gym accepts any roster fighter and an optional import-safe policy module via `--policy`. Use `--opponents`, `--styles`, and `--matches` to bound a block; `--seed` makes built-in and `Math.random()`-based policies reproducible, while `--json` emits a machine-readable comparison record.
-
-### Offline training exports
-
-Two read-only exporters produce temporally ordered policy-learning data without authenticating to SSH or entering matchmaking:
-
-```powershell
-pnpm export:training --output training-data\public.jsonl.gz --character CODEX --limit 200
-pnpm export:sim-training --output training-data\sim.jsonl --fighter CODEX --opponents 'FABLE,OMEGA' --styles 'rushdown,turtle' --matches 10 --seed 73
-```
-
-`export:training` validates public replay inputs against the published track and keyframes, emits privacy-minimized transitions, and quarantines mismatched matches in a manifest. `export:sim-training` runs the pinned local engine and emits two perspective-specific episodes per match with full state, exact applied inputs, controller hashes, engine commit, and terminal outcome. Simulator-only fields such as blocking and internal timers are auxiliary targets, not live-policy inputs. Generated `training-data/` files are intentionally ignored by Git.
+The canonical engine compatibility family lives in `src/version.ts`. Bump `ENGINE_VERSION` whenever combat changes would alter deterministic replay results or the meaning of bot observations; the exact Git revision distinguishes deployments within that family.
 
 The asset contract verifies all seventeen complete dossiers, all 51 explained special-move definitions, every required fighter pose, and all six stage payloads. CI also rebuilds the authoritative fighter catalog and the Next.js site.
 
@@ -258,5 +263,7 @@ Bug fixes, renderer work, accessibility improvements, terminal compatibility rep
 The public [roadmap](ROADMAP.md) tracks privacy-safe aggregate analytics, additional fighters, and other contribution-sized milestones.
 
 ## License and naming
+
+SSH Fighter is created and maintained by [Thomas Davis (@ajaxdavis)](https://twitter.com/ajaxdavis). More projects are at [ajaxdavis.dev](https://ajaxdavis.dev).
 
 Code and original project assets are released under the [MIT License](LICENSE). This is an independent fan-made technical experiment, not affiliated with or endorsed by Capcom. “Street Fighter” and related marks belong to their respective owners; the game uses an original parody roster and original generated artwork.
