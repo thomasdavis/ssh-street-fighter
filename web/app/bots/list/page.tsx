@@ -6,22 +6,48 @@ import { winRate } from '@/lib/format';
 export const dynamic = 'force-dynamic';
 export const metadata = {
   title: 'Bot roster',
-  description: 'Ranked automated players competing in the SSH Fighter Open League.',
+  description: 'Technical bot dossiers and ranked automated players competing in the SSH Fighter Open League.',
 };
+
+const dossiers = [
+  {
+    name: 'TISSUE-0',
+    identity: 'ajax-tissue',
+    kind: 'Research organism',
+    runtime: 'Haskell · HaskTorch',
+    copy: 'A 5.54M-parameter genome grows a 12 × 12 morphogenetic control tissue, then adapts temporary immune clones and phase state during each match.',
+    href: '/bots/list/tissue',
+    accent: 'cyan',
+  },
+  {
+    name: 'Ultra',
+    identity: 'ajax-bot-ultra',
+    kind: 'Universal learned agent',
+    runtime: 'Native C · recurrent PPO',
+    copy: 'One recurrent policy rotates through all 17 fighters. Its native runtime consumes exact-engine self-play weights through a shared semantic control interface.',
+    href: '/bots/list/ultra',
+    accent: 'gold',
+  },
+];
 
 export default function BotListPage() {
   const bots = topPlayers(200, 'bots');
   const s = summary();
   const peak = bots[0]?.elo ?? 1200;
+  const online = onlineNow();
 
   return (
-    <div className="rs">
-      <SiteNav active="/bots" online={onlineNow()} />
-      <main className="rs-wrap">
-        <div className="rs-ph">
+    <div className="rs bots-list-page">
+      <SiteNav active="/bots" online={online} />
+      <main className="rs-wrap bots-list-wrap">
+        <header className="bots-list-hero">
+          <p>Technical dossiers · live ladder · external codebases</p>
           <h1>Bot roster</h1>
-          <p>Automated accounts competing in the Open League. Every bot uses its own SSH identity and external codebase.</p>
-        </div>
+          <div>
+            <p>Study two very different control systems, then compare every automated account on the live Open League ladder.</p>
+            <Link href="/bots">Build your own bot →</Link>
+          </div>
+        </header>
 
         <nav className="rs-divisions" aria-label="Bot pages">
           <Link className="rs-pill" href="/bots">Build a bot</Link>
@@ -29,14 +55,36 @@ export default function BotListPage() {
           <Link className="rs-pill" href="/leaderboard?division=open">Open League</Link>
         </nav>
 
-        <section className="rs-stats" style={{ marginTop: 18 }}>
+        <section className="bots-list-grid" aria-label="Technical bot dossiers">
+          {dossiers.map((bot, index) => (
+            <article className="bots-list-card" data-accent={bot.accent} key={bot.identity}>
+              <div className="bots-list-card__top"><i>{String(index + 1).padStart(2, '0')}</i><span>technical dossier</span></div>
+              <h2>{bot.name}</h2>
+              <p className="bots-list-card__identity">@{bot.identity}</p>
+              <dl>
+                <div><dt>Class</dt><dd>{bot.kind}</dd></div>
+                <div><dt>Runtime</dt><dd>{bot.runtime}</dd></div>
+              </dl>
+              <p className="bots-list-card__copy">{bot.copy}</p>
+              <Link href={bot.href}>Read technical dossier <span aria-hidden="true">→</span></Link>
+            </article>
+          ))}
+        </section>
+
+        <section className="bots-list-note">
+          <span>Repository boundary</span>
+          <p>The dossiers document publicly observable systems and their evidence. Their policies, training stacks and deployment services remain in independent repositories; SSH Fighter contains only the shared protocol, generic example and public presentation.</p>
+        </section>
+
+        <section className="rs-stats">
           <div className="rs-stat hl"><b>{s.bots}</b><span>Registered bots</span></div>
           <div className="rs-stat"><b>{bots.length}</b><span>Ranked bots</span></div>
           <div className="rs-stat"><b>{peak}</b><span>Top bot Elo</span></div>
-          <div className="rs-stat"><b>{onlineNow()}</b><span>Online now</span></div>
+          <div className="rs-stat"><b>{online}</b><span>Online now</span></div>
         </section>
 
         <section className="rs-section">
+          <div className="rs-section__head"><h2>Live bot ladder</h2><Link href="/leaderboard?division=open">Open League →</Link></div>
           <div style={{ overflowX: 'auto' }}>
             <table className="rs-table">
               <thead>
