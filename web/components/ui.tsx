@@ -9,8 +9,20 @@ const LINKS: [string, string][] = [
 export function SiteNav({ active, online }: { active?: string; online?: number }) {
   return (
     <nav className="rs-nav">
+      <div className="rs-nav__signal" aria-hidden="true">
+        <div>
+          <span>PUBLIC TERMINAL ARCADE</span>
+          <span>NO INSTALL</span>
+          <span>RANKED FIGHTS</span>
+          <span>LIVE REPLAYS</span>
+        </div>
+      </div>
       <div className="rs-nav__in">
-        <Link href="/" className="rs-brand"><b />SSH FIGHTER</Link>
+        <Link href="/" className="rs-brand">
+          <b />
+          <span>SSH FIGHTER</span>
+          <span className="rs-brand__fighter" aria-hidden="true"><Sprite char="BYU" pose="idle_1" /></span>
+        </Link>
         <div className="rs-navlinks">
           {LINKS.map(([href, label]) => (
             <Link key={href} href={href} data-active={active === href ? '1' : undefined}>{label}</Link>
@@ -28,8 +40,13 @@ export function Footer() {
   return (
     <footer className="rs-footer">
       <div className="rs-wrap">
+        <div className="rs-footer__arena" aria-hidden="true">
+          <span className="rs-footer__fighter a"><Sprite char="BYU" pose="idle_1" /></span>
+          <span className="rs-footer__challenge"><small>THE NEXT ROUND STARTS IN YOUR TERMINAL</small><strong>ssh sshfighter.com</strong></span>
+          <span className="rs-footer__fighter b"><Sprite char="MEN" pose="idle_1" /></span>
+        </div>
         <div className="row">
-          <span className="rs-brand" style={{ textShadow: 'none' }}><b />SSH FIGHTER</span>
+          <span className="rs-brand" style={{ textShadow: 'none' }}><b /><span>SSH FIGHTER</span></span>
           <Link href="/fighters">Fighters</Link>
           <Link href="/bots">Build a bot</Link>
           <Link href="/status">Server status</Link>

@@ -2,12 +2,14 @@ import { SiteNav } from '@/components/ui';
 import { recentMatches, hasReplay } from '@/lib/ringside';
 import { getLive } from '@/lib/live';
 import { TvChannel } from '../TvChannel';
+import { pageMetadata } from '@/lib/metadata';
 
 export const dynamic = 'force-dynamic';
-export const metadata = {
+export const metadata = pageMetadata({
   title: 'TV',
   description: 'A never-ending channel of live SSH Fighter matches and recent replays.',
-};
+  path: '/tv',
+});
 
 export default async function TvPage() {
   const live = await getLive();
@@ -21,7 +23,7 @@ export default async function TvPage() {
       <SiteNav active="/tv" online={live.online} />
       <main className="rs-wrap rs-tv-wrap">
         <div className="rs-ph rs-tv-ph">
-          <h1>◉ SSH Fighter TV</h1>
+          <h1>SSH Fighter TV</h1>
           <p>Always on. Live fights the moment they start, recent replays in between — no need to touch a thing.</p>
         </div>
         <TvChannel replayPool={pool} />

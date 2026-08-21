@@ -3,9 +3,14 @@ import { SiteNav, Footer } from '@/components/ui';
 import { SpriteLoop } from '@/components/SpriteLoop';
 import { rosterCards } from '@/lib/chars';
 import { characterStats, onlineNow } from '@/lib/ringside';
+import { pageMetadata } from '@/lib/metadata';
 
 export const dynamic = 'force-dynamic';
-export const metadata = { title: 'Fighters', description: 'The roster. Pick your fighter.' };
+export const metadata = pageMetadata({
+  title: 'Fighters',
+  description: 'Meet every hand-drawn SSH Fighter character, compare playstyles, and choose your main.',
+  path: '/fighters',
+});
 
 const DIFF: Record<string, { pips: number; cls: string }> = {
   Beginner: { pips: 1, cls: 'beg' }, Intermediate: { pips: 2, cls: 'int' }, Advanced: { pips: 3, cls: 'adv' },
@@ -19,7 +24,7 @@ export default function FightersPage() {
     <div className="rs">
       <SiteNav active="/fighters" online={onlineNow()} />
       <main className="rs-wrap rs-wrap--wide">
-        <div className="rs-ph" style={{ textAlign: 'center' }}>
+        <div className="rs-ph rs-ph--center">
           <p className="rs-hero__eyebrow" style={{ margin: '0 0 8px' }}>{cards.length} fighters · one terminal</p>
           <h1 style={{ fontSize: 'clamp(2.2rem,6vw,4rem)' }}>Select your fighter</h1>
           <p>Hand-drawn pixel warriors. Learn one, climb the ladder — or point a bot at them.</p>

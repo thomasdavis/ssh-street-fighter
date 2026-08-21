@@ -7,13 +7,15 @@ import { charColor, rosterNames, rosterCards } from '@/lib/chars';
 import { timeAgo, frames, num } from '@/lib/format';
 import { LiveMatches } from './LiveMatches';
 import { HomeTheater } from './HomeTheater';
+import { pageMetadata } from '@/lib/metadata';
 
 export const dynamic = 'force-dynamic';
-export const metadata = {
-  title: { absolute: 'SSH Fighter — an arcade fighting game over SSH' },
+export const metadata = pageMetadata({
+  title: 'SSH Fighter — an arcade fighting game over SSH',
   description: 'An arcade fighting game you play entirely over SSH. Live ladder, replays, character stats, and a bot API.',
-  alternates: { canonical: '/' },
-};
+  path: '/',
+  absoluteTitle: true,
+});
 
 export default async function Home() {
   const s = summary();
@@ -41,6 +43,9 @@ export default async function Home() {
             <p className="rs-lede">An arcade fighting game that runs entirely over SSH — hand-drawn pixel sprites,
               ranked matches, replays and a bot API. No install, no download. Just connect and fight.</p>
             <p className="rs-byline">Created by <a href="https://twitter.com/ajaxdavis" target="_blank" rel="noreferrer">@ajaxdavis</a> · <a href="https://ajaxdavis.dev" target="_blank" rel="noreferrer">ajaxdavis.dev</a></p>
+            <div className="rs-signal-tags" role="list" aria-label="Game highlights">
+              <span role="listitem">No install</span><span role="listitem">{cards.length} fighters</span><span role="listitem">Ranked ladder</span>
+            </div>
             <div className="rs-cta">
               <div className="rs-cmd">
                 <span className="p">$</span>
@@ -55,6 +60,13 @@ export default async function Home() {
           </div>
           {(lastReplay || live.activeMatches > 0) ? (
             <div className="rs-hero__theater">
+              <div className="rs-hero__art rs-hero__fallback" aria-hidden>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img className="rs-hero__scene" src="/api/stage/neon" alt="" />
+                <SpriteLoop char={heroL} poses={['idle_1', 'idle_2']} className="l" />
+                <span className="vs">VS</span>
+                <SpriteLoop char={heroR} poses={['idle_1', 'idle_2']} className="r" />
+              </div>
               <HomeTheater replayId={lastReplay?.id ?? null} replayTitle={replayTitle} />
             </div>
           ) : (
@@ -81,7 +93,7 @@ export default async function Home() {
 
         {/* roster showcase */}
         <section className="rs-section">
-          <div className="rs-section__head"><h2>◈ {cards.length} fighters</h2><Link href="/fighters">Meet them all →</Link></div>
+          <div className="rs-section__head"><h2>{cards.length} fighters</h2><Link href="/fighters">Meet them all →</Link></div>
           <div className="rs-ribbon">
             {cards.map((c) => (
               <Link key={c.name} href={`/fighters/${c.name.toLowerCase()}`} className="rs-fchip" style={{ ['--fc' as string]: c.color }}>
@@ -95,7 +107,7 @@ export default async function Home() {
 
         {/* live now */}
         <section className="rs-section">
-          <div className="rs-section__head"><h2>◉ Live now</h2><Link href="/matches">All matches →</Link></div>
+          <div className="rs-section__head"><h2>Live now</h2><Link href="/matches">All matches →</Link></div>
           <LiveMatches initial={live.matches} colors={Object.fromEntries(names.map((n) => [n, charColor(n)]))} />
         </section>
 
@@ -152,7 +164,7 @@ export default async function Home() {
         {/* bots callout */}
         <section className="rs-section">
           <div className="rs-callout">
-            <h3>⌁ Bring your own fighter — the bot API</h3>
+            <h3>Bring your own fighter — the bot API</h3>
             <p>Register over SSH, then let an agent enter the Open League. Bot identities are marked automatically;
               humans can choose a bot opponent in Quick Match or switch to human-only matchmaking.</p>
             <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>

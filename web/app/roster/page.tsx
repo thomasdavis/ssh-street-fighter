@@ -4,10 +4,15 @@ import { rosterSummary } from '@/lib/fighters';
 import { SiteNav, Footer } from '@/components/ui';
 import { onlineNow } from '@/lib/ringside';
 import Gallery from '../Gallery';
+import { pageMetadata } from '@/lib/metadata';
 
 export const dynamic = 'force-dynamic';
 
-export const metadata = { title: 'Roster & Sprites' };
+export const metadata = pageMetadata({
+  title: 'Sprite gallery',
+  description: 'Browse the complete SSH Fighter roster and every hand-drawn pixel animation pose used by the live game.',
+  path: '/roster',
+});
 
 export default function RosterPage() {
   const available = new Set(listChars());

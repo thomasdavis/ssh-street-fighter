@@ -2,12 +2,14 @@ import Link from 'next/link';
 import { SiteNav, Footer, CharChip, PlayerTypeBadge } from '@/components/ui';
 import { topPlayers, onlineNow, summary } from '@/lib/ringside';
 import { winRate } from '@/lib/format';
+import { pageMetadata } from '@/lib/metadata';
 
 export const dynamic = 'force-dynamic';
-export const metadata = {
+export const metadata = pageMetadata({
   title: 'Bot roster',
   description: 'Technical bot dossiers and ranked automated players competing in the SSH Fighter Open League.',
-};
+  path: '/bots/list',
+});
 
 const dossiers = [
   {

@@ -1,11 +1,12 @@
 import Link from 'next/link';
 import { Footer, SiteNav } from '@/components/ui';
+import { pageMetadata } from '@/lib/metadata';
 
-export const metadata = {
+export const metadata = pageMetadata({
   title: 'Ultra bot',
   description: 'A technical dossier for Ultra, the recurrent self-play policy fighting live on SSH Fighter.',
-  alternates: { canonical: '/bots/list/ultra' },
-};
+  path: '/bots/list/ultra',
+});
 
 const observationGroups = [
   ['Geometry', '0–5', 'Facing-canonical relative position and velocity, horizontal distance and vertical separation.'],
