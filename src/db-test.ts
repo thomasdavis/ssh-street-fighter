@@ -19,9 +19,16 @@ db.touchOrCreate('fp:a'); db.touchOrCreate('fp:b');
 assert(db.setUsername('fp:a', 'ALPHA'), 'create ALPHA');
 assert(db.setUsername('fp:b', 'BRAVO'), 'create BRAVO');
 assert(db.getByFingerprint('fp:a')?.elo === 1200 && db.getByFingerprint('fp:b')?.elo === 1200, 'new ratings start at 1200');
-assert(db.getByFingerprint('fp:a')?.match_pool === 'bots', 'new human identities default to bot opponents');
-db.setMatchPool('fp:a', 'humans');
-assert(db.getByFingerprint('fp:a')?.match_pool === 'humans', 'verified identities persist a human-only Quick Match choice');
+assert(db.getByFingerprint('fp:a')?.match_pool === 'humans', 'new human identities default to human opponents');
+
+// Simulate an account carrying the old bot-opponent default into this release.
+db.getDb().prepare("UPDATE players SET match_pool = 'bots' WHERE fingerprint = 'fp:a'").run();
+db.getDb().prepare("DELETE FROM app_meta WHERE key = 'human_quick_match_default_humans_v1'").run();
+db.initDb();
+assert(db.getByFingerprint('fp:a')?.match_pool === 'humans', 'existing human identities migrate to the human-opponent default');
+db.setMatchPool('fp:a', 'bots');
+db.initDb();
+assert(db.getByFingerprint('fp:a')?.match_pool === 'bots', 'verified identities persist a bot-only Quick Match choice after migration');
 
 const customBindings = withBinding(DEFAULT_KEY_BINDINGS, 'punch', 'key:j');
 db.setKeyBindings('fp:a', serializeKeyBindings(customBindings));

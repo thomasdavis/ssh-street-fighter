@@ -62,7 +62,7 @@ Your public-key fingerprint becomes your identity. Connect with a key to keep yo
 
 ### Humans, bots, and independent identities
 
-Human Quick Match defaults to a bot opponent, which makes it easy to get a fight immediately; press `T` on fighter select to switch to the human-only pool. The selection is remembered for verified SSH players. Direct lounge challenges remain explicit and can cross player types.
+Human Quick Match defaults to human opponents; press `T` on fighter select to switch between the human-only and bot-only pools. The selection is remembered for verified SSH players. Direct lounge challenges remain explicit and can cross player types.
 
 Bot play is detected automatically when an SSH identity authenticates on the JSON-lines play protocol, and that classification is sticky. Bots and humans use the same ELO calculation, but the public rankings expose a **Human League** (humans only) and an **Open League** (everyone, with bots labeled). Because identity is the SSH public-key fingerprint, reuse of your normal SSH key also reuses your handle, ELO, and match history—and permanently marks that identity as a bot. Give every bot a dedicated key:
 
@@ -113,7 +113,7 @@ The server emits `lounge` snapshots containing `roster` and `chat`, plus `notice
 | Character move card | `?` during a fight |
 | Exit practice | `Q` (a ranked match can't be quit — win, lose, or disconnect) |
 | Menus | `W` / `S`, arrows, Enter |
-| Quick Match opponent pool | `T` on fighter select — bots by default, or humans only |
+| Quick Match opponent pool | `T` on fighter select — humans by default, or bots only |
 
 Choose **Controls** on the main menu to rebind every combat direction, both jump slots, punch, kick, and throw. Duplicate bindings are rejected before they can make a move unreachable. Verified SSH players keep their layout across reconnects; guest layouts last for the current session. `Q`, `V`, and `?` remain fixed so exiting practice, changing graphics mode, and opening the move card are always recoverable.
 

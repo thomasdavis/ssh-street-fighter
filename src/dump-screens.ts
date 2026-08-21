@@ -15,7 +15,7 @@ function fake(o: Record<string, unknown>): any {
   return {
     frame: 6, displayName: 'THOMAS', usernameBuf: 'THOM', errorMsg: '', guest: false,
     player: db.getByFingerprint('fp:tom'), fp: 'fp:tom', menuIndex: 0, cursor: 0,
-    selectMode: 'lobby', quickOpponentPool: 'bots', leaderScope: 'humans', leader: db.leaderboard(10, 'humans'), result: null, ...o,
+    selectMode: 'lobby', quickOpponentPool: 'humans', leaderScope: 'humans', leader: db.leaderboard(10, 'humans'), result: null, ...o,
   };
 }
 

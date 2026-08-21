@@ -67,8 +67,8 @@ check('match cleaned up', coord.activeMatches === 0 && coord.queued === 0);
     `matches=${c2.activeMatches} queued=${c2.queued} starts=${out.filter((m) => m.t === 'matchStart').length}`);
 }
 
-// ---- opponent pools: terminal Quick Match defaults to bots; switching it off
-// is a hard human-only choice, including during the aged fallback sweep. ----
+// ---- opponent pools: terminal Quick Match defaults to humans; switching to
+// bots is a hard bot-only choice, including during the aged fallback sweep. ----
 {
   const pools = new MatchCoordinator();
   const humanBotOut: P2W[] = [], humanOut: P2W[] = [], botOut: P2W[] = [], secondHumanOut: P2W[] = [];
@@ -84,7 +84,7 @@ check('match cleaned up', coord.activeMatches === 0 && coord.queued === 0);
   pools.handle(botW, { t: 'queue', sid: 1, cid: 'bot', name: 'BOT', fp: null, cursor: 2, elo: 1200, region: 'XX', isBot: true, opponentPool: 'all' });
   const humanBotStart = humanBotOut.find((m) => m.t === 'matchStart') as Extract<P2W, { t: 'matchStart' }> | undefined;
   const botStart = botOut.find((m) => m.t === 'matchStart') as Extract<P2W, { t: 'matchStart' }> | undefined;
-  check('default human pool pairs with a compatible bot and reports actor type',
+  check('bot-only human pool pairs with a compatible bot and reports actor type',
     !!humanBotStart && humanBotStart.oppIsBot && botStart?.oppIsBot === false && pools.queued === 1);
 
   pools.handle(secondHumanW, { t: 'queue', sid: 1, cid: 'hh2', name: 'HUMAN2', fp: null, cursor: 3, elo: 1200, region: 'NA', opponentPool: 'humans' });

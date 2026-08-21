@@ -87,7 +87,7 @@ export function initDb(): void {
       elo INTEGER NOT NULL DEFAULT 1200,
       peak_elo INTEGER NOT NULL DEFAULT 1200,
       is_bot INTEGER NOT NULL DEFAULT 0,
-      match_pool TEXT NOT NULL DEFAULT 'bots',
+      match_pool TEXT NOT NULL DEFAULT 'humans',
       created_at INTEGER NOT NULL,
       last_seen INTEGER NOT NULL
     );
@@ -176,7 +176,7 @@ export function initDb(): void {
   ensureColumn('players', 'calibrated', 'calibrated INTEGER NOT NULL DEFAULT 0');
   ensureColumn('players', 'view_mode', "view_mode TEXT NOT NULL DEFAULT 'quadrant'");   // 'octant' | 'quadrant'
   ensureColumn('players', 'is_bot', 'is_bot INTEGER NOT NULL DEFAULT 0');
-  ensureColumn('players', 'match_pool', "match_pool TEXT NOT NULL DEFAULT 'bots'");
+  ensureColumn('players', 'match_pool', "match_pool TEXT NOT NULL DEFAULT 'humans'");
   ensureColumn('match_history', 'winner_elo_before', 'winner_elo_before INTEGER');
   ensureColumn('match_history', 'winner_elo_after', 'winner_elo_after INTEGER');
   ensureColumn('match_history', 'loser_elo_before', 'loser_elo_before INTEGER');
@@ -187,9 +187,11 @@ export function initDb(): void {
   // One-time data migrations, guarded so they run exactly once.
   db.exec('CREATE TABLE IF NOT EXISTS app_meta (key TEXT PRIMARY KEY, value TEXT)');
   const once = (key: string, fn: () => void): void => {
-    if (db.prepare('SELECT 1 FROM app_meta WHERE key = ?').get(key)) return;
-    fn();
-    db.prepare('INSERT INTO app_meta (key, value) VALUES (?, ?)').run(key, String(Date.now()));
+    db.transaction(() => {
+      if (db.prepare('SELECT 1 FROM app_meta WHERE key = ?').get(key)) return;
+      fn();
+      db.prepare('INSERT INTO app_meta (key, value) VALUES (?, ?)').run(key, String(Date.now()));
+    }).immediate();
   };
   // view_mode default flipped to 'quadrant'; existing rows only ever held the old
   // migration default ('octant'), never a real choice, so promote them once.
@@ -203,6 +205,11 @@ export function initDb(): void {
     db.prepare('UPDATE matches SET b_is_bot = 1 WHERE b_fp IN (SELECT fp FROM api_keys)').run();
     db.prepare('UPDATE match_players SET is_bot = 1 WHERE fp IN (SELECT fp FROM api_keys)').run();
     db.prepare('UPDATE api_keys SET is_bot = 1').run();
+  });
+  // Human Quick Match originally defaulted to bots. Move existing human
+  // identities to the new human-only default once; later player toggles persist.
+  once('human_quick_match_default_humans_v1', () => {
+    db.prepare("UPDATE players SET match_pool = 'humans' WHERE is_bot = 0").run();
   });
 }
 
