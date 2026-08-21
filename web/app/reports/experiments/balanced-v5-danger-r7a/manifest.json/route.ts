@@ -1,0 +1,93 @@
+const manifest = {
+  schemaVersion: 1,
+  runId: 'balanced-v5-danger-r7a',
+  architecture: 'TISSUE-0-full-haskell',
+  parameterCount: 5541093,
+  source: {
+    repository: 'thomasdavis/sf-tissue-bot',
+    visibility: 'private',
+    baseCommit: '388f10390e91714be27bd0861b74da8287b86f32',
+    dirty: true,
+    changedFileSha256: {
+      'app/Main.hs': 'a11cabd88dc8dd9614edcbb6d2f952eb4b6bcaa581d8285c619550408eefd480',
+      'src/Tissue/Train.hs': '1d8f04dadae9b3cdca9b5d57bde804e3b9ecc44a0a79f36c31185a26b4fa0a5c',
+      'src/Tissue/Evaluate.hs': 'b228c81df0132465783cbfdfbd5eaede3107f158e233c210c8b700615471b6e1',
+      'src/Tissue/Promotion.hs': 'ddda4b0e95e97f8ba6f375c884784ac7f0f91244885ddbe8f96c4beee220773e',
+      'src/Tissue/RunPod.hs': '3bdaea2067c8fc87d193fa413cd10ac96acc98e27e098172dc7f4a4f0a552647',
+      'test/Main.hs': 'f697a1cba683cefd273604fcbfd3f8dd3093ace38a4f41f68eb3f018fb06d3d1',
+      'cabal.cuda.project': 'd75f672976de4a8647852e715e5f4793f551cafb4cf778f377e0645bd04bb37c',
+    },
+    cudaExecutableSha256: '760a32999470a2a7ede9db6e61a064caa26126f3be160d162cf917f198c3470a',
+  },
+  engine: {
+    version: 'sf-6',
+    mechanicsSourceSha256: '5c09ce9dbd34ab52d0d5e4ba1b80bfd9f1e1cacb20c83a1e725a68f2b109e216',
+    contractSha256: 'e66621deb9f8f9da04dd833695ddf6a8a2579ff9c0dee57d853192068043a862',
+  },
+  dataset: {
+    name: 'fresh-balanced-v5.jsonl.gz',
+    sha256: 'f571f7e0f6df980144e4104e01e55904ece81b835ef39cf8ffe4382a83cc2256',
+    matches: 612,
+    episodes: 1224,
+    fighters: 17,
+    opponentStyles: 9,
+    split: 'deterministic 90/10 by match ID; paired perspectives remain together',
+  },
+  parentCheckpoint: {
+    name: 'balanced-v5-predrepair-r6',
+    sha256: 'bc0de2eaab420c0196cbe3a6cecc8e8f667367b2d4b3b009844f60221977c051',
+    cumulativeTransitions: 1327104,
+  },
+  training: {
+    method: 'danger-head-only AdamW; every other genome parameter frozen',
+    trainableParameters: 513,
+    objective: 'danger + 0.05 policy + 0.02 lesion-repair',
+    windows: 512,
+    sequenceLength: 8,
+    addedTransitions: 4096,
+    batchSize: 2,
+    epochs: 1,
+    learningRate: 0.00005,
+    seed: 109,
+    wallClockSeconds: null,
+    wallClockDisclosure: 'not instrumented for this run',
+  },
+  evaluation: {
+    windows: 4096,
+    sequenceLength: 8,
+    batchSize: 16,
+    seed: 101,
+    temporalAblationProtocol: 'persistent-off-policy-sequence-v2',
+    temporalAblationBatches: 64,
+    temporalAblationSequences: 1024,
+    temporalAblationActionComparisonsPerVariant: 8192,
+    latencySamples: 24,
+    candidateReportSha256: '33f1161fc37ad0f44790fce7f9cf5b506e551688f1ce4c42a540af3174c728b4',
+    incumbentReportSha256: 'baadbc6e1c1c6cd46fd14eac504c802123d7ca550ecb073c2f12cf332ea8b5ca',
+    command: 'tissue-bot evaluate --contract src/Tissue/generated/game_contract.json --data /workspace/tissue/data/fresh-balanced-v5.jsonl.gz --checkpoint <checkpoint> --sequence 8 --batch 16 --max-windows 4096 --seed 101 --device cuda',
+  },
+  hardware: {
+    provider: 'RunPod',
+    accelerator: 'NVIDIA GeForce RTX 3070',
+    acceleratorMemoryMiB: 8192,
+    driver: '575.57.08',
+    libtorch: '2.9.1+cu128',
+    note: 'TISSUE used the idle GPU of an existing pod; a separate CPU-only Ultra rollout was not interrupted.',
+  },
+  checkpoint: {
+    epoch: 10,
+    cumulativeTransitions: 1331200,
+    sha256: '15ee8b7b9fa7de44351879b8616b80dc934ab781b15b46d48010537e12c3d1b0',
+  },
+  promotion: {
+    decision: 'promoted',
+    promotedAt: '2026-08-21T04:48:01Z',
+    gate: 'code-enforced paired performance, robustness and deadline policy',
+  },
+} as const;
+
+export function GET() {
+  return Response.json(manifest, {
+    headers: { 'Cache-Control': 'public, max-age=300, stale-while-revalidate=3600' },
+  });
+}
