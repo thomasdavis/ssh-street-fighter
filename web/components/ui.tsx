@@ -3,7 +3,7 @@ import { charColor } from '@/lib/chars';
 
 const LINKS: [string, string][] = [
   ['/', 'Home'], ['/tv', 'TV'], ['/leaderboard', 'Leaderboard'], ['/characters', 'Stats'],
-  ['/matches', 'Matches'], ['/fighters', 'Fighters'], ['/chat', 'Chat'], ['/status', 'Server'], ['/bots', 'Bots'],
+  ['/matches', 'Matches'], ['/fighters', 'Fighters'], ['/graphics', 'Graphics'], ['/chat', 'Chat'], ['/status', 'Server'], ['/bots', 'Bots'],
 ];
 
 export function SiteNav({ active, online }: { active?: string; online?: number }) {
@@ -48,6 +48,7 @@ export function Footer() {
         <div className="row">
           <span className="rs-brand" style={{ textShadow: 'none' }}><b /><span>SSH FIGHTER</span></span>
           <Link href="/fighters">Fighters</Link>
+          <Link href="/graphics">Graphics</Link>
           <Link href="/bots">Build a bot</Link>
           <Link href="/status">Server status</Link>
           <a href="https://github.com/thomasdavis/sshfighter.com" target="_blank" rel="noreferrer">GitHub</a>
