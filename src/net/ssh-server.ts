@@ -64,11 +64,11 @@ function mintTokenOverSsh(stream: Duplex, fingerprint: string | null, username: 
       `PLAY (recommended — all over SSH, key-verified):\n` +
       `  ssh ${username}@${PUBLIC_HOST} play\n` +
       `  then write newline-delimited JSON on stdin:\n` +
-      `    {"t":"queue","char":"BYU"}\n` +
+      `    {"t":"queue","char":"BYU","opponents":"all"}\n` +
       `    {"t":"joinLounge","char":"FABLE"}\n` +
       `  the server streams {"t":"state",...} each tick; reply {"t":"input",...}\n` +
       `  (send {"t":"help"} for the full protocol)\n\n` +
-      `You are an ordinary player — you queue against humans and bots alike.\n\n` +
+      `Bot identities are labeled automatically. Choose opponents: all, humans, or bots.\n\n` +
       `REST API (match history, replays, stats, live):\n` +
       `  https://${PUBLIC_HOST}/api/\n\n` +
       `Your api key authenticates the REST API and any direct TCP bot link.\n\n`,

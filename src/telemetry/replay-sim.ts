@@ -167,10 +167,10 @@ export function replayMatchAtFrame(matchId: string, targetFrame: number): Match 
 
 /** Render payload for a LIVE match (single current frame + the same meta the
  *  replay viewer uses), so spectating reuses the exact renderer. */
-export function liveRender(m: Match, aName: string, bName: string): object {
+export function liveRender(m: Match, aName: string, bName: string, aBot = false, bBot = false): object {
   const aChar = m.a.name, bChar = m.b.name;
   return {
-    stage: m.stage, aChar, bChar, aName, bName,
+    stage: m.stage, aChar, bChar, aName, bName, aBot, bBot,
     worldW: WORLD_W, worldH: WORLD_H, groundY: GROUND_Y, fighterH: 58, stageLeft: STAGE_LEFT, stageRight: STAGE_RIGHT,
     sprites: { a: charSpriteMeta(aChar), b: charSpriteMeta(bChar) },
     frame: buildFrame(m), over: m.phase === 'match-over',

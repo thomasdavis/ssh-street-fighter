@@ -44,7 +44,8 @@ export default function StatusPage() {
         <section className="rs-stats">
           <div className="rs-stat hl"><b>{ops.sessions ?? 0}</b><span>Players online</span></div>
           <div className="rs-stat"><b>{ops.matches ?? 0}</b><span>Live matches</span></div>
-          <div className="rs-stat"><b>{ops.queued ?? 0}</b><span>In queue</span></div>
+          <div className="rs-stat"><b>{ops.queued_humans ?? 0}</b><span>Humans queued</span></div>
+          <div className="rs-stat"><b>{ops.queued_bots ?? 0}</b><span>Bots queued</span></div>
           <div className="rs-stat"><b>{num(totalRss)}<span style={{ fontSize: 13 }}> MB</span></b><span>Memory (RSS)</span></div>
           <div className="rs-stat"><b>{ops.cpu_pct ?? 0}<span style={{ fontSize: 13 }}>%</span></b><span>CPU (all procs)</span></div>
           <div className="rs-stat"><b>{uptime(maxUptime)}</b><span>Uptime</span></div>

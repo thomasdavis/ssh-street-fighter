@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { SiteNav, Footer, CharChip, Bars } from '@/components/ui';
+import { SiteNav, Footer, CharChip, Bars, PlayerTypeBadge } from '@/components/ui';
 import { SpriteLoop } from '@/components/SpriteLoop';
 import { summary, topPlayers, recentMatches, characterStats, hasReplay } from '@/lib/ringside';
 import { getLive } from '@/lib/live';
@@ -12,12 +12,13 @@ export const dynamic = 'force-dynamic';
 export const metadata = {
   title: { absolute: 'SSH Fighter — an arcade fighting game over SSH' },
   description: 'An arcade fighting game you play entirely over SSH. Live ladder, replays, character stats, and a bot API.',
+  alternates: { canonical: '/' },
 };
 
 export default async function Home() {
   const s = summary();
   const live = await getLive();
-  const top = topPlayers(8);
+  const top = topPlayers(8, 'humans');
   const recent = recentMatches(6);
   const chars = characterStats();
   const names = rosterNames();
@@ -39,6 +40,7 @@ export default async function Home() {
             <h1>SSH<br />Fighter</h1>
             <p className="rs-lede">An arcade fighting game that runs entirely over SSH — hand-drawn pixel sprites,
               ranked matches, replays and a bot API. No install, no download. Just connect and fight.</p>
+            <p className="rs-byline">Created by <a href="https://twitter.com/ajaxdavis" target="_blank" rel="noreferrer">@ajaxdavis</a> · <a href="https://ajaxdavis.dev" target="_blank" rel="noreferrer">ajaxdavis.dev</a></p>
             <div className="rs-cta">
               <div className="rs-cmd">
                 <span className="p">$</span>
@@ -100,7 +102,7 @@ export default async function Home() {
         {/* ladder + character meta */}
         <div className="rs-grid2">
           <section className="rs-section">
-            <div className="rs-section__head"><h2>Top of the ladder</h2><Link href="/leaderboard">Full ranking →</Link></div>
+            <div className="rs-section__head"><h2>Human league</h2><Link href="/leaderboard">Full ranking →</Link></div>
             <table className="rs-table">
               <thead><tr><th>#</th><th>Player</th><th>Main</th><th className="rs-num">W–L</th><th className="rs-num">Elo</th></tr></thead>
               <tbody>
@@ -136,9 +138,9 @@ export default async function Home() {
                 const aWon = m.winner === 'a';
                 return (
                   <Link key={m.id} href={`/matches/${m.id}`} className="rs-match">
-                    <div className={`side a${aWon ? ' win' : ''}`}><span className="nm">{m.a_name}</span><span className="ch"><CharChip char={m.a_char} sm /></span></div>
+                    <div className={`side a${aWon ? ' win' : ''}`}><span className="nm">{m.a_name}<PlayerTypeBadge isBot={m.a_is_bot} /></span><span className="ch"><CharChip char={m.a_char} sm /></span></div>
                     <span className="vs">VS</span>
-                    <div className={`side b${!aWon ? ' win' : ''}`}><span className="nm">{m.b_name}</span><span className="ch"><CharChip char={m.b_char} sm /></span></div>
+                    <div className={`side b${!aWon ? ' win' : ''}`}><span className="nm">{m.b_name}<PlayerTypeBadge isBot={m.b_is_bot} /></span><span className="ch"><CharChip char={m.b_char} sm /></span></div>
                     <div className="meta"><span>{m.stage}</span><span>·</span><span>{frames(m.duration_frames)}</span><span>·</span><span>{timeAgo(m.ended_at)}</span></div>
                   </Link>
                 );
@@ -151,8 +153,8 @@ export default async function Home() {
         <section className="rs-section">
           <div className="rs-callout">
             <h3>⌁ Bring your own fighter — the bot API</h3>
-            <p>Register over SSH, then let an agent play the ladder. Bots are ordinary players: they queue against
-              humans and each other, and every match they play is recorded and ranked just the same.</p>
+            <p>Register over SSH, then let an agent enter the Open League. Bot identities are marked automatically;
+              humans can choose a bot opponent in Quick Match or switch to human-only matchmaking.</p>
             <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
               <Link className="rs-btn" href="/bots">Read the bot docs →</Link>
               <a className="rs-btn ghost" href="https://github.com/thomasdavis/sshfighter.com/blob/main/examples/bot.mjs" target="_blank" rel="noreferrer">Example bot</a>

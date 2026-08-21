@@ -9,7 +9,7 @@ export interface LeaderRow { rank: number; username: string; elo: number; peak_e
 export interface MatchRow {
   id: string; mode: string; stage: string; a_name: string; b_name: string; a_char: string; b_char: string;
   a_fp: string | null; b_fp: string | null; winner: string | null; a_rounds: number; b_rounds: number;
-  end_reason: string; duration_frames: number; ended_at: number;
+  a_is_bot: number; b_is_bot: number; end_reason: string; duration_frames: number; ended_at: number;
 }
 export interface MatchPlayerRow {
   match_id: string; side: string; fp: string | null; name: string; char: string; won: number; rounds_won: number;
@@ -18,6 +18,7 @@ export interface MatchPlayerRow {
 export interface CharRow { char: string; picks: number; wins: number; games: number; win_pct: number; pick_pct: number; }
 export interface MatchupRow { a_char: string; b_char: string; a_wins: number; games: number; a_win_pct: number; }
 export interface OpsPoint { ts: number; worker: number; value: number; }
+export type LeaderboardScope = 'humans' | 'bots' | 'all';
 
 const q = <T = unknown>(sql: string, ...args: unknown[]): T[] => getDb().prepare(sql).all(...args) as T[];
 const one = <T = unknown>(sql: string, ...args: unknown[]): T | undefined => getDb().prepare(sql).get(...args) as T | undefined;
@@ -27,18 +28,23 @@ export function summary() {
   const now = Date.now();
   return {
     players: n('SELECT COUNT(*) n FROM players WHERE username IS NOT NULL'),
+    humans: n('SELECT COUNT(*) n FROM players WHERE username IS NOT NULL AND is_bot=0'),
+    bots: n('SELECT COUNT(*) n FROM players WHERE username IS NOT NULL AND is_bot=1'),
     matches: n('SELECT COUNT(*) n FROM matches'),
     versus: n("SELECT COUNT(*) n FROM matches WHERE mode='versus'"),
+    humanVersus: n("SELECT COUNT(*) n FROM matches WHERE mode='versus' AND a_is_bot=0 AND b_is_bot=0"),
     replays: n('SELECT COUNT(*) n FROM replays'),
     matches24h: n(`SELECT COUNT(*) n FROM matches WHERE ended_at > ${now - 86400000}`),
     rounds: n('SELECT COALESCE(SUM(rounds_won),0) n FROM players'),
   };
 }
 
-export function topPlayers(limit = 100): LeaderRow[] {
+export function topPlayers(limit = 100, scope: LeaderboardScope = 'all'): LeaderRow[] {
+  const division = scope === 'humans' ? 'AND is_bot=0' : scope === 'bots' ? 'AND is_bot=1' : '';
   const rows = q<Omit<LeaderRow, 'rank'>>(
     `SELECT username, elo, peak_elo, wins, losses, matches, main_char, is_bot
-     FROM players WHERE username IS NOT NULL ORDER BY elo DESC, wins DESC LIMIT ?`, limit);
+     FROM players WHERE username IS NOT NULL AND matches>0 ${division}
+     ORDER BY elo DESC, matches DESC, wins DESC LIMIT ?`, limit);
   return rows.map((r, i) => ({ ...r, rank: i + 1 }));
 }
 
@@ -110,7 +116,9 @@ export function profile(username: string): Profile | undefined {
   const p = one<{ fingerprint: string; username: string; elo: number; peak_elo: number; wins: number; losses: number; matches: number; main_char: string | null; created_at: number; last_seen: number; is_bot: number }>(
     'SELECT * FROM players WHERE username=? COLLATE NOCASE', username);
   if (!p) return undefined;
-  const rank = one<{ r: number }>('SELECT COUNT(*)+1 r FROM players WHERE username IS NOT NULL AND elo > ?', p.elo)?.r ?? null;
+  const division = p.is_bot ? '' : 'AND is_bot=0';
+  const rank = one<{ r: number }>(`SELECT COUNT(*)+1 r FROM players
+    WHERE username IS NOT NULL AND matches>0 ${division} AND elo > ?`, p.elo)?.r ?? null;
   const totals = one<Profile['totals']>(`SELECT COUNT(*) games, COALESCE(SUM(won),0) wins, COALESCE(SUM(damage_dealt),0) dmg_dealt,
     COALESCE(SUM(damage_taken),0) dmg_taken, COALESCE(SUM(hits),0) hits, COALESCE(SUM(specials),0) specials, COALESCE(MAX(max_combo),0) best_combo
     FROM match_players WHERE fp=?`, p.fingerprint) ?? { games: 0, wins: 0, dmg_dealt: 0, dmg_taken: 0, hits: 0, specials: 0, best_combo: 0 };

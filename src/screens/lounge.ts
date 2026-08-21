@@ -88,7 +88,8 @@ function drawPlayers(s: Session, ui: Surface, r: Rect, active: boolean): void {
     const p = roster[i]!, sel = active && i === s.loungeCursor;
     const ry = r.y + 0.3 + (i - start) * pitch;
     if (sel) ui.fill(x - 0.7, ry - 0.3, r.w + 1.4, 1.2, THEME.select);
-    let row = `${sel ? '▶' : ' '} ${p.name.slice(0, nameW).padEnd(nameW)}`;
+    const displayName = `${p.name}${p.isBot ? ' [BOT]' : ''}`;
+    let row = `${sel ? '▶' : ' '} ${displayName.slice(0, nameW).padEnd(nameW)}`;
     if (showChar) row += ` ${characterAt(p.cursor).name.slice(0, 7).padEnd(7)}`;
     if (showElo) row += ` ${String(p.elo ?? '---').padStart(4)}`;
     ui.text(x, ry, row.slice(0, iw), { color: sel ? THEME.selectText : THEME.text });
@@ -104,12 +105,12 @@ export const lounge = {
     const you = characterAt(s.cursor);
     const ownElo = s.player ? String(s.player.elo) : 'UNRATED';
     const headH = ui.headingHeight(1);
-    centerText(ui, headH, `${s.displayName}  ·  ${you.name}  ·  ELO ${ownElo}`, { color: THEME.accent2 });
+    centerText(ui, headH, `${s.displayName}${s.isBot ? ' [BOT]' : ''}  ·  ${you.name}  ·  ELO ${ownElo}`, { color: THEME.accent2 });
 
     const bannerY = headH + 1;
     if (s.incoming) {
       ui.fill(0, bannerY - 0.15, ui.cols, 1.2, THEME.select);
-      centerText(ui, bannerY, `${s.incoming.name} CHALLENGED YOU  ·  Y ACCEPT / N DECLINE`, { color: THEME.selectText });
+      centerText(ui, bannerY, `${s.incoming.name}${s.incoming.isBot ? ' [BOT]' : ''} CHALLENGED YOU  ·  Y ACCEPT / N DECLINE`, { color: THEME.selectText });
     } else if (s.outgoing) {
       ui.fill(0, bannerY - 0.15, ui.cols, 1.2, THEME.select);
       centerText(ui, bannerY, `CHALLENGE SENT TO ${s.outgoing.name}  ·  X CANCEL`, { color: THEME.selectText });

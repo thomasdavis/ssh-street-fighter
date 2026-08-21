@@ -235,6 +235,9 @@ button.regen:disabled { opacity: 0.4; cursor: not-allowed; }
 .rs-hero h1 { margin: 0; color: var(--gold); font-size: clamp(2.6rem, 6vw, 4.6rem); line-height: .9;
   letter-spacing: -.02em; text-transform: uppercase; text-shadow: 3px 3px 0 #7a1f1a, 6px 6px 0 rgba(0,0,0,.35); }
 .rs-hero p.rs-lede { color: #cfc7dd; font-size: 17px; line-height: 1.6; max-width: 46ch; margin: 20px 0 26px; }
+.rs-byline { margin: -14px 0 26px; color: var(--dim); font-size: 12px; letter-spacing: .08em; text-transform: uppercase; }
+.rs-byline a { color: var(--cyan); text-decoration: none; }
+.rs-byline a:hover { text-decoration: underline; }
 .rs-cta { display: flex; flex-direction: column; gap: 12px; }
 .rs-cmd { display: flex; align-items: center; gap: 12px; background: var(--ink); border: 1px solid var(--edge);
   border-radius: 10px; padding: 15px 18px; box-shadow: var(--glow); }
@@ -319,6 +322,9 @@ button.regen:disabled { opacity: 0.4; cursor: not-allowed; }
 .rs-pill.win { color: var(--green); border-color: #2b5a35; }
 .rs-pill.loss { color: var(--red); border-color: #6b2420; }
 .rs-pill.ko { color: var(--gold); border-color: #6b5a1e; }
+.rs-pill.bot { color: var(--cyan); border-color: #315d68; background: rgba(111,224,240,.06); margin-left: 5px; }
+.rs-divisions { display: flex; gap: 8px; flex-wrap: wrap; margin: 18px 0 8px; }
+.rs-divisions .rs-pill { padding: 7px 13px; text-decoration: none; }
 
 /* callout / cta box */
 .rs-callout { background: linear-gradient(180deg, var(--panel), var(--ink)); border: 1px solid var(--edge);
@@ -335,6 +341,7 @@ button.regen:disabled { opacity: 0.4; cursor: not-allowed; }
 .rs-footer { border-top: 1px solid var(--edge); margin-top: 50px; padding: 26px 0 60px; color: var(--dim); font-size: 12px; }
 .rs-footer a { color: var(--cyan); text-decoration: none; }
 .rs-footer .row { display: flex; gap: 22px; flex-wrap: wrap; align-items: center; }
+.rs-footer__by { color: #bdb4ca; }
 
 /* mini sprite frame */
 .rs-face { width: 100%; aspect-ratio: 1; background: repeating-conic-gradient(#160f22 0 25%, #1d1530 0 50%) 0/16px 16px;

@@ -1,6 +1,7 @@
 'use client';
 import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
+import { PlayerTypeBadge } from '@/components/ui';
 import { drawFrame, ensureImages, stageUrl, CW, CH, type Frame, type RenderMeta } from '@/lib/replay-render';
 
 interface LivePayload extends RenderMeta { frame: Frame; over: boolean }
@@ -16,7 +17,7 @@ function lerp(p: Frame, c: Frame, k: number): Frame {
 export default function LiveViewer({ mid }: { mid: string }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [status, setStatus] = useState<'loading' | 'live' | 'ended' | 'error'>('loading');
-  const [names, setNames] = useState<{ a: string; b: string } | null>(null);
+  const [names, setNames] = useState<{ a: string; b: string; aBot: boolean; bBot: boolean } | null>(null);
 
   const meta = useRef<RenderMeta | null>(null);
   const prev = useRef<{ f: Frame; t: number } | null>(null);
@@ -37,7 +38,7 @@ export default function LiveViewer({ mid }: { mid: string }) {
           const d = await r.json() as LivePayload;
           if (!meta.current) {
             meta.current = d;
-            setNames({ a: d.aName, b: d.bName });
+            setNames({ a: d.aName, b: d.bName, aBot: !!d.aBot, bBot: !!d.bBot });
             const si = new Image(); si.onload = () => { stageImg.current = si; }; si.src = stageUrl(d.stage);
             ensureImages(d, imgs.current);
           }
@@ -80,7 +81,7 @@ export default function LiveViewer({ mid }: { mid: string }) {
       <div className="rs-controls">
         <span className="t" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <span className="rs-dot" />{status === 'ended' ? 'MATCH ENDED' : 'LIVE'}
-          {names && <>· {names.a} vs {names.b}</>}
+          {names && <>· {names.a}<PlayerTypeBadge isBot={names.aBot} /> vs {names.b}<PlayerTypeBadge isBot={names.bBot} /></>}
         </span>
         <span style={{ flex: 1 }} />
         {status === 'ended' && <Link className="rs-btn ghost" href="/matches">Find the replay →</Link>}

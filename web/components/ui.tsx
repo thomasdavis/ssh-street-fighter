@@ -34,6 +34,7 @@ export function Footer() {
           <Link href="/bots">Build a bot</Link>
           <Link href="/status">Server status</Link>
           <a href="https://github.com/thomasdavis/sshfighter.com" target="_blank" rel="noreferrer">GitHub</a>
+          <span className="rs-footer__by">By <a href="https://twitter.com/ajaxdavis" target="_blank" rel="noreferrer">@ajaxdavis</a> · <a href="https://ajaxdavis.dev" target="_blank" rel="noreferrer">ajaxdavis.dev</a></span>
           <span style={{ marginLeft: 'auto' }}>Jump in — <code style={{ color: 'var(--cyan)' }}>ssh sshfighter.com</code></span>
         </div>
       </div>
@@ -43,6 +44,10 @@ export function Footer() {
 
 export function CharChip({ char, sm }: { char: string; sm?: boolean }) {
   return <span className={`rs-chip${sm ? ' rs-chip--sm' : ''}`}><i style={{ background: charColor(char) }} />{char}</span>;
+}
+
+export function PlayerTypeBadge({ isBot }: { isBot: boolean | number }) {
+  return isBot ? <span className="rs-pill bot" title="Automated player">BOT</span> : null;
 }
 
 export function Sprite({ char, pose = 'idle_1', className }: { char: string; pose?: string; className?: string }) {

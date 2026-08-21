@@ -15,7 +15,7 @@ export class ClusterHub implements Hub {
       if (!m || typeof m !== 'object' || !('t' in m)) return;
       const s = this.sessions.get(m.sid); if (!s) return;
       switch (m.t) {
-        case 'matchStart': s.startRemoteVersus(m.mid, m.role, m.yourCursor, m.oppName, m.oppCursor, m.stage); break;
+        case 'matchStart': s.startRemoteVersus(m.mid, m.role, m.yourCursor, m.oppName, m.oppCursor, m.oppIsBot, m.stage); break;
         case 'state': s.applyRemoteState(m.mid, m.m, m.ack); break;
         case 'matchEnd': s.endRemoteVersus(m.mid, m.result); break;
         case 'lounge': s.loungeRoster = m.roster; s.loungeChat = m.chat; s.forceRedraw(); break;
@@ -31,13 +31,13 @@ export class ClusterHub implements Hub {
   unregister(s: Session): void { this.sessions.delete(s.sid); }
   sessionCount(): number { return this.sessions.size; }
 
-  queue(s: Session): void { this.send({ t: 'queue', sid: s.sid, cid: s.connectionId, name: s.displayName, fp: s.fp, cursor: s.cursor, elo: s.player?.elo ?? 1200, region: s.region }); s.goTo('lobbyWait'); }
+  queue(s: Session): void { this.send({ t: 'queue', sid: s.sid, cid: s.connectionId, name: s.displayName, fp: s.fp, cursor: s.cursor, elo: s.player?.elo ?? 1200, region: s.region, isBot: s.isBot, opponentPool: s.quickOpponentPool }); s.goTo('lobbyWait'); }
   cancelQueue(s: Session): void { this.send({ t: 'dequeue', sid: s.sid }); }
 
   relayInput(s: Session, input: Inputs, seq: number): void { this.send({ t: 'input', mid: s.remoteMid, sid: s.sid, input, seq }); }
   leaveMatch(s: Session): void { this.send({ t: 'leaveMatch', mid: s.remoteMid, sid: s.sid }); }
 
-  enterLounge(s: Session): void { this.send({ t: 'loungeJoin', sid: s.sid, cid: s.connectionId, name: s.displayName, fp: s.fp, cursor: s.cursor, elo: s.player?.elo ?? 1200 }); }
+  enterLounge(s: Session): void { this.send({ t: 'loungeJoin', sid: s.sid, cid: s.connectionId, name: s.displayName, fp: s.fp, cursor: s.cursor, elo: s.player?.elo ?? 1200, isBot: s.isBot }); }
   leaveLounge(s: Session): void { this.send({ t: 'loungeLeave', sid: s.sid }); }
   sendChat(s: Session, text: string): void { this.send({ t: 'chat', sid: s.sid, text }); }
   challenge(s: Session, targetId: string): void { this.send({ t: 'challenge', sid: s.sid, targetId }); }

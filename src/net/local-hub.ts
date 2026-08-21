@@ -9,9 +9,9 @@ import { makeFighter, makeMatch } from '../game/engine.js';
 import { characterAt } from '../game/roster.js';
 import * as db from '../db/db.js';
 import { actorRef, eventId, track } from '../telemetry/discord.js';
-import { sameRegionWaiter, agedPair } from './matchmaking.js';
+import { bestWaiter, agedPair, type OpponentPool } from './matchmaking.js';
 
-interface Waiting { s: Session; region: string; queuedAt: number; }
+interface Waiting { s: Session; region: string; queuedAt: number; isBot: boolean; opponentPool: OpponentPool; }
 
 export class LocalHub implements Hub {
   private waiting: Waiting[] = [];
@@ -26,10 +26,11 @@ export class LocalHub implements Hub {
 
   // ---- quick match (prefer same region, fall back across regions after a wait) ----
   queue(s: Session): void {
-    const idx = sameRegionWaiter(this.waiting, s.region);
+    const newcomer: Waiting = { s, region: s.region, queuedAt: Date.now(), isBot: s.isBot, opponentPool: s.quickOpponentPool };
+    const idx = bestWaiter(this.waiting, newcomer);
     const w = idx >= 0 ? this.waiting[idx] : undefined;
     if (w && w.s.alive && w.s !== s) { this.waiting.splice(idx, 1); this.pair(w.s, s, 'quick_match'); }
-    else { this.waiting.push({ s, region: s.region, queuedAt: Date.now() }); s.goTo('lobbyWait'); }
+    else { this.waiting.push(newcomer); s.goTo('lobbyWait'); }
   }
   cancelQueue(s: Session): void { const i = this.waiting.findIndex((w) => w.s === s); if (i >= 0) this.waiting.splice(i, 1); }
   private sweepQueue(): void {
@@ -52,6 +53,7 @@ export class LocalHub implements Hub {
       match_id: matchId, source, stage: match.stage,
       player_a: a.displayName, actor_a: actorRef(a.fp, a.connectionId), fighter_a: ca.name, elo_a: a.player?.elo,
       player_b: b.displayName, actor_b: actorRef(b.fp, b.connectionId), fighter_b: cb.name, elo_b: b.player?.elo,
+      player_a_type: a.isBot ? 'bot' : 'human', player_b_type: b.isBot ? 'bot' : 'human',
       rated: !!(a.fp && b.fp && a.fp !== b.fp),
     });
     a.startVersus(match, 'a', b, true);
@@ -69,8 +71,8 @@ export class LocalHub implements Hub {
     if (!to || !to.alive || !this.members.has(to)) { s.loungeNotice = 'PLAYER IS NO LONGER AVAILABLE'; return; }
     if (s.incoming || s.outgoing) { s.loungeNotice = 'FINISH YOUR CURRENT CHALLENGE FIRST'; return; }
     if (to.incoming || to.outgoing) { s.loungeNotice = `${to.displayName} IS ALREADY BUSY`; return; }
-    s.outgoing = { id: to.connectionId, name: to.displayName };
-    to.incoming = { id: s.connectionId, name: s.displayName };
+    s.outgoing = { id: to.connectionId, name: to.displayName, isBot: to.isBot };
+    to.incoming = { id: s.connectionId, name: s.displayName, isBot: s.isBot };
     s.loungeNotice = `CHALLENGE SENT TO ${to.displayName}`;
     to.loungeNotice = `${s.displayName} CHALLENGED YOU`;
     track('challenge_sent', { challenger: s.displayName, challenged: to.displayName });
@@ -113,7 +115,7 @@ export class LocalHub implements Hub {
       const roster: RosterEntry[] = [...this.members]
         .filter((x) => x !== m && x.alive)
         .sort((a, b) => a.displayName.localeCompare(b.displayName))
-        .map((x) => ({ id: x.connectionId, name: x.displayName, cursor: x.cursor, elo: x.player?.elo ?? null }));
+        .map((x) => ({ id: x.connectionId, name: x.displayName, cursor: x.cursor, elo: x.player?.elo ?? null, isBot: x.isBot }));
       m.loungeRoster = roster;
       m.loungeChat = chat;
       m.forceRedraw();

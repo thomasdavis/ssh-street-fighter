@@ -67,6 +67,31 @@ check('match cleaned up', coord.activeMatches === 0 && coord.queued === 0);
     `matches=${c2.activeMatches} queued=${c2.queued} starts=${out.filter((m) => m.t === 'matchStart').length}`);
 }
 
+// ---- opponent pools: terminal Quick Match defaults to bots; switching it off
+// is a hard human-only choice, including during the aged fallback sweep. ----
+{
+  const pools = new MatchCoordinator();
+  const humanBotOut: P2W[] = [], humanOut: P2W[] = [], botOut: P2W[] = [], secondHumanOut: P2W[] = [];
+  const humanBotW: WorkerRef = { id: 31, send: (m) => humanBotOut.push(m) };
+  const humanW: WorkerRef = { id: 32, send: (m) => humanOut.push(m) };
+  const botW: WorkerRef = { id: 33, send: (m) => botOut.push(m) };
+  const secondHumanW: WorkerRef = { id: 34, send: (m) => secondHumanOut.push(m) };
+
+  pools.handle(humanBotW, { t: 'queue', sid: 1, cid: 'hb', name: 'WANTSBOT', fp: null, cursor: 0, elo: 1200, region: 'NA', opponentPool: 'bots' });
+  pools.handle(humanW, { t: 'queue', sid: 1, cid: 'hh', name: 'WANTSHUMAN', fp: null, cursor: 1, elo: 1200, region: 'NA', opponentPool: 'humans' });
+  check('human bot and human-only pools do not cross-pair', pools.activeMatches === 0 && pools.queued === 2);
+
+  pools.handle(botW, { t: 'queue', sid: 1, cid: 'bot', name: 'BOT', fp: null, cursor: 2, elo: 1200, region: 'XX', isBot: true, opponentPool: 'all' });
+  const humanBotStart = humanBotOut.find((m) => m.t === 'matchStart') as Extract<P2W, { t: 'matchStart' }> | undefined;
+  const botStart = botOut.find((m) => m.t === 'matchStart') as Extract<P2W, { t: 'matchStart' }> | undefined;
+  check('default human pool pairs with a compatible bot and reports actor type',
+    !!humanBotStart && humanBotStart.oppIsBot && botStart?.oppIsBot === false && pools.queued === 1);
+
+  pools.handle(secondHumanW, { t: 'queue', sid: 1, cid: 'hh2', name: 'HUMAN2', fp: null, cursor: 3, elo: 1200, region: 'NA', opponentPool: 'humans' });
+  check('human-only player pairs when another human-only player arrives',
+    !!humanOut.find((m) => m.t === 'matchStart') && !!secondHumanOut.find((m) => m.t === 'matchStart') && pools.queued === 0);
+}
+
 // ---- lounge across workers ----
 const lounge = (m: P2W | undefined) => m as Extract<P2W, { t: 'lounge' }> | undefined;
 const chal = (m: P2W | undefined) => m as Extract<P2W, { t: 'challengeState' }> | undefined;

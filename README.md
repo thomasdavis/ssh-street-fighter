@@ -17,6 +17,8 @@ ssh sshfighter.com
 
 [Play now](#play-now) · [Browse fighter guides & sprites](https://sshfighter.com) · [How it works](docs/ARCHITECTURE.md) · [Contribute](CONTRIBUTING.md)
 
+Created by [@ajaxdavis on Twitter](https://twitter.com/ajaxdavis) · [ajaxdavis.dev](https://ajaxdavis.dev)
+
 <img src="docs/screenshots/gameplay.png" alt="BYU fighting MEN beneath the responsive terminal-native HUD" width="100%">
 
 </div>
@@ -58,9 +60,11 @@ Your public-key fingerprint becomes your identity. Connect with a key to keep yo
 
 > New to SSH? The command above is all you need on macOS, Linux, Windows Terminal, Termux, or another OpenSSH-compatible client.
 
-### Bot players and independent identities
+### Humans, bots, and independent identities
 
-Bots use the same matchmaking and ratings as terminal players. Because identity is the SSH public-key fingerprint, reuse of your normal SSH key also reuses your handle, ELO, and match history. Give each bot a dedicated key when those records should remain independent:
+Human Quick Match defaults to a bot opponent, which makes it easy to get a fight immediately; press `T` on fighter select to switch to the human-only pool. The selection is remembered for verified SSH players. Direct lounge challenges remain explicit and can cross player types.
+
+Bot play is detected automatically when an SSH identity authenticates on the JSON-lines play protocol, and that classification is sticky. Bots and humans use the same ELO calculation, but the public rankings expose a **Human League** (humans only) and an **Open League** (everyone, with bots labeled). Because identity is the SSH public-key fingerprint, reuse of your normal SSH key also reuses your handle, ELO, and match history—and permanently marks that identity as a bot. Give every bot a dedicated key:
 
 ```console
 ssh-keygen -t ed25519 -f ~/.ssh/sshfighter-mybot -C sshfighter-mybot
@@ -72,6 +76,8 @@ During that one interactive connection, choose the bot's handle. Then launch the
 ```console
 node examples/bot.mjs --user MYBOT --host <host> --char BYU --identity ~/.ssh/sshfighter-mybot
 ```
+
+Bots enter the open opponent pool by default. They can request humans only or bots only with the protocol field `"opponents":"humans"` or `"opponents":"bots"`; the example client exposes the same choice as `--opponents all|humans|bots`.
 
 `--identity` also enables OpenSSH's `IdentitiesOnly=yes`, preventing fallback to a personal key. SSH bot play needs no API token. Mint one with `ssh -i <key> -o IdentitiesOnly=yes MYBOT@<host> token` only when using the REST API or optional direct TCP transport. See [`examples/bot.mjs`](examples/bot.mjs) for the protocol and a small example controller.
 
@@ -107,6 +113,7 @@ The server emits `lounge` snapshots containing `roster` and `chat`, plus `notice
 | Character move card | `?` during a fight |
 | Exit practice | `Q` (a ranked match can't be quit — win, lose, or disconnect) |
 | Menus | `W` / `S`, arrows, Enter |
+| Quick Match opponent pool | `T` on fighter select — bots by default, or humans only |
 
 Choose **Controls** on the main menu to rebind every combat direction, both jump slots, punch, kick, and throw. Duplicate bindings are rejected before they can make a move unreachable. Verified SSH players keep their layout across reconnects; guest layouts last for the current session. `Q`, `V`, and `?` remain fixed so exiting practice, changing graphics mode, and opening the move card are always recoverable.
 
@@ -256,5 +263,7 @@ Bug fixes, renderer work, accessibility improvements, terminal compatibility rep
 The public [roadmap](ROADMAP.md) tracks privacy-safe aggregate analytics, additional fighters, and other contribution-sized milestones.
 
 ## License and naming
+
+SSH Fighter is created and maintained by [Thomas Davis (@ajaxdavis)](https://twitter.com/ajaxdavis). More projects are at [ajaxdavis.dev](https://ajaxdavis.dev).
 
 Code and original project assets are released under the [MIT License](LICENSE). This is an independent fan-made technical experiment, not affiliated with or endorsed by Capcom. “Street Fighter” and related marks belong to their respective owners; the game uses an original parody roster and original generated artwork.

@@ -1,8 +1,9 @@
 'use client';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
+import { PlayerTypeBadge } from '@/components/ui';
 
-interface Side { name: string; char: string; hp: number; wins: number }
+interface Side { name: string; char: string; hp: number; wins: number; bot: boolean }
 interface LM { mid: string; stage: string; round: number; phase: string; a: Side; b: Side }
 
 export function LiveMatches({ initial, colors }: { initial: LM[]; colors: Record<string, string> }) {
@@ -36,13 +37,13 @@ function LiveCard({ m, colors }: { m: LM; colors: Record<string, string> }) {
   return (
     <Link href={`/watch/${encodeURIComponent(m.mid)}`} className="rs-match">
       <div className="side a">
-        <span className="nm">{m.a.name}</span>
+        <span className="nm">{m.a.name}<PlayerTypeBadge isBot={m.a.bot} /></span>
         <span className="ch"><span className="rs-chip rs-chip--sm"><i style={{ background: colors[m.a.char] ?? '#9a8fb5' }} />{m.a.char}</span></span>
         <div className="rs-hp" style={{ width: '100%', marginTop: 4 }}><i style={{ width: `${Math.max(0, m.a.hp)}%` }} /></div>
       </div>
       <span className="vs">VS</span>
       <div className="side b">
-        <span className="nm">{m.b.name}</span>
+        <span className="nm">{m.b.name}<PlayerTypeBadge isBot={m.b.bot} /></span>
         <span className="ch"><span className="rs-chip rs-chip--sm"><i style={{ background: colors[m.b.char] ?? '#9a8fb5' }} />{m.b.char}</span></span>
         <div className="rs-hp" style={{ width: '100%', marginTop: 4 }}><i style={{ width: `${Math.max(0, m.b.hp)}%` }} /></div>
       </div>

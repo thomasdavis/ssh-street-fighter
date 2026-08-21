@@ -66,8 +66,9 @@ function route(coord: MatchCoordinator | null, req: IncomingMessage, res: Server
   if (p === '/api/live')
     return send(res, 200, coord ? {
       players: coord.playerCount, matches: coord.activeMatches, queued: coord.queued, lounge: coord.loungeSize,
+      queue: { humans: coord.queuedHumans, bots: coord.queuedBots },
       ops: store.opsLatest(), live: coord.liveMatchList(),
-    } : { players: 0, matches: 0, queued: 0, lounge: 0, ops: store.opsLatest(), live: [] });
+    } : { players: 0, matches: 0, queued: 0, lounge: 0, queue: { humans: 0, bots: 0 }, ops: store.opsLatest(), live: [] });
 
   if (seg[0] === 'api' && seg[1] === 'live' && seg[2]) {
     const r = coord?.renderMatch(decodeURIComponent(seg[2]));
@@ -83,7 +84,13 @@ function route(coord: MatchCoordinator | null, req: IncomingMessage, res: Server
     });
 
   if (p === '/api/stats') return send(res, 200, store.summary());
-  if (p === '/api/leaderboard') return send(res, 200, db.leaderboard(clamp(q.get('limit'), 25, 200)));
+  if (p === '/api/leaderboard') {
+    const rawScope = q.get('scope');
+    if (rawScope && rawScope !== 'humans' && rawScope !== 'bots' && rawScope !== 'all')
+      return send(res, 400, { error: 'invalid_scope', message: 'scope must be humans, bots, or all' });
+    const scope: db.LeaderboardScope = rawScope === 'humans' || rawScope === 'bots' ? rawScope : 'all';
+    return send(res, 200, db.leaderboard(clamp(q.get('limit'), 25, 200), scope));
+  }
   if (p === '/api/characters') return send(res, 200, store.characterStats());
   if (p === '/api/matchups') return send(res, 200, store.matchupGrid());
 

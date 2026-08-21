@@ -145,12 +145,11 @@ export function summary(): unknown {
 }
 
 // ---- API keys for programmatic play (minted from an SSH-verified fingerprint) ----
-// The key just authenticates the SAME player over the bot port; it does NOT mark
-// the account as a bot — API-driven players are ordinary users and pair with
-// humans in the one global queue, indistinguishable in matches and metrics.
+// The key authenticates the same SSH identity over the bot port. Successful bot
+// protocol authentication makes that identity a sticky bot account.
 export function mintApiKey(fp: string, label: string): string {
   const key = 'rk_' + randomBytes(24).toString('base64url');
-  getDb().prepare('INSERT INTO api_keys (key, fp, label, is_bot, created_at) VALUES (?,?,?,0,?)').run(key, fp, label, Date.now());
+  getDb().prepare('INSERT INTO api_keys (key, fp, label, is_bot, created_at) VALUES (?,?,?,1,?)').run(key, fp, label, Date.now());
   return key;
 }
 export function apiKeyLookup(key: string): { fp: string; is_bot: number } | undefined {

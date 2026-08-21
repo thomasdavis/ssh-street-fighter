@@ -20,6 +20,8 @@ export interface Player {
   rounds_won: number;
   elo: number;
   peak_elo: number;
+  is_bot: number;
+  match_pool: 'bots' | 'humans';
   key_bindings_json: string | null;
   calibrated: number;   // 0/1 — has seen the display-calibration screen
   view_mode: string;    // 'octant' (sharp pixel) | 'quadrant' (compatible pixel)
@@ -34,7 +36,10 @@ export interface LeaderRow {
   matches: number;
   win_pct: number;
   elo: number;
+  is_bot: number;
 }
+
+export type LeaderboardScope = 'humans' | 'bots' | 'all';
 
 export interface RatingChange {
   rated: true;
@@ -81,6 +86,8 @@ export function initDb(): void {
       rounds_won INTEGER NOT NULL DEFAULT 0,
       elo INTEGER NOT NULL DEFAULT 1200,
       peak_elo INTEGER NOT NULL DEFAULT 1200,
+      is_bot INTEGER NOT NULL DEFAULT 0,
+      match_pool TEXT NOT NULL DEFAULT 'bots',
       created_at INTEGER NOT NULL,
       last_seen INTEGER NOT NULL
     );
@@ -169,6 +176,7 @@ export function initDb(): void {
   ensureColumn('players', 'calibrated', 'calibrated INTEGER NOT NULL DEFAULT 0');
   ensureColumn('players', 'view_mode', "view_mode TEXT NOT NULL DEFAULT 'quadrant'");   // 'octant' | 'quadrant'
   ensureColumn('players', 'is_bot', 'is_bot INTEGER NOT NULL DEFAULT 0');
+  ensureColumn('players', 'match_pool', "match_pool TEXT NOT NULL DEFAULT 'bots'");
   ensureColumn('match_history', 'winner_elo_before', 'winner_elo_before INTEGER');
   ensureColumn('match_history', 'winner_elo_after', 'winner_elo_after INTEGER');
   ensureColumn('match_history', 'loser_elo_before', 'loser_elo_before INTEGER');
@@ -186,6 +194,16 @@ export function initDb(): void {
   // view_mode default flipped to 'quadrant'; existing rows only ever held the old
   // migration default ('octant'), never a real choice, so promote them once.
   once('view_mode_default_quadrant', () => db.prepare("UPDATE players SET view_mode = 'quadrant' WHERE view_mode = 'octant'").run());
+  // Token-authenticated accounts predate reliable actor classification. A bot
+  // token is a durable signal that the SSH identity is a bot identity, so mark
+  // those players and repair their historical rich-match flags once.
+  once('api_key_accounts_are_bots_v1', () => {
+    db.prepare('UPDATE players SET is_bot = 1 WHERE fingerprint IN (SELECT fp FROM api_keys)').run();
+    db.prepare('UPDATE matches SET a_is_bot = 1 WHERE a_fp IN (SELECT fp FROM api_keys)').run();
+    db.prepare('UPDATE matches SET b_is_bot = 1 WHERE b_fp IN (SELECT fp FROM api_keys)').run();
+    db.prepare('UPDATE match_players SET is_bot = 1 WHERE fp IN (SELECT fp FROM api_keys)').run();
+    db.prepare('UPDATE api_keys SET is_bot = 1').run();
+  });
 }
 
 /** The shared better-sqlite3 handle, for the Ringside store/API modules. */
@@ -235,6 +253,24 @@ export function setCalibrated(fp: string): void {
   db.prepare('UPDATE players SET calibrated = 1 WHERE fingerprint = ?').run(fp);
 }
 
+export function setMatchPool(fp: string, pool: 'bots' | 'humans'): void {
+  db.prepare('UPDATE players SET match_pool = ? WHERE fingerprint = ?').run(pool, fp);
+}
+
+/** Bot identity is sticky to the SSH fingerprint. Repairing historical flags
+ *  keeps old match pages and division filters consistent after classification. */
+export function markPlayerAsBot(fp: string): Player {
+  touchOrCreate(fp);
+  db.transaction(() => {
+    db.prepare('UPDATE players SET is_bot = 1 WHERE fingerprint = ?').run(fp);
+    db.prepare('UPDATE matches SET a_is_bot = 1 WHERE a_fp = ?').run(fp);
+    db.prepare('UPDATE matches SET b_is_bot = 1 WHERE b_fp = ?').run(fp);
+    db.prepare('UPDATE match_players SET is_bot = 1 WHERE fp = ?').run(fp);
+    db.prepare('UPDATE api_keys SET is_bot = 1 WHERE fp = ?').run(fp);
+  })();
+  return getByFingerprint(fp)!;
+}
+
 export function recordMatch(
   winnerFp: string | null, loserFp: string | null,
   winnerName: string, loserName: string,
@@ -282,21 +318,25 @@ export function recordMatch(
   return rating;
 }
 
-export function leaderboard(limit = 10): LeaderRow[] {
+export function leaderboard(limit = 10, scope: LeaderboardScope = 'all'): LeaderRow[] {
+  const division = scope === 'humans' ? 'AND is_bot = 0' : scope === 'bots' ? 'AND is_bot = 1' : '';
   return db.prepare(`
-    SELECT username, wins, losses, matches, elo,
+    SELECT username, wins, losses, matches, elo, is_bot,
            CASE WHEN matches > 0 THEN CAST(wins AS REAL) / matches ELSE 0 END AS win_pct
     FROM players
-    WHERE username IS NOT NULL AND matches > 0
+    WHERE username IS NOT NULL AND matches > 0 ${division}
     ORDER BY elo DESC, matches DESC, win_pct DESC
     LIMIT ?
   `).all(limit) as LeaderRow[];
 }
 
-export function playerRank(fp: string): number | null {
+export function playerRank(fp: string, scope?: LeaderboardScope): number | null {
   const p = getByFingerprint(fp);
   if (!p || !p.username || p.matches === 0) return null;
-  const row = db.prepare('SELECT COUNT(*) + 1 AS rank FROM players WHERE matches > 0 AND (elo > ? OR (elo = ? AND id < ?))')
+  const selected = scope ?? (p.is_bot ? 'all' : 'humans');
+  const division = selected === 'humans' ? 'AND is_bot = 0' : selected === 'bots' ? 'AND is_bot = 1' : '';
+  const row = db.prepare(`SELECT COUNT(*) + 1 AS rank FROM players
+    WHERE matches > 0 ${division} AND (elo > ? OR (elo = ? AND id < ?))`)
     .get(p.elo, p.elo, p.id) as { rank: number };
   return row.rank;
 }

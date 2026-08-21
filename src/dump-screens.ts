@@ -15,14 +15,14 @@ function fake(o: Record<string, unknown>): any {
   return {
     frame: 6, displayName: 'THOMAS', usernameBuf: 'THOM', errorMsg: '', guest: false,
     player: db.getByFingerprint('fp:tom'), fp: 'fp:tom', menuIndex: 0, cursor: 0,
-    selectMode: 'lobby', leader: db.leaderboard(10), result: null, ...o,
+    selectMode: 'lobby', quickOpponentPool: 'bots', leaderScope: 'humans', leader: db.leaderboard(10, 'humans'), result: null, ...o,
   };
 }
 
 const which = process.argv[2] ?? 'menu';
 const cols = parseInt(process.argv[3] ?? '96', 10), rows = parseInt(process.argv[4] ?? '30', 10);
 const f = new Frame(cols, rows);
-const s = fake(which === 'results' ? { result: { winner: 'THOMAS', loser: 'ADA', youWon: true } } : {});
+const s = fake(which === 'results' ? { result: { winner: 'THOMAS', loser: 'ADA', winnerIsBot: false, loserIsBot: false, youWon: true } } : {});
 if (which === 'help') { SCREENS.menu.render(s, f); SCREENS.help.render(s, f); }
 else (SCREENS as any)[which].render(s, f);
 

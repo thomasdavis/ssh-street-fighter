@@ -1,23 +1,36 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { SiteNav, Footer, CharChip } from '@/components/ui';
+import type { Metadata } from 'next';
+import { SiteNav, Footer, CharChip, PlayerTypeBadge } from '@/components/ui';
 import { getMatch, getMatchPlayers, getMatchEvents, hasReplay, onlineNow } from '@/lib/ringside';
 import { timeAgo, frames } from '@/lib/format';
 import ReplayViewer from './ReplayViewer';
 
 export const dynamic = 'force-dynamic';
 
-export async function generateMetadata({ params }: { params: Promise<{ id: string }> }) {
+export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
   const { id } = await params;
   const m = getMatch(id);
-  if (!m) return { title: 'Match' };
-  const title = `${m.a_name} vs ${m.b_name} — Replay`;
-  const description = `${m.a_name} (${m.a_char}) vs ${m.b_name} (${m.b_char}) on ${m.stage} — watch the replay on SSH Fighter.`;
-  const images = hasReplay(id) ? [{ url: `/api/matches/${id}/shot`, width: 1200, height: 800, alt: title }] : undefined;
+  if (!m) return { title: 'Match not found', robots: { index: false, follow: false } };
+  const replay = hasReplay(id);
+  const ranked = m.mode === 'versus';
+  const title = `${m.a_name} vs ${m.b_name} — ${replay ? 'Replay' : 'Match'}`;
+  const description = `${replay ? 'Watch' : 'View'} ${m.a_name} (${m.a_char}) vs ${m.b_name} (${m.b_char}) in a ${ranked ? 'ranked' : 'practice'} SSH Fighter ${replay ? 'replay' : 'match'} on ${m.stage}. Play instantly with ssh sshfighter.com.`;
+  const url = `/matches/${encodeURIComponent(id)}`;
+  const imageUrl = `/og/matches/${encodeURIComponent(id)}`;
+  const imageAlt = `${m.a_name} versus ${m.b_name} — watch the SSH Fighter replay`;
+  const images = [{ url: imageUrl, width: 1200, height: 630, alt: imageAlt, type: 'image/png' }];
   return {
-    title, description,
-    openGraph: { title, description, type: 'video.other', url: `/matches/${id}`, images },
-    twitter: { card: 'summary_large_image', title, description, images: images?.map((i) => i.url) },
+    title,
+    description,
+    alternates: { canonical: url },
+    openGraph: {
+      title, description, type: 'video.other', url, siteName: 'SSH Fighter', locale: 'en_US', images,
+    },
+    twitter: {
+      card: 'summary_large_image', creator: '@ajaxdavis', site: '@ajaxdavis',
+      title, description, images: [{ url: imageUrl, alt: imageAlt }],
+    },
   };
 }
 
@@ -58,12 +71,12 @@ export default async function MatchPage({ params }: { params: Promise<{ id: stri
           <Link href="/matches" style={{ color: 'var(--dim)', fontSize: 12, textDecoration: 'none' }}>← All matches</Link>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', alignItems: 'center', gap: 16, marginTop: 14 }}>
             <div style={{ textAlign: 'right' }}>
-              <div style={{ color: aWon ? 'var(--gold)' : 'var(--text)', fontSize: 'clamp(1.5rem,4vw,2.4rem)', fontWeight: 800, textTransform: 'uppercase' }}>{m.a_name}{aWon ? ' 👑' : ''}</div>
+              <div style={{ color: aWon ? 'var(--gold)' : 'var(--text)', fontSize: 'clamp(1.5rem,4vw,2.4rem)', fontWeight: 800, textTransform: 'uppercase' }}>{m.a_name}<PlayerTypeBadge isBot={m.a_is_bot} />{aWon ? ' 👑' : ''}</div>
               <div style={{ marginTop: 4 }}><CharChip char={m.a_char} /></div>
             </div>
             <div style={{ color: 'var(--red)', fontWeight: 800, fontSize: 20 }}>VS</div>
             <div>
-              <div style={{ color: !aWon ? 'var(--gold)' : 'var(--text)', fontSize: 'clamp(1.5rem,4vw,2.4rem)', fontWeight: 800, textTransform: 'uppercase' }}>{!aWon ? '👑 ' : ''}{m.b_name}</div>
+              <div style={{ color: !aWon ? 'var(--gold)' : 'var(--text)', fontSize: 'clamp(1.5rem,4vw,2.4rem)', fontWeight: 800, textTransform: 'uppercase' }}>{!aWon ? '👑 ' : ''}{m.b_name}<PlayerTypeBadge isBot={m.b_is_bot} /></div>
               <div style={{ marginTop: 4 }}><CharChip char={m.b_char} /></div>
             </div>
           </div>
@@ -71,6 +84,10 @@ export default async function MatchPage({ params }: { params: Promise<{ id: stri
             <span>{m.mode}</span><span>·</span><span>{m.stage}</span><span>·</span><span>{m.a_rounds}–{m.b_rounds}</span><span>·</span>
             <span>{frames(m.duration_frames)}</span><span>·</span><span>{m.end_reason}</span><span>·</span><span>{timeAgo(m.ended_at)}</span>
           </div>
+          <p style={{ maxWidth: 720, margin: '16px auto 0', color: 'var(--dim)', fontSize: 14, lineHeight: 1.6, textAlign: 'center' }}>
+            {replay ? 'Watch the complete' : 'View the result of this'} {m.a_char} vs {m.b_char} {m.mode === 'versus' ? 'ranked' : 'practice'} match
+            {' '}from SSH Fighter — the terminal fighting game anyone can play with <code style={{ color: 'var(--cyan)' }}>ssh sshfighter.com</code>.
+          </p>
         </section>
 
         {replay

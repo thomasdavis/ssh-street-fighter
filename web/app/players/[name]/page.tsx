@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { SiteNav, Footer, CharChip, Sprite, Sparkline, Bars, Ring } from '@/components/ui';
+import { SiteNav, Footer, CharChip, Sprite, Sparkline, Bars, Ring, PlayerTypeBadge } from '@/components/ui';
 import { profile, onlineNow } from '@/lib/ringside';
 import { charColor } from '@/lib/chars';
 import { timeAgo, frames, winRate, num, ordinal } from '@/lib/format';
@@ -28,7 +28,10 @@ export default async function PlayerPage({ params }: { params: Promise<{ name: s
         <section style={{ display: 'flex', gap: 24, alignItems: 'flex-end', padding: '34px 0 20px', flexWrap: 'wrap' }}>
           {main && <div className="rs-face" style={{ width: 116, height: 116, flex: '0 0 auto' }}><Sprite char={main} pose="idle_1" /></div>}
           <div style={{ flex: 1, minWidth: 200 }}>
-            <p className="rs-hero__eyebrow" style={{ margin: 0 }}>{player.rank ? `${ordinal(player.rank)} on the ladder` : 'Unranked'}{player.is_bot ? ' · bot' : ''}</p>
+            <p className="rs-hero__eyebrow" style={{ margin: 0 }}>
+              {player.rank ? `${ordinal(player.rank)} in the ${player.is_bot ? 'Open League' : 'Human League'}` : 'Unranked'}
+              <PlayerTypeBadge isBot={player.is_bot} />
+            </p>
             <h1 style={{ margin: '6px 0 0', color: 'var(--gold)', fontSize: 'clamp(2rem,5vw,3.2rem)', textTransform: 'uppercase', textShadow: '2px 2px 0 #7a1f1a' }}>{player.username}</h1>
             <p style={{ margin: '8px 0 0', color: 'var(--dim)', fontSize: 12 }}>
               {main && <>Mains <CharChip char={main} sm /> · </>}
@@ -86,11 +89,12 @@ export default async function PlayerPage({ params }: { params: Promise<{ name: s
                   const won = (isA && m.winner === 'a') || (!isA && m.winner === 'b');
                   const opp = isA ? m.b_name : m.a_name;
                   const oppChar = isA ? m.b_char : m.a_char;
+                  const oppIsBot = isA ? m.b_is_bot : m.a_is_bot;
                   const myChar = isA ? m.a_char : m.b_char;
                   return (
                     <tr key={m.id}>
                       <td><span className={`rs-pill ${won ? 'win' : 'loss'}`}>{won ? 'WIN' : 'LOSS'}</span> <CharChip char={myChar} sm /></td>
-                      <td><Link href={`/players/${encodeURIComponent(opp)}`}>{opp}</Link> <CharChip char={oppChar} sm /></td>
+                      <td><Link href={`/players/${encodeURIComponent(opp)}`}>{opp}</Link><PlayerTypeBadge isBot={oppIsBot} /> <CharChip char={oppChar} sm /></td>
                       <td style={{ color: 'var(--dim)', textTransform: 'uppercase', fontSize: 11 }}>{m.stage}</td>
                       <td className="rs-num">{frames(m.duration_frames)}</td>
                       <td style={{ color: 'var(--dim)' }}>{timeAgo(m.ended_at)}</td>

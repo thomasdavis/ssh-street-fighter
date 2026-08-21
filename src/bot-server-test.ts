@@ -82,7 +82,10 @@ send(bravo, { t: 'hello', trustedFp: 'fp-bravo' });
 check('SSH-vouched identities authenticate with build provenance', await waitFor(() =>
   latest(alpha, 'welcome')?.name === 'AGENT_ALPHA' && latest(bravo, 'welcome')?.name === 'AGENT_BRAVO'
   && latest(alpha, 'welcome')?.engine === VERSION_INFO.engine
-  && latest(alpha, 'welcome')?.commit === VERSION_INFO.commit));
+  && latest(alpha, 'welcome')?.commit === VERSION_INFO.commit
+  && latest(alpha, 'welcome')?.playerType === 'bot'));
+check('bot protocol authentication persistently classifies both SSH identities',
+  db.getByFingerprint('fp-alpha')?.is_bot === 1 && db.getByFingerprint('fp-bravo')?.is_bot === 1);
 
 send(alpha, { t: 'joinLounge', char: 'FABLE' });
 send(bravo, { t: 'joinLounge', char: 'OMEGA' });
@@ -90,6 +93,8 @@ const rosterVisible = await waitFor(() =>
   latest(alpha, 'lounge')?.roster?.some((entry: Message) => entry.name === 'AGENT_BRAVO') &&
   latest(bravo, 'lounge')?.roster?.some((entry: Message) => entry.name === 'AGENT_ALPHA'));
 check('agents join the same live lounge and are mutually challengeable', rosterVisible, `lounge=${coord.loungeSize}`);
+check('lounge presence labels automated players',
+  latest(alpha, 'lounge')?.roster?.find((entry: Message) => entry.name === 'AGENT_BRAVO')?.isBot === true);
 
 send(alpha, { t: 'queue', char: 'FABLE' });
 check('lounge member cannot also enter quick-match queue', await waitFor(() =>
@@ -118,7 +123,8 @@ check('acceptance removes both agents from lounge and starts a real versus match
 check('match start pins the exact server build for fight logs',
   latest(alpha, 'matchStart')?.engine === VERSION_INFO.engine
   && latest(alpha, 'matchStart')?.commit === VERSION_INFO.commit
-  && latest(alpha, 'matchStart')?.build === VERSION_INFO.build);
+  && latest(alpha, 'matchStart')?.build === VERSION_INFO.build
+  && latest(alpha, 'matchStart')?.oppType === 'bot');
 
 alpha.socket.destroy(); bravo.socket.destroy();
 await new Promise((resolve) => setTimeout(resolve, 50));
