@@ -10,7 +10,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
   const core = [
     ['', 1, 'daily'], ['/fighters', 0.9, 'weekly'], ['/leaderboard', 0.9, 'hourly'],
     ['/matches', 0.8, 'hourly'], ['/tv', 0.8, 'hourly'], ['/characters', 0.8, 'daily'],
-    ['/bots', 0.8, 'weekly'], ['/bots/list', 0.7, 'weekly'], ['/status', 0.5, 'hourly'],
+    ['/graphics', 0.8, 'monthly'], ['/bots', 0.8, 'weekly'], ['/bots/list', 0.7, 'weekly'], ['/status', 0.5, 'hourly'],
   ] as const;
   const entries: MetadataRoute.Sitemap = core.map(([path, priority, changeFrequency]) => ({
     url: `${ORIGIN}${path}`, changeFrequency, priority,
