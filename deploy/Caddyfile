@@ -11,6 +11,9 @@ sshfighter.com {
 	handle /api/stage/* {
 		reverse_proxy localhost:3130
 	}
+	handle /api/projectile/* {
+		reverse_proxy localhost:3130
+	}
 	handle /api/status {
 		reverse_proxy localhost:3130
 	}
