@@ -79,7 +79,8 @@ const bravo = await openClient();
 check('initial handshake advertises engine, commit, build and protocol', await waitFor(() => {
   const hi = latest(alpha, 'hi');
   return hi?.engine === VERSION_INFO.engine && hi?.commit === VERSION_INFO.commit
-    && hi?.build === VERSION_INFO.build && hi?.protocol === VERSION_INFO.botProtocol;
+    && hi?.build === VERSION_INFO.build && hi?.protocol === VERSION_INFO.botProtocol
+    && hi?.schema === '/api/bot/schema';
 }));
 send(alpha, { t: 'hello', trustedFp: 'fp-alpha' });
 send(bravo, { t: 'hello', trustedFp: 'fp-bravo' });
@@ -87,6 +88,7 @@ check('SSH-vouched identities authenticate with build provenance', await waitFor
   latest(alpha, 'welcome')?.name === 'AGENT_ALPHA' && latest(bravo, 'welcome')?.name === 'AGENT_BRAVO'
   && latest(alpha, 'welcome')?.engine === VERSION_INFO.engine
   && latest(alpha, 'welcome')?.commit === VERSION_INFO.commit
+  && latest(alpha, 'welcome')?.schema === '/api/bot/schema'
   && latest(alpha, 'welcome')?.playerType === 'bot'));
 check('bot protocol authentication persistently classifies both SSH identities',
   db.getByFingerprint('fp-alpha')?.is_bot === 1 && db.getByFingerprint('fp-bravo')?.is_bot === 1);

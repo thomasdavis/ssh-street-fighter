@@ -69,14 +69,17 @@ export function emptyInputs(): Inputs {
 }
 
 export interface Projectile {
+  id: number;              // stable for the projectile's lifetime within a match
   owner: 'a' | 'b';
   x: number; y: number;   // world position (y = height above ground)
-  vx: number;
+  vx: number; vy: number;
   active: boolean;
   hit: boolean;           // already connected
   frame: number;          // animation timer
   facing: 1 | -1;
   style: 'blue' | 'fire' | 'sonic' | 'boomerang' | 'construct' | 'mote' | 'rope' | 'citation' | 'knowledge';
+  sourceAttack: 'hadouken' | 'bombardment' | 'boomerang' | 'lasso' | 'construct' | 'stream' | 'volley';
+  parentId?: number;       // child projectile source (currently a construct turret)
   life?: number;          // frames remaining (construct turret; motes)
   fireT?: number;         // construct: frames until it spits the next mote
   returning?: boolean;    // boomerang: currently arcing back to its owner
@@ -101,6 +104,7 @@ export interface Match {
   frame: number;
   stage: string;          // chosen arena background id
   projectiles: Projectile[];
+  nextProjectileId: number; // monotonic; intentionally not reset between rounds
   hitStop: number;        // frames both fighters freeze on impact (game-feel)
   sparks: Spark[];        // impact flashes
 }

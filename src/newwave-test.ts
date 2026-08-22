@@ -88,7 +88,7 @@ const mv = (motion: string, btn: 'punch' | 'kick'): Inputs => ({ ...emptyInputs(
   const m = setup('XENON', 'BYU');
   m.a.x = 100; m.a.facing = 1;
   m.a.attack = 'reflect'; m.a.attackFrame = REFLECT.startup + 2; m.a.phaseT = 10;   // mid-parry
-  m.projectiles.push({ owner: 'b', x: 108, y: 30, vx: -4, active: true, hit: false, frame: 0, facing: -1, style: 'blue' });
+  m.projectiles.push({ id: m.nextProjectileId++, owner: 'b', x: 108, y: 30, vx: -4, vy: 0, active: true, hit: false, frame: 0, facing: -1, style: 'blue', sourceAttack: 'hadouken' });
   stepMatch(m, mv('DU', 'punch'), NEUT());
   const p = m.projectiles.find((q) => q.style === 'blue');
   check('reflect turns a projectile back at its sender', !!p && p.owner === 'a' && p.vx > 0, p ? `owner=${p.owner} vx=${p.vx.toFixed(1)}` : 'gone');

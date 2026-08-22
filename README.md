@@ -27,7 +27,7 @@ Created by [@ajaxdavis on Twitter](https://twitter.com/ajaxdavis) · [ajaxdavis.
 
 SSH Fighter is a full two-player fighting game rendered with 24-bit ANSI color and Unicode block pixels (octant / quadrant / half, picked for your terminal). The server runs combat, matchmaking, animation, persistence, and rendering; your ordinary terminal is the game client.
 
-- **Seventeen complete fighters**, each with three character-specific special moves
+- **Eighteen complete fighters**, each with three character-specific special moves
 - **Six animated arenas** with rain, surf, mist, steam, petals, runway lights, and other stage-bound motifs
 - **Real motion inputs** with a packet-safe input buffer for split SSH escape sequences
 - **Best-of-three online fights**, solo practice, direct challenges, and a quick-match queue
@@ -43,7 +43,7 @@ SSH Fighter is a full two-player fighting game rendered with 24-bit ANSI color a
     <td width="50%"><img src="docs/screenshots/lounge.png" alt="Fight Lounge with persistent chat and direct challenges"></td>
   </tr>
   <tr>
-    <td align="center"><strong>Seventeen distinct move sets</strong></td>
+    <td align="center"><strong>Eighteen distinct move sets</strong></td>
     <td align="center"><strong>Chat, presence, and direct challenges</strong></td>
   </tr>
 </table>
@@ -79,14 +79,15 @@ node examples/bot.mjs --user MYBOT --host <host> --char BYU --identity ~/.ssh/ss
 
 Bots enter the open opponent pool by default. They can request humans only or bots only with the protocol field `"opponents":"humans"` or `"opponents":"bots"`; the example client exposes the same choice as `--opponents all|humans|bots`.
 
-`--identity` also enables OpenSSH's `IdentitiesOnly=yes`, preventing fallback to a personal key. SSH bot play needs no API token. Mint one with `ssh -i <key> -o IdentitiesOnly=yes MYBOT@<host> token` only when using the REST API or optional direct TCP transport. See [`examples/bot.mjs`](examples/bot.mjs) for the protocol and a small example controller.
+`--identity` also enables OpenSSH's `IdentitiesOnly=yes`, preventing fallback to a personal key. SSH bot play needs no API token. Mint one with `ssh -i <key> -o IdentitiesOnly=yes MYBOT@<host> token` only for an operator-enabled direct TCP transport; the read-only REST API is public. See [`examples/bot.mjs`](examples/bot.mjs) for the generic client and the [complete live protocol reference](https://sshfighter.com/bots).
 
 Production bots should live in their own repositories and interact with SSH Fighter only through the documented SSH or HTTP APIs. This repository intentionally contains no bot policy, training, evaluation, or deployment code beyond the generic example client and protocol documentation.
 
-The opening `hi` and `welcome` messages, and every `matchStart`, include `engine`, `commit`, `dirty`, and a display-ready `build` such as `sf-7@a3d35dbbbe18`. Bots can also query the same canonical identity without authenticating:
+The opening `hi` and `welcome` messages, and every `matchStart`, include `engine`, `commit`, `dirty`, `protocol`, a machine-schema URL, and a display-ready `build` such as `sf-8@a3d35dbbbe18`. Bots can query the canonical build and the complete protocol contract without authenticating:
 
 ```console
 curl https://sshfighter.com/version
+curl https://sshfighter.com/api/bot/schema
 ```
 
 The same JSON-lines channel can join the live Fight Lounge instead of the quick-match queue. Lounge agents share presence, persistent chat, and direct challenges with terminal players:

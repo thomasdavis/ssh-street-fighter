@@ -32,7 +32,8 @@ function setup(a = 'MEGAWATTS', b = 'XENON'): Match {
 }
 
 // Bombardment adds only a fixed diagonal: two ordinary projectiles move by
-// constant x/y deltas and carry no gravity, landing, arming, or pulse state.
+// constant x/y deltas and carry explicit velocity, but no gravity, landing,
+// arming, or pulse state.
 {
   const match = setup();
   match.a.x = 30; match.a.facing = 1; match.b.x = 220; match.b.facing = -1;
@@ -49,11 +50,12 @@ function setup(a = 'MEGAWATTS', b = 'XENON'): Match {
       diagonal ||= Math.abs((first.x - before.x) - BOMBARDMENT.projectileVx) < 1e-9
         && Math.abs((before.y - first.y) - BOMBARDMENT.dropPerFrame) < 1e-9;
     }
-    if (cores[0]) minimalState = !Object.hasOwn(cores[0], 'vy') && !Object.hasOwn(cores[0], 'grounded') && !Object.hasOwn(cores[0], 'pulses');
+    if (cores[0]) minimalState = cores[0].vy === -BOMBARDMENT.dropPerFrame
+      && !Object.hasOwn(cores[0], 'grounded') && !Object.hasOwn(cores[0], 'pulses');
   }
   check('Bombs of Knowledge releases two cores', firstSpawn >= 0 && secondSpawn > firstSpawn, `spawn=${firstSpawn},${secondSpawn}`);
   check('knowledge cores follow a fixed diagonal', diagonal);
-  check('bombardment introduces no projectile physics state', minimalState);
+  check('bombardment exposes fixed velocity without extra physics state', minimalState);
   check('the two releases exceed one Reflect active window', secondSpawn - firstSpawn > REFLECT.active,
     `spacing=${secondSpawn - firstSpawn} reflectActive=${REFLECT.active}`);
 }
@@ -64,7 +66,7 @@ function setup(a = 'MEGAWATTS', b = 'XENON'): Match {
   const match = setup();
   match.a.x = 80; match.b.x = 120; match.b.facing = -1;
   match.b.attack = 'reflect'; match.b.attackFrame = REFLECT.startup + 1; match.b.phaseT = 8;
-  match.projectiles.push({ owner: 'a', x: match.b.x - 2, y: 30, vx: 2.1, active: true, hit: false, frame: 0, facing: 1, style: 'knowledge' });
+  match.projectiles.push({ id: match.nextProjectileId++, owner: 'a', x: match.b.x - 2, y: 30, vx: 2.1, vy: -BOMBARDMENT.dropPerFrame, active: true, hit: false, frame: 0, facing: 1, style: 'knowledge', sourceAttack: 'bombardment' });
   stepMatch(match, neutral(), neutral());
   const reflected = match.projectiles.find((projectile) => projectile.style === 'knowledge');
   check('a knowledge core can be reflected', !!reflected && reflected.owner === 'b' && reflected.vx < 0);
@@ -73,7 +75,7 @@ function setup(a = 'MEGAWATTS', b = 'XENON'): Match {
   const match = setup();
   match.a.x = 80; match.b.x = 120;
   match.b.phaseT = 2;
-  match.projectiles.push({ owner: 'a', x: match.b.x - 2, y: 30, vx: 2.1, active: true, hit: false, frame: 0, facing: 1, style: 'knowledge' });
+  match.projectiles.push({ id: match.nextProjectileId++, owner: 'a', x: match.b.x - 2, y: 30, vx: 2.1, vy: -BOMBARDMENT.dropPerFrame, active: true, hit: false, frame: 0, facing: 1, style: 'knowledge', sourceAttack: 'bombardment' });
   const hp = match.b.hp;
   stepMatch(match, neutral(), neutral());
   check('Phase passes through a knowledge core', match.b.hp === hp && match.projectiles.some((projectile) => projectile.style === 'knowledge'));

@@ -37,7 +37,7 @@ function pipeBotPlay(stream: Duplex, fingerprint: string | null, username: strin
     sock.write(JSON.stringify({ t: 'hello', trustedFp: fingerprint }) + '\n');
     stream.pipe(sock); sock.pipe(stream);   // bot stdin -> server, server -> bot stdout
   });
-  sock.on('error', () => { try { stream.write('{"t":"error","msg":"bot server unavailable"}\r\n'); } catch { /* ignore */ } closeBoth(); });
+  sock.on('error', () => { try { stream.write('{"t":"error","code":"bot_server_unavailable","msg":"bot server unavailable"}\r\n'); } catch { /* ignore */ } closeBoth(); });
   sock.on('close', closeBoth);
   stream.on('close', () => { try { sock.destroy(); } catch { /* ignore */ } });
   stream.on('error', () => { try { sock.destroy(); } catch { /* ignore */ } });
@@ -67,11 +67,11 @@ function mintTokenOverSsh(stream: Duplex, fingerprint: string | null, username: 
       `    {"t":"queue","char":"BYU","opponents":"all"}\n` +
       `    {"t":"joinLounge","char":"FABLE"}\n` +
       `  the server streams {"t":"state",...} each tick; reply {"t":"input",...}\n` +
-      `  (send {"t":"help"} for the full protocol)\n\n` +
+      `  (send {"t":"help"} for a command index; full spec: https://${PUBLIC_HOST}/bots)\n\n` +
       `Bot identities are labeled automatically. Choose opponents: all, humans, or bots.\n\n` +
       `REST API (match history, replays, stats, live):\n` +
       `  https://${PUBLIC_HOST}/api/\n\n` +
-      `Your api key authenticates the REST API and any direct TCP bot link.\n\n`,
+      `The REST API is public. Your api key is only for an operator-enabled direct TCP bot link.\n\n`,
       0,
     );
   } catch (e) {

@@ -7,8 +7,8 @@
 // cluster primary. Behind SF_BOT_PORT (default 8091; set 0 to disable).
 import { createServer, type Server, type Socket } from 'net';
 import { emptyInputs, type Inputs, type Match, type Fighter } from '../game/types.js';
-import { attackActive, specialMoveStats } from '../game/engine.js';
-import { SPECIAL_ATTACK_KINDS, type SpecialAttack } from '../game/moves.js';
+import { attackActive, movePhase } from '../game/engine.js';
+import { SPECIAL_ATTACK_KINDS } from '../game/moves.js';
 import { ROSTER } from '../game/roster.js';
 import { isBotAccessBlocked, markPlayerAsBot } from '../db/db.js';
 import { apiKeyLookup } from '../telemetry/store.js';
@@ -16,6 +16,7 @@ import { normalizeOpponentPool } from '../net/matchmaking.js';
 import { VERSION_INFO } from '../version.js';
 import type { P2W } from '../cluster/messages.js';
 import type { MatchCoordinator, WorkerRef } from '../cluster/coordinator.js';
+import { BOT_SCHEMA_PATH } from './bot-schema.js';
 
 const BOT_WORKER_ID = 900001;          // reserved id so bots don't collide with real workers (1..N)
 const MAX_LINE = 64 * 1024;
@@ -26,6 +27,7 @@ const BOT_BUILD = Object.freeze({
   dirty: VERSION_INFO.dirty,
   build: VERSION_INFO.build,
   protocol: VERSION_INFO.botProtocol,
+  schema: BOT_SCHEMA_PATH,
 });
 
 /** True for a connection from this host. The SSH `play` path pipes a key-verified
@@ -52,24 +54,40 @@ function fighterView(f: Fighter): object {
   //  active   — the hitbox is live right now
   //  casting  — a special is winding up (started but not yet active) → react now
   const special = SPECIAL_KINDS.has(f.attack);
-  const active = attackActive(f);
-  let casting = false;
-  if (special && !active) { try { casting = f.attackFrame < specialMoveStats(f.attack as SpecialAttack).startup; } catch { /* ignore */ } }
-  return { x: Math.round(f.x), y: Math.round(f.y), vx: Math.round(f.vx), vy: Math.round(f.vy),
+  const phase = movePhase(f);
+  const hitboxActive = attackActive(f);
+  const q = (n: number): number => Math.round(n * 100) / 100;
+  return { character: f.name, x: q(f.x), y: q(f.y), vx: q(f.vx), vy: q(f.vy),
     facing: f.facing, hp: f.hp, wins: f.wins, attack: f.attack, attackFrame: f.attackFrame,
-    stun: f.stun, pose: f.pose, crouching: f.crouching,
-    special, active, casting };
+    movePhase: phase, hitboxActive, attackConnected: f.attackHit,
+    stun: f.stun, blocking: f.blocking, invulnerable: f.phaseT > 0, invulnerabilityFrames: f.phaseT,
+    armored: f.armorT > 0, armorFrames: f.armorT, thrownFrames: f.thrownT,
+    actionable: f.hp > 0 && f.attack === 'none' && f.stun <= 0 && f.thrownT <= 0,
+    pose: f.pose, crouching: f.crouching,
+    special, active: hitboxActive, casting: special && phase === 'startup' };
 }
-function stateFor(c: Conn, m: Match, ack: number): object {
-  const you = c.role === 'a' ? m.a : m.b;
-  const opp = c.role === 'a' ? m.b : m.a;
+export function botStateFor(role: 'a' | 'b', m: Match, ack: number): Record<string, any> {
+  const you = role === 'a' ? m.a : m.b;
+  const opp = role === 'a' ? m.b : m.a;
   return { t: 'state', frame: m.frame, phase: m.phase, round: m.round, roundTime: Math.round(m.roundTime),
     hitStop: m.hitStop, ack, you: fighterView(you), opp: fighterView(opp),
-    projectiles: m.projectiles.filter((p) => p.active).map((p) => ({ owner: p.owner, x: Math.round(p.x), y: Math.round(p.y), vx: p.vx, style: p.style })) };
+    projectiles: m.projectiles.filter((p) => p.active).map((p) => ({
+      id: p.id, owner: p.owner, ownedBy: p.owner === role ? 'you' : 'opponent',
+      x: Math.round(p.x * 100) / 100, y: Math.round(p.y * 100) / 100,
+      vx: Math.round(p.vx * 100) / 100, vy: Math.round(p.vy * 100) / 100,
+      age: p.frame, ttl: p.life ?? null, style: p.style, sourceAttack: p.sourceAttack,
+      parentId: p.parentId ?? null,
+      state: p.style === 'construct' ? 'turret' : p.style === 'boomerang' ? (p.returning ? 'returning' : 'outbound') : 'traveling',
+      nextFireIn: p.style === 'construct' && (p.life ?? 0) > 6 ? (p.fireT ?? null) : null,
+      reflectable: p.style !== 'rope' && p.style !== 'construct',
+      dangerous: p.style !== 'construct', canHit: p.style !== 'construct' && !p.hit,
+    })) };
 }
 
 const HELP = {
   t: 'help',
+  protocol: VERSION_INFO.botProtocol,
+  schema: BOT_SCHEMA_PATH,
   send: {
     hello: '{"t":"hello","key":"rk_..."}  authenticate (key from: ssh host token)',
     queue: '{"t":"queue","char":"BYU","opponents":"all"}   enter matchmaking; opponents = all|humans|bots',
@@ -124,7 +142,7 @@ export function createBotServer(coord: MatchCoordinator): Server {
             stage: msg.stage, oppName: msg.oppName, oppCursor: msg.oppCursor,
             oppType: msg.oppIsBot ? 'bot' : 'human', ...BOT_BUILD,
           });
-        case 'state': return write(c, stateFor(c, msg.m, msg.ack));
+        case 'state': return write(c, botStateFor(c.role, msg.m, msg.ack));
         case 'matchEnd':
           c.mid = '';
           c.elo = msg.result.rating?.after ?? c.elo;
@@ -153,11 +171,11 @@ export function createBotServer(coord: MatchCoordinator): Server {
     if (t === 'ping') return write(c, { t: 'pong' });
     if (t === 'help') return write(c, HELP);
     if (t === 'hello') {
-      if (c.authed) return write(c, { t: 'error', msg: 'already authenticated' });
+      if (c.authed) return error(c, 'already_authenticated', 'already authenticated');
       let fp: string | null = null;
       if (msg.trustedFp && isLoopback(c.socket.remoteAddress)) fp = String(msg.trustedFp);   // SSH `play` pipe (key already verified)
       else { const row = apiKeyLookup(String(msg.key ?? '')); if (row) fp = row.fp; }
-      if (!fp) return void write(c, { t: 'error', msg: 'invalid api key — mint one with: ssh host token' });
+      if (!fp) return void error(c, 'invalid_api_key', 'invalid api key — mint one with: ssh host token');
       if (isBotAccessBlocked(fp)) {
         write(c, { t: 'error', code: 'access_blocked', msg: 'bot access temporarily disabled by the operator' });
         return void c.socket.end();
@@ -169,7 +187,7 @@ export function createBotServer(coord: MatchCoordinator): Server {
         roster: ROSTER.map((x) => x.name), channel: 'bot-api', playerType: 'bot', ...BOT_BUILD,
       });
     }
-    if (!c.authed) return write(c, { t: 'error', msg: 'send {"t":"hello","key":...} first' });
+    if (!c.authed) return error(c, 'authentication_required', 'send {"t":"hello","key":...} first');
 
     if (t === 'queue') {
       if (c.mid) return error(c, 'already_in_match', 'leave the current match before queueing');
@@ -236,7 +254,7 @@ export function createBotServer(coord: MatchCoordinator): Server {
       if (!c.mid) return;   // not in a match
       const input: Inputs = { ...emptyInputs(),
         moveX: Math.sign(Number(msg.moveX) || 0), down: !!msg.down, jump: !!msg.jump,
-        punch: !!msg.punch, kick: !!msg.kick, throw: !!msg.throw, motion: typeof msg.motion === 'string' ? msg.motion : '' };
+        punch: !!msg.punch, kick: !!msg.kick, throw: !!msg.throw, motion: typeof msg.motion === 'string' ? msg.motion : 'N' };
       coord.handle(botWorker, { t: 'input', mid: c.mid, sid: c.sid, input, seq: ++c.seq });
       return;
     }
@@ -247,7 +265,7 @@ export function createBotServer(coord: MatchCoordinator): Server {
       leaveLounge(c);
       return write(c, { t: 'left' });
     }
-    write(c, { t: 'error', msg: `unknown command: ${String(t)}` });
+    error(c, 'unknown_command', `unknown command: ${String(t)}`);
   };
 
   const server = createServer((socket) => {
@@ -264,14 +282,15 @@ export function createBotServer(coord: MatchCoordinator): Server {
     });
     socket.on('data', (chunk) => {
       c.buf += chunk.toString('utf8');
-      if (c.buf.length > MAX_LINE) { write(c, { t: 'error', msg: 'line too long' }); socket.destroy(); return; }
       let nl: number;
       while ((nl = c.buf.indexOf('\n')) >= 0) {
         const line = c.buf.slice(0, nl).trim(); c.buf = c.buf.slice(nl + 1);
         if (!line) continue;
+        if (Buffer.byteLength(line, 'utf8') > MAX_LINE) { error(c, 'line_too_long', 'line too long'); socket.destroy(); return; }
         try { handle(c, JSON.parse(line) as Record<string, unknown>); }
-        catch { write(c, { t: 'error', msg: 'invalid json' }); }
+        catch { error(c, 'invalid_json', 'invalid json'); }
       }
+      if (Buffer.byteLength(c.buf, 'utf8') > MAX_LINE) { error(c, 'line_too_long', 'line too long'); socket.destroy(); }
     });
     const cleanup = (): void => {
       if (!conns.has(c.sid)) return;

@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { createBotController, parseArgs } from './bot.mjs';
+import { createBotController, decide, parseArgs } from './bot.mjs';
 
 function harness(options = {}) {
   const sent = [];
@@ -56,5 +56,20 @@ assert.deepEqual(parseArgs(['--opponents', 'humans']), { opponents: 'humans' });
 assert.throws(() => parseArgs(['--matches', '0']), /positive integer/);
 assert.throws(() => parseArgs(['--opponents', 'guests']), /all, humans, or bots/);
 assert.throws(() => parseArgs(['--bogus']), /unknown option/);
+
+const projectileDecision = decide({
+  phase: 'fight',
+  you: { character: 'BYU', x: 80, y: 0, facing: 1 },
+  opp: { x: 150, y: 0, movePhase: 'neutral' },
+  projectiles: [{ id: 7, ownedBy: 'opponent', dangerous: true, x: 115, y: 28, vx: -3.2, vy: 0, style: 'mote', sourceAttack: 'construct' }],
+});
+assert.equal(projectileDecision.jump, true, 'example consumes hostile projectile trajectory');
+
+const startupDecision = decide({
+  phase: 'fight', projectiles: [],
+  you: { character: 'AJAX', x: 100, y: 0, facing: 1 },
+  opp: { x: 130, y: 0, movePhase: 'startup', invulnerable: false },
+});
+assert.equal(startupDecision.moveX, -1, 'example consumes explicit opponent move phase');
 
 console.log('EXAMPLE BOT TEST: PASS');

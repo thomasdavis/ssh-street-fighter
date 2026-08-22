@@ -60,6 +60,19 @@ try {
   const health = await request('/api/health');
   check('health advertises the same engine and build', health.status === 200
     && health.body.engine === VERSION_INFO.engine && health.body.build === VERSION_INFO.build);
+
+  const schema = await request('/api/bot/schema');
+  const definitions = schema.body.definitions as Record<string, any> | undefined;
+  const attacks = schema.body.attacks as Record<string, any> | undefined;
+  check('bot schema pins protocol and complete observation objects', schema.status === 200
+    && schema.body.protocolVersion === VERSION_INFO.botProtocol
+    && definitions?.fighter?.properties?.movePhase
+    && definitions?.projectile?.properties?.sourceAttack
+    && definitions?.projectile?.properties?.vy);
+  check('bot schema derives every roster fighter and move from engine truth',
+    attacks?.characters?.length === 18
+    && attacks.characters.find((character: Record<string, any>) => character.name === 'MNEME')
+      ?.specials.find((move: Record<string, any>) => move.id === 'construct')?.timingAndImpact?.impact.includes('turret'));
 } finally {
   await new Promise<void>((resolve) => server.close(() => resolve()));
 }

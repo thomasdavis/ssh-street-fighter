@@ -82,7 +82,7 @@ Options:
 // ---- a small quick-match brain ----
 const R = () => Math.random();
 export function decide(st) {
-  const { you, opp, phase } = st;
+  const { you, opp, phase, projectiles = [] } = st;
   const cmd = { t: 'input', moveX: 0, motion: 'N' };
   if (phase !== 'fight' || !you || !opp) return cmd;
 
@@ -92,6 +92,45 @@ export function decide(st) {
   const f = you.facing;
   const oppAir = opp.y > 8;
   const oppAttacking = opp.attack && opp.attack !== 'none';
+  const away = -towards;
+
+  // Protocol v2 tells us which projectiles are actually hostile, where they
+  // came from, and where they will be next. Ignore a turret body (dangerous is
+  // false) but react to its child motes and to reflected shots now owned by the
+  // opponent. This is intentionally simple; a trained bot should featurize id,
+  // sourceAttack, state, age, ttl, vx and vy instead of discarding them.
+  const threat = projectiles
+    .filter((p) => p?.ownedBy === 'opponent' && p.dangerous !== false && p.canHit !== false && Number.isFinite(p.x) && Number.isFinite(p.vx))
+    .map((p) => {
+      const eta = Math.abs(you.x - p.x) / Math.max(0.01, Math.abs(p.vx));
+      return { p, eta, projectedY: p.y + (p.vy || 0) * eta };
+    })
+    .filter(({ p, eta, projectedY }) => eta <= 18
+      && Math.sign(you.x - p.x) === Math.sign(p.vx)
+      && projectedY >= you.y - 8 && projectedY <= you.y + 58)
+    .sort((a, b) => a.eta - b.eta)[0];
+  if (threat) {
+    if (you.y <= 1 && threat.eta > 5 && threat.projectedY < 38 && threat.p.style !== 'knowledge') cmd.jump = true;
+    else cmd.moveX = away; // hold away: the engine derives blocking
+    return cmd;
+  }
+
+  // Do not swing into explicit invulnerability. A nearby startup is a concrete
+  // commitment; guard it rather than trying to infer timing from pose names.
+  if (opp.invulnerable || (dist < 48 && opp.movePhase === 'startup')) {
+    cmd.moveX = away;
+    return cmd;
+  }
+
+  // Only send the classic projectile motion to characters that actually own
+  // it. `character` is present on every state, so a configurable example never
+  // silently assumes it is BYU.
+  const projectileMotion = {
+    BYU: f === 1 ? 'DR' : 'DL', MEN: f === 1 ? 'DR' : 'DL',
+    CHONG: f === 1 ? 'DR' : 'DL', GYLE: f === 1 ? 'LR' : 'RL',
+    DHAL: f === 1 ? 'DR' : 'DL', KIRA: f === 1 ? 'DR' : 'DL',
+    MAKO: f === 1 ? 'DR' : 'DL', MEGAWATTS: f === 1 ? 'DR' : 'DL',
+  }[you.character];
 
   if (oppAir && dist < 58) {
     cmd.motion = f === 1 ? 'RDR' : 'LDL'; cmd.punch = true;
@@ -102,7 +141,7 @@ export function decide(st) {
     cmd.moveX = towards;
     if (R() < 0.04) { cmd.motion = f === 1 ? 'DL' : 'DR'; cmd.kick = true; }
   } else {
-    if (R() < 0.28) { cmd.motion = f === 1 ? 'DR' : 'DL'; cmd.punch = true; }
+    if (projectileMotion && R() < 0.28) { cmd.motion = projectileMotion; cmd.punch = true; }
     else cmd.moveX = towards;
     if (R() < 0.03) cmd.jump = true;
   }

@@ -90,7 +90,7 @@
         "stats": {
           "startup": 11,
           "active": 1,
-          "recovery": 21,
+          "recovery": 20,
           "damagePerHit": 12,
           "maxHits": 1,
           "maxDamage": 12,
@@ -221,7 +221,7 @@
         "stats": {
           "startup": 11,
           "active": 1,
-          "recovery": 21,
+          "recovery": 20,
           "damagePerHit": 12,
           "maxHits": 1,
           "maxDamage": 12,
@@ -461,7 +461,7 @@
         "stats": {
           "startup": 11,
           "active": 1,
-          "recovery": 21,
+          "recovery": 20,
           "damagePerHit": 12,
           "maxHits": 1,
           "maxDamage": 12,
@@ -593,7 +593,7 @@
         "stats": {
           "startup": 11,
           "active": 1,
-          "recovery": 21,
+          "recovery": 20,
           "damagePerHit": 12,
           "maxHits": 1,
           "maxDamage": 12,
@@ -857,7 +857,7 @@
         "stats": {
           "startup": 11,
           "active": 1,
-          "recovery": 21,
+          "recovery": 20,
           "damagePerHit": 12,
           "maxHits": 1,
           "maxDamage": 12,
@@ -1147,7 +1147,7 @@
         "stats": {
           "startup": 11,
           "active": 1,
-          "recovery": 21,
+          "recovery": 20,
           "damagePerHit": 12,
           "maxHits": 1,
           "maxDamage": 12,
@@ -1250,7 +1250,7 @@
         "stats": {
           "startup": 11,
           "active": 1,
-          "recovery": 21,
+          "recovery": 20,
           "damagePerHit": 12,
           "maxHits": 1,
           "maxDamage": 12,
@@ -1778,15 +1778,15 @@
           "construct"
         ],
         "stats": {
-          "startup": 8,
-          "active": 18,
-          "recovery": 12,
-          "damagePerHit": 4,
-          "maxHits": 3,
-          "maxDamage": 12,
+          "startup": 12,
+          "active": 1,
+          "recovery": 19,
+          "damagePerHit": 5,
+          "maxHits": 4,
+          "maxDamage": 20,
           "chipPerHit": 1,
-          "range": 96,
-          "impact": "Pulling gravity field"
+          "range": 196,
+          "impact": "Persistent turret; fires every 16 frames"
         }
       },
       {
@@ -1805,15 +1805,15 @@
           "nova"
         ],
         "stats": {
-          "startup": 8,
-          "active": 18,
-          "recovery": 12,
-          "damagePerHit": 4,
-          "maxHits": 3,
-          "maxDamage": 12,
-          "chipPerHit": 1,
-          "range": 96,
-          "impact": "Pulling gravity field"
+          "startup": 6,
+          "active": 8,
+          "recovery": 16,
+          "damagePerHit": 13,
+          "maxHits": 1,
+          "maxDamage": 13,
+          "chipPerHit": 3,
+          "range": 46,
+          "impact": "Invulnerable radial reversal"
         }
       },
       {
@@ -1831,15 +1831,15 @@
           "volley"
         ],
         "stats": {
-          "startup": 8,
-          "active": 18,
-          "recovery": 12,
-          "damagePerHit": 4,
+          "startup": 11,
+          "active": 1,
+          "recovery": 22,
+          "damagePerHit": 5,
           "maxHits": 3,
-          "maxDamage": 12,
+          "maxDamage": 15,
           "chipPerHit": 1,
-          "range": 96,
-          "impact": "Pulling gravity field"
+          "range": 196,
+          "impact": "Three-lane projectile spread"
         }
       }
     ]
@@ -1905,15 +1905,15 @@
           "boomerang"
         ],
         "stats": {
-          "startup": 8,
-          "active": 18,
-          "recovery": 12,
-          "damagePerHit": 4,
-          "maxHits": 3,
-          "maxDamage": 12,
-          "chipPerHit": 1,
-          "range": 96,
-          "impact": "Pulling gravity field"
+          "startup": 9,
+          "active": 1,
+          "recovery": 23,
+          "damagePerHit": 9,
+          "maxHits": 2,
+          "maxDamage": 18,
+          "chipPerHit": 3,
+          "range": 120,
+          "impact": "Returning projectile; can hit outbound and returning"
         }
       },
       {
@@ -1931,15 +1931,15 @@
           "armor"
         ],
         "stats": {
-          "startup": 8,
-          "active": 18,
-          "recovery": 12,
-          "damagePerHit": 4,
-          "maxHits": 3,
-          "maxDamage": 12,
-          "chipPerHit": 1,
-          "range": 96,
-          "impact": "Pulling gravity field"
+          "startup": 11,
+          "active": 6,
+          "recovery": 15,
+          "damagePerHit": 15,
+          "maxHits": 1,
+          "maxDamage": 15,
+          "chipPerHit": 4,
+          "range": 40,
+          "impact": "Super-armored strike"
         }
       },
       {
@@ -1957,15 +1957,15 @@
           "lasso"
         ],
         "stats": {
-          "startup": 8,
-          "active": 18,
-          "recovery": 12,
-          "damagePerHit": 4,
-          "maxHits": 3,
-          "maxDamage": 12,
-          "chipPerHit": 1,
-          "range": 96,
-          "impact": "Pulling gravity field"
+          "startup": 12,
+          "active": 1,
+          "recovery": 27,
+          "damagePerHit": 6,
+          "maxHits": 1,
+          "maxDamage": 6,
+          "chipPerHit": 2,
+          "range": 114.4,
+          "impact": "Short-lived pulling projectile"
         }
       }
     ]
@@ -2031,15 +2031,15 @@
           "phase"
         ],
         "stats": {
-          "startup": 8,
-          "active": 18,
-          "recovery": 12,
-          "damagePerHit": 4,
-          "maxHits": 3,
+          "startup": 5,
+          "active": 8,
+          "recovery": 14,
+          "damagePerHit": 12,
+          "maxHits": 1,
           "maxDamage": 12,
-          "chipPerHit": 1,
-          "range": 96,
-          "impact": "Pulling gravity field"
+          "chipPerHit": 3,
+          "range": 34,
+          "impact": "Intangible cross-through dash"
         }
       },
       {
@@ -2058,15 +2058,15 @@
           "reflect"
         ],
         "stats": {
-          "startup": 8,
-          "active": 18,
-          "recovery": 12,
-          "damagePerHit": 4,
-          "maxHits": 3,
-          "maxDamage": 12,
-          "chipPerHit": 1,
-          "range": 96,
-          "impact": "Pulling gravity field"
+          "startup": 4,
+          "active": 15,
+          "recovery": 10,
+          "damagePerHit": 0,
+          "maxHits": 0,
+          "maxDamage": 0,
+          "chipPerHit": 0,
+          "range": 0,
+          "impact": "Intangible projectile reflection window"
         }
       },
       {
@@ -2084,15 +2084,15 @@
           "blink"
         ],
         "stats": {
-          "startup": 8,
-          "active": 18,
-          "recovery": 12,
-          "damagePerHit": 4,
-          "maxHits": 3,
-          "maxDamage": 12,
-          "chipPerHit": 1,
-          "range": 96,
-          "impact": "Pulling gravity field"
+          "startup": 3,
+          "active": 5,
+          "recovery": 16,
+          "damagePerHit": 13,
+          "maxHits": 1,
+          "maxDamage": 13,
+          "chipPerHit": 3,
+          "range": 34,
+          "impact": "Teleporting gap-close strike"
         }
       }
     ]
@@ -2161,7 +2161,7 @@
         "stats": {
           "startup": 11,
           "active": 1,
-          "recovery": 21,
+          "recovery": 20,
           "damagePerHit": 12,
           "maxHits": 1,
           "maxDamage": 12,

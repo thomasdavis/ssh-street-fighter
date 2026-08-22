@@ -23,6 +23,7 @@ const BODY_HALF = 10;        // half body width for separation
 
 // --- attacks: startup -> active -> recovery (frames @30Hz) ---
 export interface AttackSpec { startup: number; active: number; recovery: number; dmg: number; range: number; reach: number; kb: number; chip: number; }
+export type MovePhase = 'neutral' | 'startup' | 'active' | 'recovery';
 export const ATTACKS: Record<'punch' | 'kick', AttackSpec> = {
   punch: { startup: 3, active: 3, recovery: 7, dmg: 8, range: 30, reach: 22, kb: 2.2, chip: 2 },
   kick: { startup: 6, active: 4, recovery: 11, dmg: 13, range: 42, reach: 30, kb: 3.6, chip: 3 },
@@ -83,6 +84,24 @@ export function attackActive(f: Fighter): boolean {
   if (f.attack === 'blink') return f.attackFrame >= BLINK.startup && f.attackFrame < BLINK.startup + BLINK.active;
   if (f.attack === 'jumpkick') return f.attackFrame >= JUMPKICK.startup && f.attackFrame < JUMPKICK.startup + JUMPKICK.active;
   return false; // construct / volley / boomerang have no melee hitbox — they spawn projectiles
+}
+
+/** Stable phase labels for agents and tooling. `active` describes move timing;
+ *  use `attackActive()` to determine whether a melee hitbox is actually live. */
+export function movePhase(f: Fighter): MovePhase {
+  if (f.attack === 'none') return 'neutral';
+  let startup: number;
+  let active: number;
+  if (f.attack === 'punch' || f.attack === 'kick') {
+    ({ startup, active } = ATTACKS[f.attack]);
+  } else if (f.attack === 'throw') {
+    ({ startup, active } = THROW);
+  } else {
+    ({ startup, active } = specialMoveStats(f.attack));
+  }
+  if (f.attackFrame < startup) return 'startup';
+  if (f.attackFrame < startup + active) return 'active';
+  return 'recovery';
 }
 
 // --- special moves ---
@@ -159,7 +178,7 @@ export interface SpecialMoveStats {
 
 /** Public combat numbers used by tests and character profiles. */
 export function specialMoveStats(attack: SpecialAttack): SpecialMoveStats {
-  if (attack === 'hadouken') return { startup: HAD.spawn, active: 1, recovery: HAD.total - HAD.spawn, damagePerHit: FIRE_DMG, maxHits: 1, maxDamage: FIRE_DMG, chipPerHit: FIRE_CHIP, range: STAGE_RIGHT - STAGE_LEFT, impact: 'Traveling projectile' };
+  if (attack === 'hadouken') return { startup: HAD.spawn, active: 1, recovery: HAD.total - HAD.spawn - 1, damagePerHit: FIRE_DMG, maxHits: 1, maxDamage: FIRE_DMG, chipPerHit: FIRE_CHIP, range: STAGE_RIGHT - STAGE_LEFT, impact: 'Traveling projectile' };
   if (attack === 'shoryuken') return { startup: SHORYU.startup, active: SHORYU.active, recovery: SHORYU.recovery, damagePerHit: SHORYU.dmg, maxHits: 1, maxDamage: SHORYU.dmg, chipPerHit: SHORYU.chip, range: SHORYU.range, impact: 'Rising launcher' };
   if (attack === 'hurricane') { const hits = Math.ceil(HURRI.active / HURRI.hitEvery); return { startup: HURRI.startup, active: HURRI.active, recovery: HURRI.recovery, damagePerHit: HURRI.dmg, maxHits: hits, maxDamage: HURRI.dmg * hits, chipPerHit: HURRI.chip, range: HURRI.range, impact: 'Traveling multi-hit' }; }
   if (attack === 'electric') { const hits = Math.ceil(ELECTRIC.active / ELECTRIC.hitEvery); return { startup: ELECTRIC.startup, active: ELECTRIC.active, recovery: ELECTRIC.recovery, damagePerHit: ELECTRIC.dmg, maxHits: hits, maxDamage: ELECTRIC.dmg * hits, chipPerHit: ELECTRIC.chip, range: ELECTRIC.range, impact: 'Close multi-hit field' }; }
@@ -167,17 +186,29 @@ export function specialMoveStats(attack: SpecialAttack): SpecialMoveStats {
   if (attack === 'verticalroll') return { startup: VERTICAL_ROLL.startup, active: VERTICAL_ROLL.active, recovery: VERTICAL_ROLL.recovery, damagePerHit: VERTICAL_ROLL.dmg, maxHits: 1, maxDamage: VERTICAL_ROLL.dmg, chipPerHit: VERTICAL_ROLL.chip, range: VERTICAL_ROLL.range, impact: 'Vertical launcher' };
   if (attack === 'testimony') return { startup: TESTIMONY.startup, active: TESTIMONY.active, recovery: TESTIMONY.recovery, damagePerHit: TESTIMONY.dmg, maxHits: 1, maxDamage: TESTIMONY.dmg, chipPerHit: TESTIMONY.chip, range: TESTIMONY.range, impact: 'Instant screen beam' };
   if (attack === 'nullstep') return { startup: NULL_STEP.startup, active: NULL_STEP.active, recovery: NULL_STEP.recovery, damagePerHit: NULL_STEP.dmg, maxHits: 1, maxDamage: NULL_STEP.dmg, chipPerHit: NULL_STEP.chip, range: NULL_STEP.range, impact: 'Phase-through cross-up' };
+  if (attack === 'entropy') { const hits = Math.ceil(ENTROPY.active / ENTROPY.hitEvery); return { startup: ENTROPY.startup, active: ENTROPY.active, recovery: ENTROPY.recovery, damagePerHit: ENTROPY.dmg, maxHits: hits, maxDamage: ENTROPY.dmg * hits, chipPerHit: ENTROPY.chip, range: ENTROPY.range, impact: 'Pulling gravity field' }; }
   if (attack === 'context') return { startup: CONTEXT.startup, active: CONTEXT.active, recovery: CONTEXT.recovery, damagePerHit: CONTEXT.dmg, maxHits: 1, maxDamage: CONTEXT.dmg, chipPerHit: CONTEXT.chip, range: CONTEXT.range, impact: 'Ultra-high evasive ascent' };
   if (attack === 'branchwalk') return { startup: BRANCHWALK.startup, active: BRANCHWALK.active, recovery: BRANCHWALK.recovery, damagePerHit: BRANCHWALK.dmg, maxHits: 1, maxDamage: BRANCHWALK.dmg, chipPerHit: BRANCHWALK.chip, range: BRANCHWALK.range, impact: 'Committing aerial glide' };
   if (attack === 'mergecomet') return { startup: MERGE_COMET.startup, active: MERGE_COMET.active, recovery: MERGE_COMET.recovery, damagePerHit: MERGE_COMET.dmg, maxHits: 1, maxDamage: MERGE_COMET.maxDmg, chipPerHit: MERGE_COMET.maxChip, range: MERGE_COMET.maxRange, impact: 'Velocity-weighted gravity dive' };
+  if (attack === 'throw') return { startup: THROW.startup, active: THROW.active, recovery: THROW.recovery, damagePerHit: THROW.dmg, maxHits: 1, maxDamage: THROW.dmg, chipPerHit: 0, range: THROW.range, impact: 'Close unblockable grab' };
   if (attack === 'storyarc') return { startup: STORY_ARC.startup, active: STORY_ARC.active, recovery: STORY_ARC.recovery, damagePerHit: STORY_ARC.dmg, maxHits: 1, maxDamage: STORY_ARC.dmg, chipPerHit: STORY_ARC.chip, range: STORY_ARC.range, impact: 'Soaring evasive arc' };
   if (attack === 'plottwist') return { startup: PLOT_TWIST.startup, active: PLOT_TWIST.active, recovery: PLOT_TWIST.recovery, damagePerHit: PLOT_TWIST.dmg, maxHits: 1, maxDamage: PLOT_TWIST.dmg, chipPerHit: PLOT_TWIST.chip, range: PLOT_TWIST.range, impact: 'Backstep feint lunge' };
   if (attack === 'inktempest') { const hits = Math.ceil(INK_TEMPEST.active / INK_TEMPEST.hitEvery); return { startup: INK_TEMPEST.startup, active: INK_TEMPEST.active, recovery: INK_TEMPEST.recovery, damagePerHit: INK_TEMPEST.dmg, maxHits: hits, maxDamage: INK_TEMPEST.dmg * hits, chipPerHit: INK_TEMPEST.chip, range: INK_TEMPEST.range, impact: 'Close multi-hit flurry' }; }
+  if (attack === 'construct') { const shots = Math.floor((CONSTRUCT.life - 1) / CONSTRUCT.fireEvery); return { startup: CONSTRUCT.spawn, active: 1, recovery: CONSTRUCT.total - CONSTRUCT.spawn - 1, damagePerHit: MOTE.dmg, maxHits: shots, maxDamage: MOTE.dmg * shots, chipPerHit: MOTE.chip, range: STAGE_RIGHT - STAGE_LEFT, impact: `Persistent turret; fires every ${CONSTRUCT.fireEvery} frames` }; }
+  if (attack === 'nova') return { startup: NOVA.startup, active: NOVA.active, recovery: NOVA.recovery, damagePerHit: NOVA.dmg, maxHits: 1, maxDamage: NOVA.dmg, chipPerHit: NOVA.chip, range: NOVA.range, impact: 'Invulnerable radial reversal' };
+  if (attack === 'volley') return { startup: VOLLEY.spawn, active: 1, recovery: VOLLEY.total - VOLLEY.spawn - 1, damagePerHit: MOTE.dmg, maxHits: VOLLEY.count, maxDamage: MOTE.dmg * VOLLEY.count, chipPerHit: MOTE.chip, range: STAGE_RIGHT - STAGE_LEFT, impact: 'Three-lane projectile spread' };
+  if (attack === 'boomerang') return { startup: BOOMERANG.spawn, active: 1, recovery: BOOMERANG.total - BOOMERANG.spawn - 1, damagePerHit: BOOMERANG.dmg, maxHits: 2, maxDamage: BOOMERANG.dmg * 2, chipPerHit: BOOMERANG.chip, range: BOOMERANG.reach, impact: 'Returning projectile; can hit outbound and returning' };
+  if (attack === 'armor') return { startup: ARMOR.startup, active: ARMOR.active, recovery: ARMOR.recovery, damagePerHit: ARMOR.dmg, maxHits: 1, maxDamage: ARMOR.dmg, chipPerHit: ARMOR.chip, range: ARMOR.range, impact: 'Super-armored strike' };
+  if (attack === 'phase') return { startup: PHASE.startup, active: PHASE.active, recovery: PHASE.recovery, damagePerHit: PHASE.dmg, maxHits: 1, maxDamage: PHASE.dmg, chipPerHit: PHASE.chip, range: PHASE.range, impact: 'Intangible cross-through dash' };
+  if (attack === 'lasso') return { startup: LASSO.spawn, active: 1, recovery: LASSO.total - LASSO.spawn - 1, damagePerHit: LASSO.dmg, maxHits: 1, maxDamage: LASSO.dmg, chipPerHit: LASSO.chip, range: LASSO.speed * LASSO.life, impact: 'Short-lived pulling projectile' };
+  if (attack === 'reflect') return { startup: REFLECT.startup, active: REFLECT.active, recovery: REFLECT.recovery, damagePerHit: 0, maxHits: 0, maxDamage: 0, chipPerHit: 0, range: 0, impact: 'Intangible projectile reflection window' };
+  if (attack === 'blink') return { startup: BLINK.startup, active: BLINK.active, recovery: BLINK.recovery, damagePerHit: BLINK.dmg, maxHits: 1, maxDamage: BLINK.dmg, chipPerHit: BLINK.chip, range: BLINK.range, impact: 'Teleporting gap-close strike' };
+  if (attack === 'jumpkick') return { startup: JUMPKICK.startup, active: JUMPKICK.active, recovery: JUMPKICK.recovery, damagePerHit: JUMPKICK.dmg, maxHits: 1, maxDamage: JUMPKICK.dmg, chipPerHit: JUMPKICK.chip, range: JUMPKICK.range, impact: 'Aerial normal with a tall hitbox' };
   if (attack === 'stream') { const active = (STREAM.count - 1) * STREAM.spawnEvery + 1; return { startup: STREAM.spawn, active, recovery: STREAM.total - STREAM.spawn - active, damagePerHit: MOTE.dmg, maxHits: STREAM.count, maxDamage: MOTE.dmg * STREAM.count, chipPerHit: MOTE.chip, range: STAGE_RIGHT - STAGE_LEFT, impact: 'Sequential projectile stream' }; }
   if (attack === 'freetier') return { startup: FREETIER.startup, active: FREETIER.active, recovery: FREETIER.recovery, damagePerHit: 0, maxHits: 0, maxDamage: 0, chipPerHit: 0, range: 0, impact: `Restores ${FREETIER.heal} health on completion` };
   if (attack === 'bombardment') return { startup: BOMBARDMENT.firstSpawn, active: BOMBARDMENT.secondSpawn - BOMBARDMENT.firstSpawn + 1, recovery: BOMBARDMENT.total - BOMBARDMENT.secondSpawn - 1, damagePerHit: BOMBARDMENT.dmg, maxHits: 2, maxDamage: BOMBARDMENT.dmg * 2, chipPerHit: BOMBARDMENT.chip, range: STAGE_RIGHT - STAGE_LEFT, impact: 'Two staggered fixed-diagonal projectiles' };
-  const hits = Math.ceil(ENTROPY.active / ENTROPY.hitEvery);
-  return { startup: ENTROPY.startup, active: ENTROPY.active, recovery: ENTROPY.recovery, damagePerHit: ENTROPY.dmg, maxHits: hits, maxDamage: ENTROPY.dmg * hits, chipPerHit: ENTROPY.chip, range: ENTROPY.range, impact: 'Pulling gravity field' };
+  const exhaustive: never = attack;
+  throw new Error(`missing public move stats for ${String(exhaustive)}`);
 }
 
 interface MeleeSpec { dmg: number; range: number; kb: number; chip: number; vert: number; omni?: boolean }
@@ -267,8 +298,8 @@ export function attackExtension(f: Fighter): number {
 
 const HIT_STUN = 12;
 const BLOCK_STUN = 7;
-const ROUND_SECONDS = 60;
-const WINS_TO_TAKE_MATCH = 2;
+export const ROUND_SECONDS = 60;
+export const WINS_TO_TAKE_MATCH = 2;
 
 export function makeFighter(id: string, name: string, side: 'a' | 'b', palette?: FighterPalette): Fighter {
   const isA = side === 'a';
@@ -287,7 +318,7 @@ export function makeFighter(id: string, name: string, side: 'a' | 'b', palette?:
 }
 
 export function makeMatch(a: Fighter, b: Fighter): Match {
-  return { a, b, phase: 'countdown', phaseTimer: TICK_HZ * 3, roundTime: ROUND_SECONDS, round: 1, message: 'ROUND 1', frame: 0, stage: STAGES.pick(), projectiles: [], hitStop: 0, sparks: [] };
+  return { a, b, phase: 'countdown', phaseTimer: TICK_HZ * 3, roundTime: ROUND_SECONDS, round: 1, message: 'ROUND 1', frame: 0, stage: STAGES.pick(), projectiles: [], nextProjectileId: 1, hitStop: 0, sparks: [] };
 }
 
 function resetRound(m: Match): void {
@@ -619,49 +650,63 @@ function stepSparks(m: Match): void {
 
 function spawnFireball(m: Match, f: Fighter, owner: 'a' | 'b'): void {
   const style = specialMoveForAttack(f.name, 'hadouken')?.projectile ?? 'blue';
-  m.projectiles.push({ owner, x: f.x + f.facing * 16, y: 30, vx: f.facing * FIRE_SPEED, active: true, hit: false, frame: 0, facing: f.facing, style });
+  m.projectiles.push({ id: m.nextProjectileId++, owner, x: f.x + f.facing * 16, y: 30,
+    vx: f.facing * FIRE_SPEED, vy: 0, active: true, hit: false, frame: 0,
+    facing: f.facing, style, sourceAttack: 'hadouken' });
 }
 // MEGAWATTS — a conventional projectile released from the current jump arc.
 // Its vertical component is the fixed per-frame diagonal below; no projectile
 // physics or persistent ground state is introduced.
 function spawnKnowledgeCore(m: Match, f: Fighter, owner: 'a' | 'b'): void {
   m.projectiles.push({
-    owner, x: f.x + f.facing * 7, y: Math.max(18, f.y + 8),
-    vx: f.facing * BOMBARDMENT.projectileVx,
-    active: true, hit: false, frame: 0, facing: f.facing, style: 'knowledge',
+    id: m.nextProjectileId++, owner, x: f.x + f.facing * 7, y: Math.max(18, f.y + 8),
+    vx: f.facing * BOMBARDMENT.projectileVx, vy: -BOMBARDMENT.dropPerFrame,
+    active: true, hit: false, frame: 0, facing: f.facing, style: 'knowledge', sourceAttack: 'bombardment',
   });
 }
 // AJAX — a boomerang thrown flat that flies out to a fixed reach, reverses, and homes back.
 function spawnBoomerang(m: Match, f: Fighter, owner: 'a' | 'b'): void {
   const x0 = f.x + f.facing * 16;
-  m.projectiles.push({ owner, x: x0, x0, y: 34, vx: f.facing * BOOMERANG.speed, active: true, hit: false, frame: 0, facing: f.facing, style: 'boomerang', returning: false });
+  m.projectiles.push({ id: m.nextProjectileId++, owner, x: x0, x0, y: 34,
+    vx: f.facing * BOOMERANG.speed, vy: 0, active: true, hit: false, frame: 0,
+    facing: f.facing, style: 'boomerang', sourceAttack: 'boomerang', returning: false });
 }
 // AJAX — a LASSO: a short-range rope hook that yanks a caught rival back in.
 function spawnLasso(m: Match, f: Fighter, owner: 'a' | 'b'): void {
-  m.projectiles.push({ owner, x: f.x + f.facing * 16, y: 32, vx: f.facing * LASSO.speed, active: true, hit: false, frame: 0, facing: f.facing, style: 'rope', life: LASSO.life });
+  m.projectiles.push({ id: m.nextProjectileId++, owner, x: f.x + f.facing * 16, y: 32,
+    vx: f.facing * LASSO.speed, vy: 0, active: true, hit: false, frame: 0,
+    facing: f.facing, style: 'rope', sourceAttack: 'lasso', life: LASSO.life });
 }
 // MNEME — a SENTINEL construct: stationary, capped, spits homing motes on a timer.
 function spawnConstruct(m: Match, f: Fighter, owner: 'a' | 'b'): void {
   const mine = m.projectiles.filter((p) => p.active && p.owner === owner && p.style === 'construct').length;
   if (mine >= CONSTRUCT.maxActive) return;
   const x = Math.max(STAGE_LEFT + 8, Math.min(STAGE_RIGHT - 8, f.x + f.facing * 22));
-  m.projectiles.push({ owner, x, y: 26, vx: 0, active: true, hit: false, frame: 0, facing: f.facing, style: 'construct', life: CONSTRUCT.life, fireT: CONSTRUCT.fireEvery });
+  m.projectiles.push({ id: m.nextProjectileId++, owner, x, y: 26, vx: 0, vy: 0,
+    active: true, hit: false, frame: 0, facing: f.facing, style: 'construct',
+    sourceAttack: 'construct', life: CONSTRUCT.life, fireT: CONSTRUCT.fireEvery });
 }
 // UNCLOSE — one TOKEN STREAM mote, loosed mid-lane; successive spawns stay spaced.
 function spawnStreamMote(m: Match, f: Fighter, owner: 'a' | 'b'): void {
-  m.projectiles.push({ owner, x: f.x + f.facing * 16, y: 30, vx: f.facing * STREAM.speed, active: true, hit: false, frame: 0, facing: f.facing, style: 'mote', life: 120 });
+  m.projectiles.push({ id: m.nextProjectileId++, owner, x: f.x + f.facing * 16, y: 30,
+    vx: f.facing * STREAM.speed, vy: 0, active: true, hit: false, frame: 0,
+    facing: f.facing, style: 'mote', sourceAttack: 'stream', life: 120 });
 }
 // shared — a VOLLEY: three motes loosed in a low/mid/high spread.
 function spawnVolley(m: Match, f: Fighter, owner: 'a' | 'b'): void {
   const ys = [18, 32, 46];
   for (let i = 0; i < VOLLEY.count; i++)
-    m.projectiles.push({ owner, x: f.x + f.facing * 16, y: ys[i] ?? 32, vx: f.facing * (VOLLEY.speed - i * 0.25), active: true, hit: false, frame: 0, facing: f.facing, style: 'mote', life: 120 });
+    m.projectiles.push({ id: m.nextProjectileId++, owner, x: f.x + f.facing * 16, y: ys[i] ?? 32,
+      vx: f.facing * (VOLLEY.speed - i * 0.25), vy: 0, active: true, hit: false,
+      frame: 0, facing: f.facing, style: 'mote', sourceAttack: 'volley', life: 120 });
 }
 // a construct's outgoing mote, aimed at whichever side the rival is on.
 function fireMote(m: Match, c: Projectile): void {
   const def = c.owner === 'a' ? m.b : m.a;
   const dir = (def.x >= c.x ? 1 : -1) as 1 | -1;
-  m.projectiles.push({ owner: c.owner, x: c.x + dir * 6, y: c.y, vx: dir * MOTE.speed, active: true, hit: false, frame: 0, facing: dir, style: 'mote', life: MOTE.life });
+  m.projectiles.push({ id: m.nextProjectileId++, owner: c.owner, x: c.x + dir * 6, y: c.y,
+    vx: dir * MOTE.speed, vy: 0, active: true, hit: false, frame: 0, facing: dir,
+    style: 'mote', sourceAttack: 'construct', parentId: c.id, life: MOTE.life });
 }
 
 function stepProjectiles(m: Match): void {
@@ -691,7 +736,7 @@ function stepProjectiles(m: Match): void {
       }
     } else {
       p.x += p.vx;
-      if (p.style === 'knowledge') p.y -= BOMBARDMENT.dropPerFrame;
+      p.y += p.vy;
       if ((p.style === 'mote' || p.style === 'rope') && p.life !== undefined) { p.life--; if (p.life <= 0) { p.active = false; continue; } }
       if (p.x < STAGE_LEFT - 24 || p.x > STAGE_RIGHT + 24 || (p.style === 'knowledge' && p.y < -6)) { p.active = false; continue; }
     }

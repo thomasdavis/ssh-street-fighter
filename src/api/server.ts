@@ -11,6 +11,7 @@ import { simulateReplay, replayMatchAtFrame, type Track } from '../telemetry/rep
 import { composeScene } from '../game/scene.js';
 import { WORLD_W, WORLD_H } from '../game/engine.js';
 import type { MatchCoordinator } from '../cluster/coordinator.js';
+import { botApiSchema } from './bot-schema.js';
 
 // Render a stored replay frame server-side (same pixel renderer as SSH play) into
 // a shareable PNG — used for per-replay Open Graph / Twitter share images.
@@ -55,6 +56,8 @@ function route(coord: MatchCoordinator | null, req: IncomingMessage, res: Server
 
   if (p === '/version' || p === '/api/version')
     return send(res, 200, { ok: true, service: 'sshfighter', ...VERSION_INFO });
+
+  if (p === '/api/bot/schema') return send(res, 200, botApiSchema());
 
   if (p === '/' || p === '/api' || p === '/api/health')
     return send(res, 200, {

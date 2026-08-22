@@ -22,11 +22,12 @@
     "test:coordinator": "tsx src/coordinator-test.ts",
     "test:matchmaking": "tsx src/matchmaking-test.ts",
     "test:bot": "tsx src/bot-server-test.ts",
+    "test:bot-observation": "tsx src/bot-observation-test.ts",
     "test:version": "tsx src/version-test.ts",
     "test:newwave": "tsx src/newwave-test.ts",
     "test:megawatts": "tsx src/megawatts-test.ts",
     "test:example-bot": "node examples/bot-test.mjs",
-    "test": "pnpm typecheck && pnpm test:engine && pnpm test:assets && pnpm test:db && pnpm test:input && pnpm test:kitty && pnpm test:caps && pnpm test:renderer && pnpm test:render && pnpm test:hud && pnpm test:telemetry && pnpm test:recorder && pnpm test:matchmaking && pnpm test:coordinator && pnpm test:bot && pnpm test:version && pnpm test:newwave && pnpm test:megawatts && pnpm test:example-bot",
+    "test": "pnpm typecheck && pnpm test:engine && pnpm test:assets && pnpm test:db && pnpm test:input && pnpm test:kitty && pnpm test:caps && pnpm test:renderer && pnpm test:render && pnpm test:hud && pnpm test:telemetry && pnpm test:recorder && pnpm test:matchmaking && pnpm test:coordinator && pnpm test:bot && pnpm test:bot-observation && pnpm test:version && pnpm test:newwave && pnpm test:megawatts && pnpm test:example-bot",
     "test:e2e": "tsx src/navigation-test.ts && tsx src/social-test.ts && tsx src/ssh-test.ts && tsx src/practice-test.ts",
     "render-test": "tsx src/render-test.ts",
     "keygen": "mkdir -p keys && if [ ! -f keys/host.key ]; then ssh-keygen -t ed25519 -f keys/host.key -N \"\"; fi"
