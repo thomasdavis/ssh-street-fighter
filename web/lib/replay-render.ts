@@ -31,6 +31,9 @@ export const CW = 960, CH = 640;
 export const spriteUrl = (char: string, name: string, ver?: number) =>
   `/api/sprite/${encodeURIComponent(char)}/${name}${ver ? `?v=${ver}` : ''}`;
 export const stageUrl = (stage: string) => `/api/stage/${encodeURIComponent(stage)}`;
+const PROJECTILE_STYLES = ['blue', 'fire', 'sonic', 'citation', 'knowledge', 'mote', 'construct', 'rope', 'boomerang'] as const;
+const PROJECTILE_ART_VERSION = 1;
+const projectileUrl = (style: string) => `/api/projectile/${encodeURIComponent(style)}?v=${PROJECTILE_ART_VERSION}`;
 const projColor = (s: string) => (s === 'fire' ? '#ff7a3c' : s === 'sonic' ? '#8fe0ff' : s === 'mote' ? '#c49bff' : s === 'boomerang' ? '#e0a84a' : s === 'rope' ? '#c48a4a' : s === 'citation' ? '#ffc436' : s === 'knowledge' ? '#8e42f5' : '#6fa8ff');
 const imgOk = (i?: HTMLImageElement | null) => !!i && i.complete && i.naturalWidth > 0;
 
@@ -42,6 +45,11 @@ export function ensureImages(meta: RenderMeta, imgs: Map<string, HTMLImageElemen
       if (imgs.has(key)) continue;
       const im = new Image(); im.src = spriteUrl(char, name, cm.ver); imgs.set(key, im);
     }
+  }
+  for (const style of PROJECTILE_STYLES) {
+    const key = `projectile/${style}`;
+    if (imgs.has(key)) continue;
+    const im = new Image(); im.src = projectileUrl(style); imgs.set(key, im);
   }
 }
 
@@ -148,8 +156,26 @@ export function drawFrame(ctx: CanvasRenderingContext2D, meta: RenderMeta, f: Fr
   drawFighter(ctx, meta, 'b', f, imgs, ws, ox, oy);
   if (f.aa === 'testimony' && f.aAct) drawBeam(ctx, meta, f.a, ws, ox, oy);
   if (f.ba === 'testimony' && f.bAct) drawBeam(ctx, meta, f.b, ws, ox, oy);
-  for (const [px, py, , style] of f.pr) {
+  for (const [px, py, owner, style] of f.pr) {
     const cx = ox + px * ws, cy = oy + (meta.groundY - py) * ws;
+    const art = imgs.get(`projectile/${style}`);
+    if (imgOk(art)) {
+      const worldH = style === 'construct' ? 34
+        : style === 'boomerang' ? 22
+          : style === 'knowledge' ? 19
+            : style === 'sonic' || style === 'rope' ? 14
+              : style === 'mote' ? 11 : 18;
+      const height = worldH * ws;
+      const width = height * art!.naturalWidth / art!.naturalHeight;
+      const facing = owner === 0 ? f.a[2] : f.b[2];
+      ctx.save();
+      ctx.translate(cx, cy);
+      if (facing === -1) ctx.scale(-1, 1);
+      if (style === 'boomerang') ctx.rotate((t % 360) * Math.PI / 180);
+      ctx.drawImage(art!, -width / 2, -height / 2, width, height);
+      ctx.restore();
+      continue;
+    }
     if (style === 'construct') {                          // MNEME sentinel — a standing luminous monument
       const h = (14 + 3 * Math.sin(t / 26)) * ws;
       ctx.globalAlpha = 0.45; ctx.fillStyle = '#5a3c96'; ctx.beginPath(); ctx.arc(cx, cy, h * 1.1, 0, 7); ctx.fill(); ctx.globalAlpha = 1;

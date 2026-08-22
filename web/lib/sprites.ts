@@ -1,6 +1,6 @@
 import { existsSync, readdirSync, readFileSync, statSync } from 'fs';
 import { resolve } from 'path';
-import { SPRITES_DIR } from './paths';
+import { PROJECTILES_DIR, SPRITES_DIR } from './paths';
 
 export const POSE_ORDER = [
   'idle_1', 'idle_2', 'walk_1', 'walk_2', 'crouch', 'jump', 'fall', 'block', 'crouchblock', 'hit',
@@ -45,4 +45,12 @@ export function loadPacked(char: string, pose: string): Packed | null {
 /** File mtime (ms) for cache-busting the <img>. */
 export function spriteMtime(char: string, pose: string): number {
   try { return statSync(resolve(SPRITES_DIR, char, `${pose}.json`)).mtimeMs; } catch { return 0; }
+}
+
+export function loadProjectile(style: string): Packed | null {
+  if (!/^[a-z]+$/.test(style)) return null;
+  const p = resolve(PROJECTILES_DIR, `${style}.json`);
+  if (!existsSync(p)) return null;
+  const s = JSON.parse(readFileSync(p, 'utf8')) as Omit<Packed, 'mtime'>;
+  return { ...s, mtime: statSync(p).mtimeMs };
 }

@@ -5,6 +5,7 @@ import { dirname, resolve } from 'path';
 import { fileURLToPath } from 'url';
 import { ROSTER } from './game/roster.js';
 import { specialMoveFrames, specialMovesFor } from './game/moves.js';
+import { PROJECTILES, PROJECTILE_STYLES } from './game/projectile-set.js';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const COMMON = [
@@ -52,8 +53,24 @@ for (const stage of ['dojo', 'market', 'jungle', 'airbase', 'monsoon', 'harbor']
   } catch (e) { errors.push(`stage ${stage}: ${(e as Error).message}`); }
 }
 
+for (const style of PROJECTILE_STYLES) {
+  const file = resolve(ROOT, 'assets/projectiles', `${style}.json`);
+  if (!existsSync(file)) { errors.push(`projectile: missing ${style}.json`); continue; }
+  try {
+    const data = JSON.parse(readFileSync(file, 'utf8')) as { w: number; h: number; anchorX: number; anchorY: number; data: string };
+    const rgba = Buffer.from(data.data, 'base64');
+    if (!(data.w > 0 && data.h > 0 && data.anchorX >= 0 && data.anchorY >= 0)) errors.push(`projectile ${style}: invalid geometry`);
+    if (rgba.length !== data.w * data.h * 4) errors.push(`projectile ${style}: corrupt RGBA payload`);
+    let opaque = 0;
+    for (let i = 3; i < rgba.length; i += 4) if (rgba[i]! >= 48) opaque++;
+    if (opaque < 24 || opaque > data.w * data.h * 0.9) errors.push(`projectile ${style}: suspicious alpha coverage ${opaque}/${data.w * data.h}`);
+    const rendered = PROJECTILES.getScaled(style, -1, style === 'construct' ? 34 : 18);
+    if (!rendered?.grid.length || !rendered.grid[0]?.length) errors.push(`projectile ${style}: runtime loader returned no pixels`);
+  } catch (e) { errors.push(`projectile ${style}: ${(e as Error).message}`); }
+}
+
 if (errors.length) {
   for (const error of errors) console.error(`FAIL: ${error}`);
   process.exit(1);
 }
-console.log(`ASSET TEST: PASS (${ROSTER.length} fighters, ${ROSTER.reduce((n, f) => n + specialMovesFor(f.name).length, 0)} specials, 6 stages)`);
+console.log(`ASSET TEST: PASS (${ROSTER.length} fighters, ${ROSTER.reduce((n, f) => n + specialMovesFor(f.name).length, 0)} specials, 6 stages, ${PROJECTILE_STYLES.length} projectiles)`);

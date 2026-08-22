@@ -7,6 +7,7 @@ import { createGrid, fillRect, blit, resizeGridH, rgb, type PixelGrid, type RGB 
 import { drawFighter } from './sprites.js';
 import { WORLD_W, WORLD_H, GROUND_Y, STAGE_LEFT, STAGE_RIGHT, ENTROPY, TESTIMONY, THROW, CONTEXT, BRANCHWALK, MERGE_COMET, STORY_ARC, PLOT_TWIST, INK_TEMPEST, FREETIER, BOMBARDMENT, attackActive, attackExtension } from './engine.js';
 import { SPRITES } from './sprite-set.js';
+import { PROJECTILES } from './projectile-set.js';
 import { STAGES } from './stage-set.js';
 import { specialMoveForAttack } from './moves.js';
 import type { Fighter, Match } from './types.js';
@@ -583,6 +584,16 @@ function drawSparks(g: PixelGrid, v: View, m: Match): void {
 function drawProjectiles(g: PixelGrid, v: View, m: Match): void {
   for (const p of m.projectiles) {
     const cx = p.x, cy = GROUND_Y - p.y;
+    const worldH = p.style === 'construct' ? 34
+      : p.style === 'boomerang' ? 22
+        : p.style === 'knowledge' ? 19
+          : p.style === 'sonic' || p.style === 'rope' ? 14
+            : p.style === 'mote' ? 11 : 18;
+    const art = PROJECTILES.getScaled(p.style, p.facing, Math.max(3, worldH * v.ws));
+    if (art) {
+      blit(g, art.grid, px(v, cx) - art.anchorX, py(v, cy) - art.anchorY, false);
+      continue;
+    }
     const r = 10 * (1 + Math.sin(p.frame * 0.6) * 0.12);
     if (p.style === 'fire') {
       for (let t = 4; t >= 1; t--) fillCircle(g, v, cx - p.facing * t * 5, cy, Math.max(1, r - t * 2), rgb(214, 48 + t * 10, 20));

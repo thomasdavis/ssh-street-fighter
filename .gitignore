@@ -10,6 +10,7 @@ assets/sprites/*/raw/*
 !assets/sprites/*/raw/idle_1.png
 assets/sprites/*/archive*/
 assets/stages/raw/
+assets/projectiles/raw/
 .sprite-backups/
 web/.next/
 web/node_modules/
