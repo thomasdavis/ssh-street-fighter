@@ -20,7 +20,14 @@ import { startOpsSampler } from '../telemetry/ops.js';
 import { clearEdges, type P2W, type W2P } from './messages.js';
 import type { MatchResult } from '../net/session.js';
 import type { RosterEntry, ChatLine, ChallengePeer } from '../net/hub.js';
-import { bestWaiter, agedPair, normalizeOpponentPool, type OpponentPool } from '../net/matchmaking.js';
+import {
+  RecentOpponentHistory,
+  agedPair,
+  bestWaiter,
+  matchmakingPlayerKey,
+  normalizeOpponentPool,
+  type OpponentPool,
+} from '../net/matchmaking.js';
 
 // How often the primary ships match state to the workers. Relaying every sim
 // tick (30Hz) minimises how stale the opponent's state is when a worker renders;
@@ -41,9 +48,9 @@ export function mergeCoordinatorInput(destination: Inputs, incoming: Inputs): vo
   destination.throw ||= incoming.throw;
 }
 
-interface Player { worker: WorkerRef; sid: number; gid: string; name: string; fp: string | null; cursor: number; elo: number; region: string; queuedAt: number; isBot: boolean; opponentPool: OpponentPool; }
+interface Player { worker: WorkerRef; sid: number; gid: string; name: string; fp: string | null; cursor: number; elo: number; region: string; queuedAt: number; isBot: boolean; opponentPool: OpponentPool; matchKey: string; recentOpponentKeys: readonly string[]; }
 interface LoungeMember extends Player { cid: string; incoming: string | null; outgoing: string | null; } // incoming/outgoing = peer gid
-interface ActiveMatch { mid: string; a: Player; b: Player; match: Match; pendA: Inputs; pendB: Inputs; relayAccum: number; ackA: number; ackB: number; rec: MatchRecorder | null; }
+interface ActiveMatch { mid: string; a: Player; b: Player; source: 'quick_match' | 'direct_challenge'; match: Match; pendA: Inputs; pendB: Inputs; relayAccum: number; ackA: number; ackB: number; rec: MatchRecorder | null; }
 
 const gidOf = (workerId: number, sid: number) => `${workerId}:${sid}`;
 
@@ -53,6 +60,7 @@ export class MatchCoordinator {
   private matches = new Map<string, ActiveMatch>();
   private gidToMid = new Map<string, string>();
   private waiting: Player[] = [];
+  private recentOpponents = new RecentOpponentHistory();
   private lounge = new Map<string, LoungeMember>();   // gid -> member
   private cidToGid = new Map<string, string>();        // connectionId -> gid (lounge)
 
@@ -89,16 +97,19 @@ export class MatchCoordinator {
     // and they get paired with themselves.
     if (this.gidToMid.has(gid) || this.waiting.some((w) => w.gid === gid)) return;
     const isBot = !!m.isBot;
+    const queuedAt = Date.now();
+    const matchKey = matchmakingPlayerKey(m.fp, m.name, isBot);
     const p: Player = {
       worker, sid: m.sid, gid, name: m.name, fp: m.fp, cursor: m.cursor, elo: m.elo,
-      region: m.region, queuedAt: Date.now(), isBot,
+      region: m.region, queuedAt, isBot, matchKey,
+      recentOpponentKeys: this.recentOpponents.recent(matchKey, queuedAt),
       // Missing is the rolling-upgrade compatibility path for older workers;
       // current terminal and bot clients always send an explicit pool.
       opponentPool: normalizeOpponentPool(m.opponentPool, 'all'),
     };
     this.players.set(gid, p);
-    const idx = bestWaiter(this.waiting, p);   // compatible pool first, then region
-    if (idx >= 0) this.pair(this.waiting.splice(idx, 1)[0]!, p);
+    const idx = bestWaiter(this.waiting, p, queuedAt);   // compatible pool first, then region
+    if (idx >= 0) this.pair(this.waiting.splice(idx, 1)[0]!, p, 'quick_match');
     else this.waiting.push(p);
   }
 
@@ -108,8 +119,9 @@ export class MatchCoordinator {
     if (!this.gidToMid.has(gid)) this.players.delete(gid);
   }
 
-  private pair(a: Player, b: Player): void {
+  private pair(a: Player, b: Player, source: 'quick_match' | 'direct_challenge'): void {
     if (a.gid === b.gid) { this.waiting.push(a); return; }   // never pair a player with themselves
+    if (source === 'quick_match') this.recentOpponents.remember(a.matchKey, b.matchKey);
     const ca = characterAt(a.cursor), cb = characterAt(b.cursor);
     const match = makeMatch(makeFighter('a', ca.name, 'a', ca.palette), makeFighter('b', cb.name, 'b', cb.palette));
     const mid = `m${Date.now().toString(36)}${++this.seq}`;
@@ -121,7 +133,7 @@ export class MatchCoordinator {
         sides: { a: { fp: a.fp, name: a.name, char: ca.name, isBot: a.isBot }, b: { fp: b.fp, name: b.name, char: cb.name, isBot: b.isBot } },
       });
     } catch { rec = null; }
-    this.matches.set(mid, { mid, a, b, match, pendA: emptyInputs(), pendB: emptyInputs(), relayAccum: 0, ackA: 0, ackB: 0, rec });
+    this.matches.set(mid, { mid, a, b, source, match, pendA: emptyInputs(), pendB: emptyInputs(), relayAccum: 0, ackA: 0, ackB: 0, rec });
     this.gidToMid.set(a.gid, mid); this.gidToMid.set(b.gid, mid);
     this.send(a, { t: 'matchStart', sid: a.sid, mid, role: 'a', yourCursor: a.cursor, oppName: b.name, oppCursor: b.cursor, oppIsBot: b.isBot, stage: match.stage });
     this.send(b, { t: 'matchStart', sid: b.sid, mid, role: 'b', yourCursor: b.cursor, oppName: a.name, oppCursor: a.cursor, oppIsBot: a.isBot, stage: match.stage });
@@ -144,7 +156,7 @@ export class MatchCoordinator {
     // Fallback matchmaking sweep: pair the oldest waiters across regions once
     // they've waited past the timeout (so lopsided populations still match).
     const aged = agedPair(this.waiting, Date.now());
-    if (aged) { const [i, j] = aged; const [lo, hi] = i < j ? [i, j] : [j, i]; const b = this.waiting.splice(hi, 1)[0]!; const a = this.waiting.splice(lo, 1)[0]!; this.pair(a, b); }
+    if (aged) { const [i, j] = aged; const [lo, hi] = i < j ? [i, j] : [j, i]; const b = this.waiting.splice(hi, 1)[0]!; const a = this.waiting.splice(lo, 1)[0]!; this.pair(a, b, 'quick_match'); }
     for (const am of this.matches.values()) {
       stepMatch(am.match, am.pendA, am.pendB);
       am.rec?.frame(am.match, am.pendA, am.pendB);   // record BEFORE edges are cleared
@@ -161,6 +173,7 @@ export class MatchCoordinator {
 
   private finish(am: ActiveMatch): void {
     if (!this.detach(am)) return;
+    if (am.source === 'quick_match') this.recentOpponents.remember(am.a.matchKey, am.b.matchKey);
     const m = am.match;
     const aWon = m.a.wins > m.b.wins;
     const winP = aWon ? am.a : am.b, loseP = aWon ? am.b : am.a;
@@ -186,6 +199,7 @@ export class MatchCoordinator {
     const mid = this.gidToMid.get(leaverGid); if (!mid) return;
     const am = this.matches.get(mid); if (!am) { this.gidToMid.delete(leaverGid); return; }
     if (!this.detach(am)) return;
+    if (am.source === 'quick_match') this.recentOpponents.remember(am.a.matchKey, am.b.matchKey);
     const leaverIsA = am.a.gid === leaverGid;
     const leaver = leaverIsA ? am.a : am.b;
     const other = leaverIsA ? am.b : am.a;
@@ -231,7 +245,12 @@ export class MatchCoordinator {
   private onLoungeJoin(worker: WorkerRef, m: Extract<W2P, { t: 'loungeJoin' }>): void {
     const gid = gidOf(worker.id, m.sid);
     const isBot = !!m.isBot;
-    const mem: LoungeMember = { worker, sid: m.sid, gid, cid: m.cid, name: m.name, fp: m.fp, cursor: m.cursor, elo: m.elo, region: 'XX', queuedAt: 0, isBot, opponentPool: 'all', incoming: null, outgoing: null };
+    const matchKey = matchmakingPlayerKey(m.fp, m.name, isBot);
+    const mem: LoungeMember = {
+      worker, sid: m.sid, gid, cid: m.cid, name: m.name, fp: m.fp, cursor: m.cursor, elo: m.elo,
+      region: 'XX', queuedAt: 0, isBot, opponentPool: 'all', matchKey,
+      recentOpponentKeys: this.recentOpponents.recent(matchKey), incoming: null, outgoing: null,
+    };
     this.lounge.set(gid, mem); this.cidToGid.set(m.cid, gid);
     this.notice(mem, 'TAB SWITCHES BETWEEN CHAT AND PLAYERS');
     this.broadcastLounge();
@@ -265,7 +284,7 @@ export class MatchCoordinator {
     if (accept && from) {
       this.lounge.delete(from.gid); this.cidToGid.delete(from.cid);
       this.lounge.delete(to.gid); this.cidToGid.delete(to.cid);
-      this.pair(from, to);           // both leave the lounge into a versus match
+      this.pair(from, to, 'direct_challenge'); // both leave the lounge into a versus match
       this.broadcastLounge();
     } else {
       if (from) { this.notice(from, `${to.name} DECLINED YOUR CHALLENGE`); this.pushChallenge(from); }

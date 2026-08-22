@@ -9,12 +9,20 @@ import { makeFighter, makeMatch } from '../game/engine.js';
 import { characterAt } from '../game/roster.js';
 import * as db from '../db/db.js';
 import { actorRef, eventId, track } from '../telemetry/discord.js';
-import { bestWaiter, agedPair, type OpponentPool } from './matchmaking.js';
+import {
+  RecentOpponentHistory,
+  agedPair,
+  bestWaiter,
+  matchmakingPlayerKey,
+  type OpponentPool,
+} from './matchmaking.js';
 
-interface Waiting { s: Session; region: string; queuedAt: number; isBot: boolean; opponentPool: OpponentPool; }
+interface Waiting { s: Session; region: string; queuedAt: number; isBot: boolean; opponentPool: OpponentPool; matchKey: string; recentOpponentKeys: readonly string[]; }
 
 export class LocalHub implements Hub {
   private waiting: Waiting[] = [];
+  private recentOpponents = new RecentOpponentHistory();
+  private lastQuickOpponent = new WeakMap<Session, string>();
   private members = new Set<Session>();
   private all = new Set<Session>();   // every live session (for ops sampling)
 
@@ -26,8 +34,15 @@ export class LocalHub implements Hub {
 
   // ---- quick match (prefer same region, fall back across regions after a wait) ----
   queue(s: Session): void {
-    const newcomer: Waiting = { s, region: s.region, queuedAt: Date.now(), isBot: s.isBot, opponentPool: s.quickOpponentPool };
-    const idx = bestWaiter(this.waiting, newcomer);
+    const queuedAt = Date.now();
+    const matchKey = matchmakingPlayerKey(s.fp, s.displayName, s.isBot);
+    const lastOpponent = this.lastQuickOpponent.get(s);
+    if (lastOpponent) this.recentOpponents.remember(matchKey, lastOpponent, queuedAt);
+    const newcomer: Waiting = {
+      s, region: s.region, queuedAt, isBot: s.isBot, opponentPool: s.quickOpponentPool,
+      matchKey, recentOpponentKeys: this.recentOpponents.recent(matchKey, queuedAt),
+    };
+    const idx = bestWaiter(this.waiting, newcomer, queuedAt);
     const w = idx >= 0 ? this.waiting[idx] : undefined;
     if (w && w.s.alive && w.s !== s) { this.waiting.splice(idx, 1); this.pair(w.s, s, 'quick_match'); }
     else { this.waiting.push(newcomer); s.goTo('lobbyWait'); }
@@ -46,6 +61,13 @@ export class LocalHub implements Hub {
   leaveMatch(): void { /* local forfeit is handled by Session.leaveFight/close */ }
 
   private pair(a: Session, b: Session, source: 'quick_match' | 'direct_challenge'): void {
+    if (source === 'quick_match') {
+      const aKey = matchmakingPlayerKey(a.fp, a.displayName, a.isBot);
+      const bKey = matchmakingPlayerKey(b.fp, b.displayName, b.isBot);
+      this.recentOpponents.remember(aKey, bKey);
+      this.lastQuickOpponent.set(a, bKey);
+      this.lastQuickOpponent.set(b, aKey);
+    }
     const ca = characterAt(a.cursor), cb = characterAt(b.cursor);
     const match = makeMatch(makeFighter('a', ca.name, 'a', ca.palette), makeFighter('b', cb.name, 'b', cb.palette));
     const matchId = eventId('match'); MATCH_IDS.set(match, matchId);

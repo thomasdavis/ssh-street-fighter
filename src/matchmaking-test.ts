@@ -1,5 +1,8 @@
 import {
   FALLBACK_MS,
+  RECENT_OPPONENT_TTL_MS,
+  REMATCH_FALLBACK_MS,
+  RecentOpponentHistory,
   agedPair,
   bestWaiter,
   compatibleWaiters,
@@ -39,6 +42,34 @@ const aged = agedPair([
   waiter(false, 'bots', 'EU', old), waiter(false, 'humans', 'AS', old + 1), waiter(true, 'all', 'NA', old + 2),
 ], Date.now());
 check('aged fallback finds the oldest mutually compatible pair', !!aged && aged.includes(0) && aged.includes(2));
+
+const now = 100_000;
+const recentA: Waiter = { ...waiter(true, 'all', 'XX', now), matchKey: 'a', recentOpponentKeys: ['b'] };
+const recentB: Waiter = { ...waiter(true, 'all', 'XX', now), matchKey: 'b', recentOpponentKeys: ['a'] };
+const freshC: Waiter = { ...waiter(true, 'all', 'XX', now), matchKey: 'c', recentOpponentKeys: [] };
+check('an immediate rematch waits instead of synchronizing a permanent pair', bestWaiter([recentA], recentB, now) === -1);
+check('a fresh opponent wins over an older compatible recent opponent', bestWaiter([recentB, freshC], recentA, now) === 1);
+check('a rematch is allowed after the no-alternative escape hatch', bestWaiter([
+  { ...recentA, queuedAt: now - REMATCH_FALLBACK_MS - 1 },
+], recentB, now) === 0);
+
+const recentOld = now - FALLBACK_MS - 1;
+check('ordinary cross-region fallback does not defeat rematch avoidance', agedPair([
+  { ...recentA, queuedAt: recentOld }, { ...recentB, queuedAt: recentOld + 1 },
+], now) === null);
+const rematchOld = now - REMATCH_FALLBACK_MS - 1;
+const rematchPair = agedPair([
+  { ...recentA, queuedAt: rematchOld }, { ...recentB, queuedAt: rematchOld + 1 },
+], now);
+check('aged fallback eventually permits the only compatible rematch', !!rematchPair && rematchPair.includes(0) && rematchPair.includes(1));
+
+const history = new RecentOpponentHistory();
+history.remember('a', 'b', 1);
+history.remember('a', 'c', 2);
+history.remember('a', 'd', 3);
+history.remember('a', 'e', 4);
+check('history retains only the three most recent unique opponents', history.recent('a', 4).join(',') === 'e,d,c');
+check('opponent history expires after two minutes', history.recent('a', RECENT_OPPONENT_TTL_MS + 5).length === 0);
 
 console.log(pass ? '\nMATCHMAKING TEST: PASS' : '\nMATCHMAKING TEST: FAIL');
 process.exit(pass ? 0 : 1);

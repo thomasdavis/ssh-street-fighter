@@ -70,6 +70,36 @@ check('match cleaned up', coord.activeMatches === 0 && coord.queued === 0);
     `matches=${c2.activeMatches} queued=${c2.queued} starts=${out.filter((m) => m.t === 'matchStart').length}`);
 }
 
+// ---- recent Quick Match opponents do not immediately lock into a permanent
+// pair; a third compatible arrival breaks the cycle without client changes. ----
+{
+  const avoid = new MatchCoordinator();
+  const out1: P2W[] = [], out2: P2W[] = [], out3: P2W[] = [];
+  const w1: WorkerRef = { id: 21, send: (m) => out1.push(m) };
+  const w2: WorkerRef = { id: 22, send: (m) => out2.push(m) };
+  const w3: WorkerRef = { id: 23, send: (m) => out3.push(m) };
+  const queue = (worker: WorkerRef, sid: number, name: string, fp: string) => avoid.handle(worker, {
+    t: 'queue', sid, cid: name.toLowerCase(), name, fp, cursor: sid, elo: 1200,
+    region: 'XX', isBot: true, opponentPool: 'all',
+  });
+
+  queue(w1, 1, 'MEGA', 'SHA256:avoid-mega');
+  queue(w2, 2, 'BLANK', 'SHA256:avoid-blank');
+  const first = out1.find((m) => m.t === 'matchStart') as Extract<P2W, { t: 'matchStart' }> | undefined;
+  avoid.handle(w1, { t: 'leaveMatch', sid: 1, mid: first!.mid });
+  out1.length = 0; out2.length = 0;
+
+  queue(w1, 1, 'MEGA', 'SHA256:avoid-mega');
+  queue(w2, 2, 'BLANK', 'SHA256:avoid-blank');
+  check('recent opponents are held instead of immediately rematched', avoid.activeMatches === 0 && avoid.queued === 2);
+
+  queue(w3, 3, 'THIRD', 'SHA256:avoid-third');
+  const freshStart = out3.find((m) => m.t === 'matchStart') as Extract<P2W, { t: 'matchStart' }> | undefined;
+  check('a fresh compatible arrival breaks the repeated pair',
+    avoid.activeMatches === 1 && avoid.queued === 1 && freshStart?.oppName === 'MEGA',
+    `opponent=${freshStart?.oppName} queued=${avoid.queued}`);
+}
+
 // ---- opponent pools: terminal Quick Match defaults to humans; switching to
 // bots is a hard bot-only choice, including during the aged fallback sweep. ----
 {
