@@ -307,7 +307,7 @@ export class MatchCoordinator {
   /** Full per-frame render payload for one live match (web spectator), or null. */
   renderMatch(mid: string): object | null {
     const am = this.matches.get(mid);
-    return am ? liveRender(am.match, am.a.name, am.b.name, am.a.isBot, am.b.isBot) : null;
+    return am ? liveRender(mid, am.match, am.a.name, am.b.name, am.a.isBot, am.b.isBot) : null;
   }
 }
 

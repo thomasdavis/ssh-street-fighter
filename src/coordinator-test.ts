@@ -32,6 +32,9 @@ check('both players paired across workers', !!startA && !!startB && coord.active
 check('roles + opponent handles correct', startA?.role === 'a' && startB?.role === 'b' && startA?.oppName === 'BOB' && startB?.oppName === 'ALICE',
   `A opp=${startA?.oppName} B opp=${startB?.oppName}`);
 const mid = startA!.mid;
+const livePayload = coord.renderMatch(mid) as { mid?: string; aChar?: string; bChar?: string } | null;
+check('live spectator payload is bound to its match and fighters',
+  livePayload?.mid === mid && livePayload.aChar === 'BYU' && livePayload.bChar === 'CHONG');
 
 // Tick through countdown into the fight.
 for (let i = 0; i < 100; i++) coord.tick();

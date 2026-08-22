@@ -19,6 +19,14 @@ export interface RenderMeta {
   sprites: { a: CharMeta; b: CharMeta };
 }
 
+/** True only when an existing canvas metadata binding still describes the
+ * incoming match. Stage alone is not an identity: simultaneous matches can use
+ * the same stage with different fighters, as the TV channel routinely does. */
+export function sameRenderIdentity(a: RenderMeta | null, b: RenderMeta): boolean {
+  return !!a && a.stage === b.stage && a.aChar === b.aChar && a.bChar === b.bChar
+    && a.aName === b.aName && a.bName === b.bName;
+}
+
 export const CW = 960, CH = 640;
 export const spriteUrl = (char: string, name: string, ver?: number) =>
   `/api/sprite/${encodeURIComponent(char)}/${name}${ver ? `?v=${ver}` : ''}`;
@@ -112,7 +120,7 @@ function drawHud(ctx: CanvasRenderingContext2D, meta: RenderMeta, f: Frame) {
   ctx.textAlign = 'left'; ctx.fillText(meta.aName, pad, barY + barH + 22);
   ctx.textAlign = 'right'; ctx.fillText(meta.bName, CW - pad, barY + barH + 22);
   ctx.textAlign = 'center'; ctx.fillStyle = '#9a8fb5'; ctx.font = '600 13px ui-monospace, monospace';
-  ctx.fillText(f.ph === 'fight' ? `ROUND ${f.rd + 1}` : f.ph.toUpperCase(), CW / 2, barY + 13);
+  ctx.fillText(f.ph === 'fight' ? `ROUND ${f.rd}` : f.ph.toUpperCase(), CW / 2, barY + 13);
   if (f.msg) {
     ctx.font = '800 40px ui-monospace, monospace';
     ctx.fillStyle = '#17131f'; ctx.fillText(f.msg, CW / 2 + 2, CH * 0.42 + 2);

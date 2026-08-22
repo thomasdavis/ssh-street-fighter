@@ -1,10 +1,10 @@
 'use client';
 import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
-import { drawFrame, ensureImages, stageUrl, CW, CH, type Frame, type RenderMeta } from '@/lib/replay-render';
+import { drawFrame, ensureImages, sameRenderIdentity, stageUrl, CW, CH, type Frame, type RenderMeta } from '@/lib/replay-render';
 
 interface Track extends RenderMeta { fps: number; frames: Frame[] }
-interface Live extends RenderMeta { frame: Frame; over: boolean }
+interface Live extends RenderMeta { mid: string; frame: Frame; over: boolean }
 
 function lerp(p: Frame, c: Frame, k: number): Frame {
   const L = (a: number, b: number) => a + (b - a) * k;
@@ -17,6 +17,7 @@ function lerp(p: Frame, c: Frame, k: number): Frame {
 export function TvChannel({ replayPool }: { replayPool: { id: string; title: string }[] }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [cap, setCap] = useState<{ text: string; sub: string; href: string; live: boolean }>({ text: 'Tuning in…', sub: '', href: '/matches', live: false });
+  const [handoff, setHandoff] = useState<{ mid: string; title: string; sub: string } | null>(null);
 
   const metaRef = useRef<RenderMeta | null>(null);
   const imgs = useRef(new Map<string, HTMLImageElement>());
@@ -36,7 +37,7 @@ export function TvChannel({ replayPool }: { replayPool: { id: string; title: str
   const setStageAndImgs = (m: RenderMeta) => {
     metaRef.current = m;
     if (!stage.current || stage.current.dataset?.stage !== m.stage) {
-      const si = new Image(); si.onload = () => { stage.current = si; }; si.src = stageUrl(m.stage); if (si.dataset) si.dataset.stage = m.stage;
+      const si = new Image(); si.onload = () => { if (metaRef.current?.stage === m.stage) stage.current = si; }; si.src = stageUrl(m.stage); if (si.dataset) si.dataset.stage = m.stage;
       stage.current = si;
     }
     ensureImages(m, imgs.current);
@@ -45,6 +46,9 @@ export function TvChannel({ replayPool }: { replayPool: { id: string; title: str
   const startLive = (m: any) => {
     kind.current = 'live'; liveMid.current = m.mid; track.current = null;
     prev.current = null; cur.current = null; metaRef.current = null;
+    const nextHandoff = { mid: m.mid, title: `${m.a.name} vs ${m.b.name}`, sub: `${m.a.char} vs ${m.b.char} · ${m.stage}` };
+    setHandoff(nextHandoff);
+    setTimeout(() => setHandoff((current) => current?.mid === m.mid ? null : current), 1200);
     setCap({ text: `${m.a.name}${m.a.bot ? ' [BOT]' : ''} vs ${m.b.name}${m.b.bot ? ' [BOT]' : ''}`, sub: `${m.a.char} vs ${m.b.char} · ${m.stage}`, href: `/watch/${m.mid}`, live: true });
   };
   const startReplay = async (r: { id: string; title: string }) => {
@@ -103,15 +107,22 @@ export function TvChannel({ replayPool }: { replayPool: { id: string; title: str
     const poll = async () => {
       if (!alive) return;
       if (kind.current !== 'live' || !liveMid.current) { setTimeout(poll, 250); return; }
+      const requestedMid = liveMid.current;
       try {
-        const r = await fetch(`/api/live/${encodeURIComponent(liveMid.current)}`, { cache: 'no-store' });
+        const r = await fetch(`/api/live/${encodeURIComponent(requestedMid)}`, { cache: 'no-store' });
         if (r.ok) {
           const d = await r.json() as Live;
-          if (!metaRef.current || metaRef.current.stage !== d.stage) setStageAndImgs(d);
+          if (!alive || kind.current !== 'live' || liveMid.current !== requestedMid || d.mid !== requestedMid) {
+            setTimeout(poll, 90); return;
+          }
+          if (!sameRenderIdentity(metaRef.current, d)) setStageAndImgs(d);
           prev.current = cur.current ?? { f: d.frame, t: performance.now() };
           cur.current = { f: d.frame, t: performance.now() };
-          if (d.over) { setTimeout(() => advance(), 2200); await new Promise((r2) => setTimeout(r2, 2200)); }
-        } else if (r.status === 404) { advance(); }
+          if (d.over) {
+            await new Promise((resolve) => setTimeout(resolve, 2200));
+            if (alive && liveMid.current === requestedMid) await advance();
+          }
+        } else if (r.status === 404 && liveMid.current === requestedMid) { await advance(); }
       } catch { /* transient */ }
       setTimeout(poll, 90);
     };
@@ -147,6 +158,9 @@ export function TvChannel({ replayPool }: { replayPool: { id: string; title: str
       <div className="rs-tv__screen">
         <canvas ref={canvasRef} width={CW} height={CH} />
         <div className="rs-tv__scan" aria-hidden />
+        {handoff && <div className="rs-tv__handoff" aria-live="polite">
+          <span>NEW MATCH</span><strong>{handoff.title}</strong><small>{handoff.sub}</small>
+        </div>}
         <div className="rs-tv__cap">
           <span className={`rs-tv__badge${cap.live ? ' live' : ''}`}>{cap.live ? <><span className="rs-dot" /> LIVE</> : 'REPLAY'}</span>
           <span className="rs-tv__title">{cap.text}</span>
