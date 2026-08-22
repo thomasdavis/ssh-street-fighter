@@ -26,7 +26,8 @@ const order = ['idle_1', 'idle_2', 'walk_1', 'walk_2', 'crouch', 'jump', 'fall',
   'storyarc_1', 'storyarc_2', 'storyarc_3',
   'plottwist_1', 'plottwist_2', 'plottwist_3',
   'inktempest_1', 'inktempest_2', 'inktempest_3',
-  'electric_1', 'electric_2', 'rolling_1', 'rolling_2', 'rolling_3', 'rolling_4'];
+  'electric_1', 'electric_2', 'rolling_1', 'rolling_2', 'rolling_3', 'rolling_4',
+  'citation', 'knowledgebomb_1', 'knowledgebomb_2', 'groundtruth'];
 const names = order.filter((n) => readdirSync(dir).includes(`${n}.json`));
 
 const base = load('idle_1');

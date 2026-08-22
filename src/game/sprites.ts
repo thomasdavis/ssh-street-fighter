@@ -79,6 +79,11 @@ export const HORIZON_PALETTE: FighterPalette = {
   skin: { r: 238, g: 232, b: 220 }, gi: { r: 64, g: 150, b: 230 }, giDark: { r: 28, g: 74, b: 140 },
   hair: { r: 220, g: 240, b: 250 }, belt: { r: 246, g: 186, b: 70 },
 };
+// MEGAWATTS — ultraviolet grid scholar with hot-gold capacitor trim.
+export const GRID_PALETTE: FighterPalette = {
+  skin: { r: 142, g: 92, b: 72 }, gi: { r: 112, g: 54, b: 214 }, giDark: { r: 22, g: 20, b: 34 },
+  hair: { r: 238, g: 232, b: 210 }, belt: { r: 255, g: 194, b: 62 },
+};
 
 const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
 const shade = (c: RGB): RGB => ({ r: c.r >> 1, g: c.g >> 1, b: c.b >> 1 });

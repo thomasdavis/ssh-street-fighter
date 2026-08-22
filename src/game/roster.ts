@@ -4,6 +4,7 @@ import {
   CRIMSON_PALETTE, SAFFRON_PALETTE, NAVY_PALETTE, TEAL_PALETTE,
   IVORY_PALETTE, OBSIDIAN_PALETTE, AURORA_PALETTE, HEARTH_PALETTE,
   LUMEN_PALETTE, OUTBACK_PALETTE, NOBLE_PALETTE, HORIZON_PALETTE,
+  GRID_PALETTE,
 } from './sprites.js';
 import type { FighterPalette } from './types.js';
 
@@ -101,6 +102,11 @@ export const ROSTER: Character[] = [
     name: 'XENON', tagline: 'the phase-sage', palette: NOBLE_PALETTE, origin: 'A sovereign, resilient stack', discipline: 'Phase geometry and resonance', archetype: 'Intangible counter fighter', difficulty: 'Advanced', quote: 'It only counts once it survives the smoke test.',
     story: ['Xenon studies many-actor worlds where survival is a matter of synchronization and phase — of arriving a quarter-beat out of step with disaster. A sage of resilient infrastructure, he can slip his whole body out of phase, passing cleanly through anything aimed at where he used to be.', 'He fights to show that the most sovereign defense is not a wall but a rhythm: brace the stack against one blow, resonate, and answer from a place the attack cannot reach.'],
     playstyle: 'Refuse to be where the hit lands. Phase Dash passes intangibly through attacks and the rival for a cross-up, Reflect turns projectiles straight back at their sender, and Blink Strike teleports point-blank to open a defender up.', strengths: ['True invincibility windows', 'Projectile reflection', 'Instant gap-close'],
+  },
+  {
+    name: 'MEGAWATTS', tagline: 'the voltage laureate', palette: GRID_PALETTE, origin: 'The black-start academy', discipline: 'Grid calculus and aerial pedagogy', archetype: 'Adaptive air-control all-rounder', difficulty: 'Intermediate', quote: 'Power is a question. Timing is the proof.',
+    story: ['Megawatts kept a storm-battered city alive by teaching neighborhood crews how to restart a dead electrical grid one block at a time. When the utility buried her public lessons behind a private emergency contract, she rebuilt the curriculum as combat: every coil, feint, and falling core makes power legible under pressure.', 'She enters the circuit wearing the academy crest and carrying no secret technique. Her bombs are lessons with consequences, released on bright diagonal lines; her hardest rival is the phase-sage who survives by refusing the moment of impact. Megawatts intends to make even absence answer a well-timed question.'],
+    playstyle: 'Write the next exchange in layers. Citation Bolt checks impatient movement, Bombs of Knowledge descend on two staggered diagonals, and Ground Truth sustains a close proof field around predicted teleports or descents. Strong coverage comes with honest launch, landing, and recovery commitments.', strengths: ['Staggered aerial bombardment', 'Layered midrange control', 'Reliable anti-air reads'],
   },
   {
     name: 'UNCLOSE', tagline: 'the open gate', palette: HORIZON_PALETTE, origin: 'A commons that stayed open', discipline: 'Open-weight energy circulation', archetype: 'Sustaining zoner', difficulty: 'Intermediate', quote: 'A gate that never closes needs no key.',

@@ -7,7 +7,7 @@ import { fileURLToPath } from 'node:url';
  * contract. Bump this when a change makes old replays simulate differently or
  * changes the meaning of state sent to bots.
  */
-export const ENGINE_VERSION = 'sf-6';
+export const ENGINE_VERSION = 'sf-7';
 export const API_VERSION = 1;
 export const BOT_PROTOCOL_VERSION = 1;
 

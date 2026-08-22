@@ -5,7 +5,7 @@
 import { readFileSync, readdirSync, existsSync, statSync } from 'fs';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
-import { makeFighter, makeMatch, stepMatch, attackActive, attackExtension, WORLD_W, WORLD_H, GROUND_Y, STAGE_LEFT, STAGE_RIGHT, TESTIMONY, THROW, CONTEXT, BRANCHWALK, MERGE_COMET, STORY_ARC, PLOT_TWIST, INK_TEMPEST } from '../game/engine.js';
+import { makeFighter, makeMatch, stepMatch, attackActive, attackExtension, WORLD_W, WORLD_H, GROUND_Y, STAGE_LEFT, STAGE_RIGHT, TESTIMONY, THROW, CONTEXT, BRANCHWALK, MERGE_COMET, STORY_ARC, PLOT_TWIST, INK_TEMPEST, BOMBARDMENT } from '../game/engine.js';
 import { ROSTER } from '../game/roster.js';
 import { emptyInputs, type Inputs, type Fighter, type Match } from '../game/types.js';
 import { getReplay, getMatch } from './store.js';
@@ -92,6 +92,7 @@ function spriteFrame(f: Fighter): string {
     case 'throw': return `throw_${f.attackFrame < THROW.startup ? 1 : (f.attackFrame < THROW.startup + THROW.active ? 2 : 3)}`;
     case 'thrown': return f.vy > 0 ? 'thrown_1' : 'thrown_2';
     case 'victory': return `victory_${1 + Math.floor(f.animT / 9) % 3}`;
+    case 'bombardment': return `knowledgebomb_${f.attackFrame < BOMBARDMENT.secondSpawn ? 1 : 2}`;
     default: return f.pose;
   }
 }

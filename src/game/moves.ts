@@ -16,7 +16,7 @@ export interface SpecialMoveDefinition {
   // cannot turn a valid charge-style input into an ordinary jump.
   earlyAirStart?: boolean;
   effect?: 'electric' | 'wind' | 'flame';
-  projectile?: 'blue' | 'fire' | 'sonic';
+  projectile?: 'blue' | 'fire' | 'sonic' | 'citation';
 }
 
 // Ordered most-specific first: the engine uses this same list for recognition,
@@ -105,6 +105,12 @@ const MOVE_SETS: Readonly<Record<string, readonly SpecialMoveDefinition[]>> = {
     { attack: 'reflect', name: 'REFLECT', shortName: 'REFLECT', description: 'Snap into a phase-parry: for a moment attacks pass right through you, and any projectile that hits you is TURNED AROUND and fired straight back at whoever threw it — faster.', motion: ['D', 'U'], button: 'punch', earlyAirStart: true },
     { attack: 'blink', name: 'BLINK STRIKE', shortName: 'BLINK', description: 'Teleport instantly to point-blank right in front of your opponent and land a fast strike. No invincibility, so it is a committal way to close distance and open them up.', motion: ['D', 'B'], button: 'punch' },
   ],
+  // MEGAWATTS — two established primitives around one fixed-diagonal air raid.
+  MEGAWATTS: [
+    { attack: 'hadouken', name: 'CITATION BOLT', shortName: 'CITATION', description: 'Fire a gold-violet citation across the middle lane. It follows the standard projectile rules and can be reflected, so use it to ask a question rather than autopilot the answer.', motion: ['D', 'F'], button: 'punch', projectile: 'citation' },
+    { attack: 'bombardment', name: 'BOMBS OF KNOWLEDGE', shortName: 'KNOWLEDGE', description: 'Commit to a forward vault and release two conventional projectiles on fixed descending diagonals. They are staggered beyond one Reflect window, but each can still be reflected or phased through.', motion: ['D', 'U'], button: 'punch', earlyAirStart: true },
+    { attack: 'electric', name: 'GROUND TRUTH', shortName: 'TRUTH', description: 'Plant a copper coil and sustain an omnidirectional proof field. It catches nearby aerial exits and teleports through repeated timing, but grants no armor or invulnerability.', motion: ['D', 'U'], button: 'kick', earlyAirStart: true, effect: 'electric' },
+  ],
   // UNCLOSE — the open gate. Sequential one-lane stream, voice-ring repel, channelled self-heal.
   UNCLOSE: [
     { attack: 'stream', name: 'TOKEN STREAM', shortName: 'STREAM', description: 'Loose three energy tokens down ONE lane in quick succession — they arrive spaced apart, so a single jump or a single block rarely answers all of them. Layer it to own the ground.', motion: ['D', 'F'], button: 'punch' },
@@ -154,6 +160,7 @@ export function specialMoveFrames(attack: SpecialAttack): readonly string[] {
   if (attack === 'blink') return ['blink'];
   if (attack === 'stream') return ['stream'];
   if (attack === 'freetier') return ['freetier'];
+  if (attack === 'bombardment') return ['knowledgebomb_1', 'knowledgebomb_2'];
   return ['mergecomet_1', 'mergecomet_2', 'mergecomet_3'];
 }
 
