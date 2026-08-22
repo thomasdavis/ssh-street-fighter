@@ -1,10 +1,12 @@
 // Headless mechanics test for the fluid engine.
 import { makeFighter, makeMatch, stepMatch, ATTACKS, STAGE_RIGHT, MERGE_COMET, specialMoveStats } from './game/engine.js';
-import { emptyInputs, type Inputs } from './game/types.js';
+import { emptyInputs, type Inputs, type Match, type MatchPhase } from './game/types.js';
 import { ROSTER } from './game/roster.js';
 import { specialMoveMotionCode, specialMovesFor } from './game/moves.js';
 
 const idle = (): Inputs => emptyInputs();
+const isPhase = (match: Match, phase: MatchPhase) => match.phase === phase;
+const facesInward = (match: Match) => match.a.facing === 1 && match.b.facing === -1;
 function fresh(aName = 'BYU', bName = 'MEN') {
   const a = makeFighter('a', aName, 'a');
   const b = makeFighter('b', bName, 'b');
@@ -15,6 +17,31 @@ function fresh(aName = 'BYU', bName = 'MEN') {
 
 let pass = true;
 const check = (name: string, cond: boolean, extra = '') => { console.log(`${cond ? 'PASS' : 'FAIL'}  ${name}  ${extra}`); if (!cond) pass = false; };
+
+// Countdown observations must face both fighters inward, including the final
+// countdown tick that changes phase to fight. Repeat after resetRound so a
+// between-round regression cannot hide behind makeFighter's correct defaults.
+let countdown = makeMatch(makeFighter('a', 'BYU', 'a'), makeFighter('b', 'MEN', 'b'));
+let inwardThroughout = true;
+while (isPhase(countdown, 'countdown')) {
+  stepMatch(countdown, idle(), idle());
+  inwardThroughout &&= facesInward(countdown);
+}
+check('initial countdown keeps both fighters facing inward through fight start',
+  inwardThroughout && isPhase(countdown, 'fight'));
+
+countdown.phase = 'round-over'; countdown.phaseTimer = 1;
+countdown.a.x = 48; countdown.b.x = 71; countdown.a.facing = -1; countdown.b.facing = 1;
+stepMatch(countdown, idle(), idle());
+const resetFacing = countdown.round === 2 && isPhase(countdown, 'countdown')
+  && facesInward(countdown);
+inwardThroughout = true;
+while (isPhase(countdown, 'countdown')) {
+  stepMatch(countdown, idle(), idle());
+  inwardThroughout &&= facesInward(countdown);
+}
+check('round reset keeps both fighters facing inward through fight start',
+  resetFacing && inwardThroughout && isPhase(countdown, 'fight'));
 
 // 1) walk closes distance with acceleration
 let m = fresh();

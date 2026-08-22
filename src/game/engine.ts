@@ -782,7 +782,7 @@ export function stepMatch(m: Match, inA: Inputs, inB: Inputs): void {
   m.frame++;
 
   if (m.phase === 'countdown') {
-    m.a.facing = m.a.x <= m.b.x ? 1 : -1; m.b.facing = m.b.x < m.a.x ? -1 : 1;
+    m.a.facing = m.a.x <= m.b.x ? 1 : -1; m.b.facing = m.b.x > m.a.x ? -1 : 1;
     m.a.animT++; m.b.animT++;
     m.phaseTimer--;
     m.message = m.phaseTimer > TICK_HZ ? `ROUND ${m.round}` : 'FIGHT!';
