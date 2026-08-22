@@ -1,4 +1,6 @@
-import { characterAudioProfile, replayAudioCues, replayAudioIntensity, stageAudioProfile } from './replay-audio.js';
+import { existsSync, readFileSync, statSync } from 'node:fs';
+import { resolve } from 'node:path';
+import { characterAudioProfile, replayAudioCues, replayAudioIntensity, replayStudioAssetUrls, stageAudioProfile } from './replay-audio.js';
 import type { Frame } from './replay-render.js';
 
 let pass = true;
@@ -37,12 +39,21 @@ const hot = replayAudioIntensity(frame({ a: [64, 12, 1, 22], b: [104, 0, -1, 47]
 check('music intensity rises with danger and activity', hot > quiet, `${quiet.toFixed(2)}→${hot.toFixed(2)}`);
 
 const stages = ['airbase', 'bamboo', 'canyon', 'carnival', 'cathedral', 'dojo', 'harbor', 'jungle', 'market', 'monsoon', 'neon', 'observatory', 'orbital', 'reef', 'tundra', 'volcano'];
-check('every arena has an authored score profile', stages.every((stage) => stageAudioProfile(stage).title !== 'Unknown Frequencies'), `stages=${stages.length}`);
+check('every arena has an authored score profile', stages.every((stage) => stageAudioProfile(stage).title !== 'Unknown Signal'), `stages=${stages.length}`);
+
+const studioAssets = [...new Set(stages.flatMap(replayStudioAssetUrls))];
+const assetPath = (url: string) => resolve('web/public', url.slice(1));
+check('studio source library is present and non-empty', studioAssets.every((url) => existsSync(assetPath(url)) && statSync(assetPath(url)).size > 4_000), `assets=${studioAssets.length}`);
+check('stage profiles use recorded score masters and physical surfaces', stages.every((stage) => stageAudioProfile(stage).music.endsWith('.mp3') && !!stageAudioProfile(stage).surface));
 
 const fighters = ['BYU', 'MEN', 'BLANKO', 'CHONG', 'GYLE', 'ZANG', 'DHAL', 'HONDO', 'KIRA', 'MAKO', 'OMEGA', 'CODEX', 'FABLE', 'MNEME', 'AJAX', 'XENON', 'MEGAWATTS', 'UNCLOSE'];
 const signatures = fighters.map((fighter) => characterAudioProfile(fighter));
 check('every fighter has a unique sonic identity', signatures.every((profile) => profile.signature !== 'Unknown contender') && new Set(signatures.map((profile) => profile.signature)).size === fighters.length, `fighters=${fighters.length}`);
 check('heavy and phase fighters occupy different physical palettes', characterAudioProfile('ZANG').weight > .9 && characterAudioProfile('XENON').material === 'phase');
+check('every fighter receives a distinct studio treatment', new Set(signatures.map((profile) => `${profile.pitch}/${profile.presence}/${profile.space}`)).size === fighters.length);
+
+const mixerSource = readFileSync(resolve('web/lib/replay-audio.ts'), 'utf8');
+check('the replay mixer contains no oscillator-based sound generator', !mixerSource.includes('createOscillator') && !mixerSource.includes('OscillatorType'));
 
 if (!pass) process.exit(1);
 console.log('REPLAY AUDIO TEST: PASS');

@@ -23,6 +23,7 @@ export default function ReplayViewer({ matchId }: { matchId: string }) {
   const [speed, setSpeed] = useState(1);
   const [ui, setUi] = useState({ i: 0, total: 0 });
   const [audioEnabled, setAudioEnabled] = useState(false);
+  const [audioLoading, setAudioLoading] = useState(false);
   const [audioSupported, setAudioSupported] = useState(true);
   const [audioSettings, setAudioSettings] = useState<ReplayAudioSettings>(DEFAULT_REPLAY_AUDIO_SETTINGS);
   const [mix, setMix] = useState<MixIdentity | null>(null);
@@ -130,6 +131,7 @@ export default function ReplayViewer({ matchId }: { matchId: string }) {
   };
 
   const toggleAudio = async () => {
+    if (audioLoading) return;
     if (audioEnabled) {
       audioRef.current?.deactivate();
       setAudioEnabled(false);
@@ -141,11 +143,14 @@ export default function ReplayViewer({ matchId }: { matchId: string }) {
       stage: track.stage, worldW: track.worldW, fps: track.fps, aChar: track.aChar, bChar: track.bChar,
     });
     audioRef.current = soundscape;
-    const ready = await soundscape.activate(audioSettings);
-    if (!ready) { setAudioSupported(false); return; }
-    soundscape.seek(track.frames[idx.current], idx.current);
-    soundscape.setPlayback(playRef.current, speedRef.current);
-    setAudioEnabled(true);
+    setAudioLoading(true);
+    try {
+      const ready = await soundscape.activate(audioSettings);
+      if (!ready) { setAudioSupported(false); return; }
+      soundscape.seek(track.frames[idx.current], idx.current);
+      soundscape.setPlayback(playRef.current, speedRef.current);
+      setAudioEnabled(true);
+    } finally { setAudioLoading(false); }
   };
 
   const audioLevel = intensity > .72 ? 'hot' : intensity > .42 ? 'active' : 'calm';
@@ -157,7 +162,7 @@ export default function ReplayViewer({ matchId }: { matchId: string }) {
         {status !== 'ready' && <div className="rs-replay__msg">{status === 'loading' ? 'Loading replay…' : 'Replay unavailable.'}</div>}
         {audioEnabled && mix && (
           <div className="rs-replay__mix-status" aria-hidden="true">
-            <i /><span>{mix.stage.title}</span><small>CHARACTER SIGNATURES LIVE</small>
+            <i /><span>{mix.stage.title}</span><small>RECORDED FOLEY MIX</small>
           </div>
         )}
       </div>
@@ -171,15 +176,16 @@ export default function ReplayViewer({ matchId }: { matchId: string }) {
             {[0.5, 1, 2].map((s) => <button key={s} aria-pressed={speed === s} className={speed === s ? 'on' : ''} onClick={() => setSp(s)}>{s}×</button>)}
           </div>
         </div>
-        <section className="rs-soundboard" data-enabled={audioEnabled ? '1' : undefined} data-level={audioLevel} aria-label="Replay soundscape">
+        <section className="rs-soundboard" data-enabled={audioEnabled ? '1' : undefined} data-loading={audioLoading ? '1' : undefined}
+          data-level={audioLevel} aria-label="Replay soundscape" aria-busy={audioLoading}>
           <div className="rs-soundboard__identity">
-            <span>STAGE MIX · {mix?.stage.bpm ?? '—'} BPM</span>
-            <strong>{mix?.stage.title ?? 'Dynamic score'}</strong>
+            <span>STUDIO SCORE · RECORDED FOLEY</span>
+            <strong>{mix?.stage.title ?? 'Stage score'}</strong>
             <small>{mix ? `${mix.a} × ${mix.b}` : 'Waiting for fighter signatures'}</small>
           </div>
           <button className="rs-sound-toggle" type="button" aria-pressed={audioEnabled} onClick={toggleAudio}
-            disabled={!audioSupported || status !== 'ready'}>
-            <i aria-hidden="true" /><span>Sound</span><small>{audioSupported ? audioEnabled ? 'ON' : 'OFF' : 'UNAVAILABLE'}</small>
+            disabled={!audioSupported || status !== 'ready' || audioLoading}>
+            <i aria-hidden="true" /><span>Sound</span><small>{audioLoading ? 'LOADING' : audioSupported ? audioEnabled ? 'ON' : 'OFF' : 'UNAVAILABLE'}</small>
           </button>
           <button className="rs-channel-toggle" type="button" aria-pressed={audioSettings.music} onClick={() => updateAudio({ music: !audioSettings.music })}
             disabled={!audioSupported}>
@@ -196,7 +202,7 @@ export default function ReplayViewer({ matchId }: { matchId: string }) {
             <output>{Math.round(audioSettings.volume * 100)}</output>
           </label>
           <div className="rs-mix-meter" aria-hidden="true"><i /><i /><i /><i /><i /></div>
-          <p>Click Sound to arm audio · synthesized live from replay state · channels mix independently</p>
+          <p>Click Sound to load the studio mix · recorded effects, adaptive score, independent channels</p>
         </section>
       </div>
     </div>

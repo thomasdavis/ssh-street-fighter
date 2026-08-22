@@ -918,6 +918,7 @@ button.regen:disabled { opacity: 0.4; cursor: not-allowed; }
 .rs-controls .rs-sound-toggle small, .rs-controls .rs-channel-toggle small { color: #aaa0bb; font-size: 8px; letter-spacing: .14em; }
 .rs-controls .rs-sound-toggle[aria-pressed=true], .rs-controls .rs-channel-toggle[aria-pressed=true] { color: var(--text); background: #21172e; }
 .rs-controls .rs-sound-toggle[aria-pressed=true] i { background: var(--green); box-shadow: 0 0 12px rgba(100,216,120,.62); }
+.rs-soundboard[data-loading='1'] .rs-sound-toggle i { background: var(--gold); box-shadow: 0 0 12px rgba(244,214,76,.42); }
 .rs-controls .rs-channel-toggle[aria-pressed=true] small { color: var(--cyan); }
 .rs-controls .rs-sound-toggle:disabled, .rs-controls .rs-channel-toggle:disabled { cursor: not-allowed; opacity: .48; }
 .rs-volume { min-width: 0; padding: 11px 15px; display: grid; grid-template-columns: 1fr auto; align-content: center; gap: 7px 10px; border-right: 1px solid var(--edge); }
