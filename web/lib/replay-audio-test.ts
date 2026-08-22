@@ -1,6 +1,6 @@
 import { existsSync, readFileSync, statSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { characterAudioProfile, replayAudioCues, replayAudioIntensity, replayStudioAssetUrls, stageAudioProfile } from './replay-audio.js';
+import { characterAudioProfile, replayAudioCues, replayAudioIntensity, replayStudioAssetUrls, specialAudioTreatment, stageAudioProfile } from './replay-audio.js';
 import type { Frame } from './replay-render.js';
 
 let pass = true;
@@ -40,17 +40,26 @@ check('music intensity rises with danger and activity', hot > quiet, `${quiet.to
 
 const stages = ['airbase', 'bamboo', 'canyon', 'carnival', 'cathedral', 'dojo', 'harbor', 'jungle', 'market', 'monsoon', 'neon', 'observatory', 'orbital', 'reef', 'tundra', 'volcano'];
 check('every arena has an authored score profile', stages.every((stage) => stageAudioProfile(stage).title !== 'Unknown Signal'), `stages=${stages.length}`);
+check('every arena uses a different score master', new Set(stages.map((stage) => stageAudioProfile(stage).music)).size === stages.length, `masters=${new Set(stages.map((stage) => stageAudioProfile(stage).music)).size}`);
 
-const studioAssets = [...new Set(stages.flatMap(replayStudioAssetUrls))];
+const studioAssets = [...new Set(stages.flatMap((stage) => replayStudioAssetUrls(stage)))];
 const assetPath = (url: string) => resolve('web/public', url.slice(1));
 check('studio source library is present and non-empty', studioAssets.every((url) => existsSync(assetPath(url)) && statSync(assetPath(url)).size > 4_000), `assets=${studioAssets.length}`);
-check('stage profiles use recorded score masters and physical surfaces', stages.every((stage) => stageAudioProfile(stage).music.endsWith('.mp3') && !!stageAudioProfile(stage).surface));
+check('stage profiles use recorded score masters and physical surfaces', stages.every((stage) => /\.(mp3|ogg)$/.test(stageAudioProfile(stage).music) && !!stageAudioProfile(stage).surface));
+check('the professional announcer lines ship with every stage mix', studioAssets.filter((url) => url.includes('/announcer/')).length === 7);
 
 const fighters = ['BYU', 'MEN', 'BLANKO', 'CHONG', 'GYLE', 'ZANG', 'DHAL', 'HONDO', 'KIRA', 'MAKO', 'OMEGA', 'CODEX', 'FABLE', 'MNEME', 'AJAX', 'XENON', 'MEGAWATTS', 'UNCLOSE'];
 const signatures = fighters.map((fighter) => characterAudioProfile(fighter));
 check('every fighter has a unique sonic identity', signatures.every((profile) => profile.signature !== 'Unknown contender') && new Set(signatures.map((profile) => profile.signature)).size === fighters.length, `fighters=${fighters.length}`);
 check('heavy and phase fighters occupy different physical palettes', characterAudioProfile('ZANG').weight > .9 && characterAudioProfile('XENON').material === 'phase');
 check('every fighter receives a distinct studio treatment', new Set(signatures.map((profile) => `${profile.pitch}/${profile.presence}/${profile.space}`)).size === fighters.length);
+
+const catalog = JSON.parse(readFileSync(resolve('web/generated/fighter-catalog.json'), 'utf8')) as { name: string; moves: { attack: string; name: string }[] }[];
+const rosterSpecials = catalog.flatMap((fighter) => fighter.moves.map((move) => ({ fighter: fighter.name, ...move })));
+const specialTreatments = rosterSpecials.map((move) => specialAudioTreatment(move.fighter, move.attack));
+check('all roster specials have an explicit authored treatment', specialTreatments.every(Boolean), `moves=${rosterSpecials.length}`);
+check('every roster special uses a different source master', new Set(specialTreatments.map((treatment) => treatment?.source)).size === rosterSpecials.length, `masters=${new Set(specialTreatments.map((treatment) => treatment?.source)).size}`);
+check('every special-move source master is present', specialTreatments.every((treatment) => !!treatment && existsSync(assetPath(treatment.source)) && statSync(assetPath(treatment.source)).size > 4_000));
 
 const mixerSource = readFileSync(resolve('web/lib/replay-audio.ts'), 'utf8');
 check('the replay mixer contains no oscillator-based sound generator', !mixerSource.includes('createOscillator') && !mixerSource.includes('OscillatorType'));

@@ -23,21 +23,21 @@ export interface CharacterAudioProfile {
 
 const STAGE_PROFILES: Record<string, Omit<StageAudioProfile, 'id'>> = {
   airbase: { title: 'Runway Pressure', music: `${AUDIO_ROOT}/music/urgent.mp3`, surface: 'concrete', room: .24, color: 'steel' },
-  bamboo: { title: 'Green Stillness', music: `${AUDIO_ROOT}/music/airy.mp3`, surface: 'wood', room: .42, color: 'warm' },
-  canyon: { title: 'Redline Echo', music: `${AUDIO_ROOT}/music/sector.mp3`, surface: 'concrete', room: .58, color: 'deep' },
-  carnival: { title: 'Midnight Midway', music: `${AUDIO_ROOT}/music/pulse.mp3`, surface: 'wood', room: .34, color: 'warm' },
+  bamboo: { title: 'Green Stillness', music: `${AUDIO_ROOT}/music/forest.mp3`, surface: 'wood', room: .42, color: 'warm' },
+  canyon: { title: 'Redline Echo', music: `${AUDIO_ROOT}/music/surreal.mp3`, surface: 'concrete', room: .58, color: 'deep' },
+  carnival: { title: 'Midnight Midway', music: `${AUDIO_ROOT}/music/carnival.ogg`, surface: 'wood', room: .34, color: 'warm' },
   cathedral: { title: 'Iron Vespers', music: `${AUDIO_ROOT}/music/transmission.mp3`, surface: 'concrete', room: .74, color: 'deep' },
   dojo: { title: 'First Bell', music: `${AUDIO_ROOT}/music/airy.mp3`, surface: 'wood', room: .3, color: 'warm' },
-  harbor: { title: 'Dockside Current', music: `${AUDIO_ROOT}/music/sector.mp3`, surface: 'wood', room: .48, color: 'rain' },
-  jungle: { title: 'Canopy Pressure', music: `${AUDIO_ROOT}/music/pulse.mp3`, surface: 'grass', room: .54, color: 'deep' },
-  market: { title: 'Closing Time', music: `${AUDIO_ROOT}/music/urgent.mp3`, surface: 'concrete', room: .4, color: 'warm' },
+  harbor: { title: 'Dockside Current', music: `${AUDIO_ROOT}/music/captains-log.mp3`, surface: 'wood', room: .48, color: 'rain' },
+  jungle: { title: 'Canopy Pressure', music: `${AUDIO_ROOT}/music/cryptid.mp3`, surface: 'grass', room: .54, color: 'deep' },
+  market: { title: 'Closing Time', music: `${AUDIO_ROOT}/music/empty-city.ogg`, surface: 'concrete', room: .4, color: 'warm' },
   monsoon: { title: 'Rain Circuit', music: `${AUDIO_ROOT}/music/sector.mp3`, surface: 'concrete', room: .5, color: 'rain' },
   neon: { title: 'Voltage Afterimage', music: `${AUDIO_ROOT}/music/pulse.mp3`, surface: 'concrete', room: .58, color: 'glass' },
-  observatory: { title: 'Perihelion', music: `${AUDIO_ROOT}/music/airy.mp3`, surface: 'concrete', room: .64, color: 'glass' },
-  orbital: { title: 'Low Gravity Signal', music: `${AUDIO_ROOT}/music/transmission.mp3`, surface: 'concrete', room: .72, color: 'steel' },
-  reef: { title: 'Blue Counterpoint', music: `${AUDIO_ROOT}/music/airy.mp3`, surface: 'grass', room: .46, color: 'glass' },
-  tundra: { title: 'White Horizon', music: `${AUDIO_ROOT}/music/sector.mp3`, surface: 'snow', room: .62, color: 'deep' },
-  volcano: { title: 'Magma Crown', music: `${AUDIO_ROOT}/music/urgent.mp3`, surface: 'concrete', room: .56, color: 'deep' },
+  observatory: { title: 'Perihelion', music: `${AUDIO_ROOT}/music/space-graveyard.mp3`, surface: 'concrete', room: .64, color: 'glass' },
+  orbital: { title: 'Low Gravity Signal', music: `${AUDIO_ROOT}/music/persistence.mp3`, surface: 'concrete', room: .72, color: 'steel' },
+  reef: { title: 'Blue Counterpoint', music: `${AUDIO_ROOT}/music/reef-dream.ogg`, surface: 'grass', room: .46, color: 'glass' },
+  tundra: { title: 'White Horizon', music: `${AUDIO_ROOT}/music/infestation.mp3`, surface: 'snow', room: .62, color: 'deep' },
+  volcano: { title: 'Magma Crown', music: `${AUDIO_ROOT}/music/depths.mp3`, surface: 'concrete', room: .56, color: 'deep' },
 };
 
 const CHARACTER_PROFILES: Record<string, Omit<CharacterAudioProfile, 'id'>> = {
@@ -170,10 +170,11 @@ export function replayAudioIntensity(frame: Frame): number {
 export interface ReplayAudioSettings {
   music: boolean;
   effects: boolean;
+  announcer: boolean;
   volume: number;
 }
 
-export const DEFAULT_REPLAY_AUDIO_SETTINGS: ReplayAudioSettings = { music: true, effects: true, volume: .68 };
+export const DEFAULT_REPLAY_AUDIO_SETTINGS: ReplayAudioSettings = { music: true, effects: true, announcer: true, volume: .68 };
 export const REPLAY_AUDIO_STORAGE_KEY = 'sshfighter:replay-audio:v1';
 
 export function readReplayAudioSettings(): ReplayAudioSettings {
@@ -183,6 +184,7 @@ export function readReplayAudioSettings(): ReplayAudioSettings {
     return {
       music: typeof value.music === 'boolean' ? value.music : true,
       effects: typeof value.effects === 'boolean' ? value.effects : true,
+      announcer: typeof value.announcer === 'boolean' ? value.announcer : true,
       volume: typeof value.volume === 'number' ? clamp(value.volume, 0, 1) : DEFAULT_REPLAY_AUDIO_SETTINGS.volume,
     };
   } catch { return DEFAULT_REPLAY_AUDIO_SETTINGS; }
@@ -194,6 +196,8 @@ export function writeReplayAudioSettings(settings: ReplayAudioSettings): void {
 }
 
 const foley = (file: string) => `${AUDIO_ROOT}/foley/${file}`;
+const special = (file: string) => `${AUDIO_ROOT}/special/${file}`;
+const announcer = (file: string) => `${AUDIO_ROOT}/announcer/${file}`;
 const series = (name: string) => Array.from({ length: 5 }, (_, index) => foley(`${name}_${String(index).padStart(3, '0')}.ogg`));
 
 const STUDIO_ASSETS = {
@@ -213,12 +217,95 @@ const STUDIO_ASSETS = {
   punchHeavy: series('impactPunch_heavy'),
   punchMedium: series('impactPunch_medium'),
   softHeavy: series('impactSoft_heavy'),
+  announcer: {
+    fight: announcer('fight.ogg'),
+    prepare: announcer('prepare_yourself.ogg'),
+    rounds: [announcer('round_1.ogg'), announcer('round_2.ogg'), announcer('round_3.ogg')],
+    finalRound: announcer('final_round.ogg'),
+    winner: announcer('winner.ogg'),
+  },
 } as const;
 
 const MULTI_TAKE_ASSETS = new Set<string>([STUDIO_ASSETS.face, STUDIO_ASSETS.kick, STUDIO_ASSETS.bag, STUDIO_ASSETS.air]);
 
-export function replayStudioAssetUrls(stage: string): string[] {
+type SpecialFamily = 'rise' | 'projectile' | 'spin' | 'charge' | 'storm' | 'phase' | 'gravity' | 'weapon' | 'armor' | 'construct' | 'barrage' | 'channel';
+
+export interface SpecialAudioTreatment {
+  fighter: string;
+  attack: string;
+  source: string;
+  family: SpecialFamily;
+}
+
+const SPECIAL_TREATMENTS: Record<string, { source: string; family: SpecialFamily }> = {
+  'BYU:shoryuken': { source: special('sfx_01a.ogg'), family: 'rise' },
+  'BYU:hadouken': { source: special('sfx_07c.ogg'), family: 'projectile' },
+  'BYU:hurricane': { source: special('sfx_14a.ogg'), family: 'spin' },
+  'MEN:shoryuken': { source: special('sfx_01b.ogg'), family: 'rise' },
+  'MEN:hadouken': { source: special('sfx_07d.ogg'), family: 'projectile' },
+  'MEN:hurricane': { source: special('sfx_14b.ogg'), family: 'spin' },
+  'BLANKO:rolling': { source: special('sfx_01c.ogg'), family: 'charge' },
+  'BLANKO:verticalroll': { source: special('sfx_08a.ogg'), family: 'rise' },
+  'BLANKO:electric': { source: special('sfx_14c.ogg'), family: 'storm' },
+  'CHONG:hadouken': { source: special('sfx_02a.ogg'), family: 'projectile' },
+  'CHONG:electric': { source: special('sfx_08b.ogg'), family: 'storm' },
+  'CHONG:hurricane': { source: special('sfx_15a.ogg'), family: 'spin' },
+  'GYLE:hadouken': { source: special('sfx_02b.ogg'), family: 'projectile' },
+  'GYLE:shoryuken': { source: special('sfx_09a.ogg'), family: 'rise' },
+  'GYLE:electric': { source: special('sfx_15b.ogg'), family: 'storm' },
+  'ZANG:verticalroll': { source: special('sfx_02c.ogg'), family: 'charge' },
+  'ZANG:electric': { source: special('sfx_09b.ogg'), family: 'spin' },
+  'ZANG:hurricane': { source: special('sfx_15c.ogg'), family: 'gravity' },
+  'DHAL:hadouken': { source: special('sfx_02d.ogg'), family: 'projectile' },
+  'DHAL:electric': { source: special('sfx_10a.ogg'), family: 'storm' },
+  'DHAL:hurricane': { source: special('sfx_16a.ogg'), family: 'spin' },
+  'HONDO:rolling': { source: special('sfx_03a.ogg'), family: 'charge' },
+  'HONDO:electric': { source: special('sfx_10b.ogg'), family: 'barrage' },
+  'HONDO:shoryuken': { source: special('sfx_16b.ogg'), family: 'gravity' },
+  'KIRA:shoryuken': { source: special('sfx_03b.ogg'), family: 'rise' },
+  'KIRA:hadouken': { source: special('sfx_10c.ogg'), family: 'projectile' },
+  'KIRA:electric': { source: special('sfx_17a.ogg'), family: 'phase' },
+  'MAKO:hadouken': { source: special('sfx_04a.ogg'), family: 'projectile' },
+  'MAKO:electric': { source: special('sfx_11a.ogg'), family: 'barrage' },
+  'MAKO:hurricane': { source: special('sfx_17b.ogg'), family: 'spin' },
+  'OMEGA:testimony': { source: special('sfx_04b.ogg'), family: 'barrage' },
+  'OMEGA:nullstep': { source: special('sfx_11b.ogg'), family: 'phase' },
+  'OMEGA:entropy': { source: special('sfx_18a.ogg'), family: 'gravity' },
+  'CODEX:context': { source: special('sfx_04c.ogg'), family: 'rise' },
+  'CODEX:branchwalk': { source: special('sfx_11c.ogg'), family: 'phase' },
+  'CODEX:mergecomet': { source: special('sfx_20a.ogg'), family: 'gravity' },
+  'FABLE:storyarc': { source: special('sfx_05a.ogg'), family: 'phase' },
+  'FABLE:plottwist': { source: special('sfx_12a.ogg'), family: 'phase' },
+  'FABLE:inktempest': { source: special('sfx_20b.ogg'), family: 'storm' },
+  'MNEME:construct': { source: special('sfx_05b.ogg'), family: 'construct' },
+  'MNEME:nova': { source: special('sfx_12b.ogg'), family: 'barrage' },
+  'MNEME:volley': { source: special('sfx_20c.ogg'), family: 'projectile' },
+  'AJAX:boomerang': { source: special('sfx_05c.ogg'), family: 'weapon' },
+  'AJAX:armor': { source: special('sfx_12c.ogg'), family: 'armor' },
+  'AJAX:lasso': { source: special('sfx_21a.ogg'), family: 'weapon' },
+  'XENON:phase': { source: special('sfx_06.ogg'), family: 'phase' },
+  'XENON:reflect': { source: special('sfx_13a.ogg'), family: 'phase' },
+  'XENON:blink': { source: special('sfx_21b.ogg'), family: 'phase' },
+  'MEGAWATTS:hadouken': { source: special('sfx_07a.ogg'), family: 'projectile' },
+  'MEGAWATTS:bombardment': { source: special('sfx_13b.ogg'), family: 'barrage' },
+  'MEGAWATTS:electric': { source: special('sfx_22a.ogg'), family: 'storm' },
+  'UNCLOSE:stream': { source: special('sfx_07b.ogg'), family: 'projectile' },
+  'UNCLOSE:electric': { source: special('sfx_13c.ogg'), family: 'storm' },
+  'UNCLOSE:freetier': { source: special('sfx_22b.ogg'), family: 'channel' },
+};
+
+export function specialAudioTreatment(fighter: string, attack: string): SpecialAudioTreatment | null {
+  const normalizedFighter = fighter.toUpperCase();
+  const treatment = SPECIAL_TREATMENTS[`${normalizedFighter}:${attack.toLowerCase()}`];
+  return treatment ? { fighter: normalizedFighter, attack: attack.toLowerCase(), ...treatment } : null;
+}
+
+export function replayStudioAssetUrls(stage: string, aChar?: string, bChar?: string): string[] {
   const profile = stageAudioProfile(stage);
+  const fighterSpecials = [aChar, bChar].filter((fighter): fighter is string => typeof fighter === 'string' && !!fighter)
+    .flatMap((fighter) => Object.entries(SPECIAL_TREATMENTS)
+      .filter(([key]) => key.startsWith(`${fighter.toUpperCase()}:`))
+      .map(([, treatment]) => treatment.source));
   return [
     profile.music,
     STUDIO_ASSETS.face, STUDIO_ASSETS.kick, STUDIO_ASSETS.bag, STUDIO_ASSETS.air,
@@ -227,6 +314,9 @@ export function replayStudioAssetUrls(stage: string): string[] {
     ...STUDIO_ASSETS.bell, ...STUDIO_ASSETS.metalHeavy, ...STUDIO_ASSETS.metalLight,
     ...STUDIO_ASSETS.punchHeavy, ...STUDIO_ASSETS.punchMedium, ...STUDIO_ASSETS.softHeavy,
     ...series(`footstep_${profile.surface}`),
+    STUDIO_ASSETS.announcer.fight, STUDIO_ASSETS.announcer.prepare, ...STUDIO_ASSETS.announcer.rounds,
+    STUDIO_ASSETS.announcer.finalRound, STUDIO_ASSETS.announcer.winner,
+    ...fighterSpecials,
   ];
 }
 
@@ -254,6 +344,7 @@ export class ReplaySoundscape {
   private master: GainNode | null = null;
   private musicBus: GainNode | null = null;
   private effectsBus: GainNode | null = null;
+  private announcerBus: GainNode | null = null;
   private musicTone: BiquadFilterNode | null = null;
   private musicDuck: GainNode | null = null;
   private reverbInput: GainNode | null = null;
@@ -310,10 +401,14 @@ export class ReplaySoundscape {
   }
 
   setPlayback(playing: boolean, speed = this.speed): void {
+    const wasPlaying = this.playing;
     this.playing = playing;
     this.speed = clamp(speed, .35, 2.5);
     this.applyMix(.08);
     this.syncMusic();
+    if (playing && !wasPlaying && this.eventSerial <= 2 && this.previous?.rd === 1 && this.ctx) {
+      this.roundCue(this.ctx.currentTime + .06, 1);
+    }
   }
 
   setVisible(visible: boolean): void {
@@ -334,7 +429,7 @@ export class ReplaySoundscape {
     this.previous = frame;
     this.intensity = replayAudioIntensity(frame);
     this.updateScore();
-    if (!previous || !this.enabled || !this.playing || !this.visible || !this.settings.effects) return;
+    if (!previous || !this.enabled || !this.playing || !this.visible || (!this.settings.effects && !this.settings.announcer)) return;
     for (const cue of replayAudioCues(previous, frame, this.meta.worldW)) this.playCue(cue, frameIndex);
   }
 
@@ -354,15 +449,16 @@ export class ReplaySoundscape {
     const master = ctx.createGain(); master.gain.value = .0001;
     const music = ctx.createGain(); music.gain.value = .0001;
     const effects = ctx.createGain(); effects.gain.value = .0001;
+    const voice = ctx.createGain(); voice.gain.value = .0001;
     const musicTone = ctx.createBiquadFilter(); musicTone.type = 'lowpass'; musicTone.frequency.value = 5600; musicTone.Q.value = .3;
     const musicDuck = ctx.createGain(); musicDuck.gain.value = 1;
     const reverbInput = ctx.createGain();
     const convolver = ctx.createConvolver(); convolver.buffer = this.roomImpulse(ctx, .7 + this.profile.room * 1.5);
     const reverbReturn = ctx.createGain(); reverbReturn.gain.value = .14 + this.profile.room * .12;
     musicTone.connect(musicDuck); musicDuck.connect(music); music.connect(master);
-    effects.connect(master); reverbInput.connect(convolver); convolver.connect(reverbReturn); reverbReturn.connect(master);
+    effects.connect(master); voice.connect(master); reverbInput.connect(convolver); convolver.connect(reverbReturn); reverbReturn.connect(master);
     master.connect(compressor); compressor.connect(ctx.destination);
-    this.ctx = ctx; this.master = master; this.musicBus = music; this.effectsBus = effects;
+    this.ctx = ctx; this.master = master; this.musicBus = music; this.effectsBus = effects; this.announcerBus = voice;
     this.musicTone = musicTone; this.musicDuck = musicDuck; this.reverbInput = reverbInput; this.reverbReturn = reverbReturn;
   }
 
@@ -384,7 +480,7 @@ export class ReplaySoundscape {
   private async loadAssets(): Promise<boolean> {
     const ctx = this.ctx;
     if (!ctx) return false;
-    await Promise.allSettled(replayStudioAssetUrls(this.profile.id).map(async (url) => {
+    await Promise.allSettled(replayStudioAssetUrls(this.profile.id, this.meta.aChar, this.meta.bChar).map(async (url) => {
       const response = await fetch(url, { cache: 'force-cache' });
       if (!response.ok) throw new Error(`audio ${response.status}: ${url}`);
       const buffer = await ctx.decodeAudioData(await response.arrayBuffer());
@@ -444,6 +540,7 @@ export class ReplaySoundscape {
     this.ramp(this.master?.gain, this.enabled && this.visible ? Math.max(.0001, this.settings.volume) : .0001, duration);
     this.ramp(this.musicBus?.gain, active && this.settings.music ? .19 + this.intensity * .035 : .0001, duration);
     this.ramp(this.effectsBus?.gain, this.enabled && this.visible && this.settings.effects ? .86 : .0001, duration);
+    this.ramp(this.announcerBus?.gain, this.enabled && this.visible && this.settings.announcer ? .72 : .0001, duration);
     this.ramp(this.reverbReturn?.gain, this.enabled && this.visible && this.settings.effects ? .12 + this.profile.room * .1 : .0001, duration);
     this.updateScore();
   }
@@ -532,6 +629,23 @@ export class ReplaySoundscape {
     } else source.start(when, offset);
   }
 
+  private voice(url: string, when: number, gain = .42): void {
+    const ctx = this.ctx, destination = this.announcerBus, buffer = this.buffers.get(url);
+    if (!ctx || !destination || !buffer || !this.enabled || !this.visible || !this.settings.announcer) return;
+    this.duckMusic(.24, 1.25);
+    const source = ctx.createBufferSource(); source.buffer = buffer;
+    const highpass = ctx.createBiquadFilter(); highpass.type = 'highpass'; highpass.frequency.value = 78;
+    const lowpass = ctx.createBiquadFilter(); lowpass.type = 'lowpass'; lowpass.frequency.value = 11800;
+    const presence = ctx.createBiquadFilter(); presence.type = 'peaking'; presence.frequency.value = 2650; presence.Q.value = .78; presence.gain.value = 1.8;
+    const compressor = ctx.createDynamicsCompressor(); compressor.threshold.value = -18; compressor.knee.value = 8; compressor.ratio.value = 3;
+    compressor.attack.value = .008; compressor.release.value = .16;
+    const trim = ctx.createGain(); trim.gain.value = gain * clamp(.82 / (this.peaks.get(url) ?? .82), .72, 1.8);
+    const send = ctx.createGain(); send.gain.value = .08 + this.profile.room * .06;
+    source.connect(highpass); highpass.connect(lowpass); lowpass.connect(presence); presence.connect(compressor); compressor.connect(trim);
+    trim.connect(destination); trim.connect(send); send.connect(this.reverbInput!);
+    source.start(when);
+  }
+
   private playCue(cue: ReplayAudioCue, frameIndex: number): void {
     const ctx = this.ctx;
     if (!ctx) return;
@@ -546,8 +660,8 @@ export class ReplaySoundscape {
       case 'step': this.movementCue(cue, when, 'step'); break;
       case 'projectile': this.projectileCue(cue, when); break;
       case 'clash': this.clashCue(cue, when); break;
-      case 'round': this.roundCue(when); break;
-      case 'fight': this.sample(STUDIO_ASSETS.air, { gain: .13, when, duration: .44, slice: true, reverb: .5 }); break;
+      case 'round': this.roundCue(when, cue.weight); break;
+      case 'fight': this.fightCue(when); break;
       case 'ko': this.koCue(when, cue.pan, this.fighter(cue.side)); break;
       case 'victory': if (frameIndex > 20) this.victoryCue(when, this.fighter(cue.side)); break;
     }
@@ -583,43 +697,44 @@ export class ReplaySoundscape {
       this.sample(STUDIO_ASSETS.air, { gain: attack === 'punch' ? .055 : .085, when, pan: cue.pan, duration: attack === 'punch' ? .2 : .32, slice: true, profile: fighter, highpass: 140, reverb: .12 });
       return;
     }
-    if (['shoryuken', 'hurricane', 'rolling', 'verticalroll', 'context', 'mergecomet'].includes(attack)) {
-      this.sample(STUDIO_ASSETS.air, { gain: .1 + fighter.weight * .04, when, pan: cue.pan, duration: attack === 'hurricane' || attack === 'rolling' ? .55 : .36, slice: true, profile: fighter, highpass: 110, reverb: .22 });
-      return;
-    }
-    if (attack === 'armor') {
-      this.sample(this.choose(STUDIO_ASSETS.metalHeavy), { gain: .13, when, pan: cue.pan, profile: fighter, lowpass: 6400, reverb: .28 });
-      this.sample(this.choose(STUDIO_ASSETS.softHeavy, 3), { gain: .05, when: when + .01, pan: cue.pan, profile: fighter, lowpass: 1700, reverb: .08 });
-      return;
-    }
-    if (['phase', 'blink', 'nullstep', 'branchwalk', 'storyarc', 'plottwist'].includes(attack)) {
-      this.sample(STUDIO_ASSETS.phase, { gain: .22, when, pan: cue.pan, duration: 1.15, profile: fighter, highpass: 90, reverb: .72 });
-      this.sample(STUDIO_ASSETS.air, { gain: .06, when: when + .025, pan: cue.pan, duration: .34, slice: true, profile: fighter, highpass: 240, reverb: .4 });
-      return;
-    }
-    if (['testimony', 'entropy', 'electric', 'inktempest', 'reflect'].includes(attack)) {
-      const source = attack === 'electric' ? STUDIO_ASSETS.electric : attack === 'reflect' ? STUDIO_ASSETS.phase : STUDIO_ASSETS.energy;
-      this.sample(source, { gain: .18 + fighter.weight * .08, when, pan: cue.pan, duration: attack === 'testimony' ? 1.35 : .82, profile: fighter, lowpass: attack === 'entropy' ? 2400 : 12000, reverb: fighter.space });
-      return;
-    }
-    if (attack === 'freetier') {
-      this.sample(STUDIO_ASSETS.phase, { gain: .16, when, pan: cue.pan, duration: 1.4, profile: fighter, lowpass: 7200, reverb: .78 });
-      return;
-    }
-    if (attack === 'construct') {
-      this.sample(this.choose(STUDIO_ASSETS.metalHeavy), { gain: .14, when, pan: cue.pan, profile: fighter, lowpass: 6800, reverb: .52 });
-      this.sample(this.choose(STUDIO_ASSETS.bell, 2), { gain: .1, when: when + .035, pan: cue.pan, profile: fighter, lowpass: 9200, reverb: .72 });
-      return;
-    }
-    if (attack === 'boomerang' || attack === 'lasso') {
-      this.sample(attack === 'boomerang' ? STUDIO_ASSETS.blade : STUDIO_ASSETS.air, { gain: .16, when, pan: cue.pan, duration: .5, slice: attack === 'lasso', profile: fighter, highpass: 180, reverb: .32 });
-      return;
-    }
-    if (attack === 'bombardment') {
-      this.sample(STUDIO_ASSETS.energy, { gain: .25, when, pan: cue.pan, duration: 1.1, profile: fighter, lowpass: 6400, reverb: .58 });
+    const treatment = specialAudioTreatment(fighter.id, attack);
+    if (treatment) {
+      this.specialCue(treatment, cue.pan, when, fighter);
       return;
     }
     this.sample(STUDIO_ASSETS.energy, { gain: .15, when, pan: cue.pan, duration: .68, profile: fighter, lowpass: 9200, reverb: fighter.space });
+  }
+
+  private specialCue(treatment: SpecialAudioTreatment, pan: number, when: number, fighter: CharacterAudioProfile): void {
+    const recipes: Record<SpecialFamily, { gain: number; lowpass: number; highpass: number; reverb: number; layer: 'air' | 'energy' | 'electric' | 'phase' | 'metal' | 'blade' | 'body' }> = {
+      rise: { gain: .18, lowpass: 13200, highpass: 80, reverb: .26, layer: 'air' },
+      projectile: { gain: .16, lowpass: 10500, highpass: 55, reverb: .4, layer: 'energy' },
+      spin: { gain: .17, lowpass: 12000, highpass: 120, reverb: .24, layer: 'air' },
+      charge: { gain: .2, lowpass: 7600, highpass: 42, reverb: .18, layer: 'body' },
+      storm: { gain: .17, lowpass: 14000, highpass: 90, reverb: .48, layer: 'electric' },
+      phase: { gain: .18, lowpass: 11200, highpass: 130, reverb: .68, layer: 'phase' },
+      gravity: { gain: .2, lowpass: 5800, highpass: 34, reverb: .5, layer: 'body' },
+      weapon: { gain: .17, lowpass: 14800, highpass: 190, reverb: .3, layer: 'blade' },
+      armor: { gain: .2, lowpass: 7200, highpass: 70, reverb: .25, layer: 'metal' },
+      construct: { gain: .18, lowpass: 9200, highpass: 80, reverb: .55, layer: 'metal' },
+      barrage: { gain: .18, lowpass: 9800, highpass: 60, reverb: .46, layer: 'energy' },
+      channel: { gain: .16, lowpass: 8800, highpass: 100, reverb: .72, layer: 'phase' },
+    };
+    const recipe = recipes[treatment.family];
+    this.sample(treatment.source, { gain: recipe.gain, when, pan, profile: fighter, lowpass: recipe.lowpass, highpass: recipe.highpass, reverb: recipe.reverb });
+    const layerSource = recipe.layer === 'air' ? STUDIO_ASSETS.air
+      : recipe.layer === 'energy' ? STUDIO_ASSETS.energy
+        : recipe.layer === 'electric' ? STUDIO_ASSETS.electric
+          : recipe.layer === 'phase' ? STUDIO_ASSETS.phase
+            : recipe.layer === 'metal' ? this.choose(STUDIO_ASSETS.metalHeavy)
+              : recipe.layer === 'blade' ? STUDIO_ASSETS.blade
+                : STUDIO_ASSETS.bag;
+    this.sample(layerSource, {
+      gain: recipe.gain * .38, when: when + .018, pan, profile: fighter,
+      duration: recipe.layer === 'phase' || recipe.layer === 'energy' || recipe.layer === 'electric' ? .72 : .4,
+      slice: recipe.layer === 'air' || recipe.layer === 'body', lowpass: recipe.lowpass * .72,
+      highpass: recipe.highpass, reverb: recipe.reverb * .72,
+    });
   }
 
   private impactCue(cue: ReplayAudioCue, when: number): void {
@@ -659,8 +774,15 @@ export class ReplaySoundscape {
     this.sample(STUDIO_ASSETS.energy, { gain: .1, when: when + .012, pan: cue.pan, duration: .52, lowpass: 5600, reverb: .54 });
   }
 
-  private roundCue(when: number): void {
+  private roundCue(when: number, roundWeight?: number): void {
     this.sample(this.choose(STUDIO_ASSETS.bell), { gain: .22, when, pan: 0, lowpass: 10500, reverb: .7 });
+    const round = Math.max(1, Math.min(3, Math.round(roundWeight ?? 1)));
+    this.voice(STUDIO_ASSETS.announcer.rounds[round - 1]!, when + .18, .42);
+  }
+
+  private fightCue(when: number): void {
+    this.sample(STUDIO_ASSETS.air, { gain: .13, when, duration: .44, slice: true, reverb: .5 });
+    this.voice(STUDIO_ASSETS.announcer.fight, when + .08, .46);
   }
 
   private koCue(when: number, pan: number, fighter: CharacterAudioProfile): void {
@@ -672,5 +794,6 @@ export class ReplaySoundscape {
   private victoryCue(when: number, fighter: CharacterAudioProfile): void {
     this.duckMusic(.56, .7);
     this.sample(STUDIO_ASSETS.victory, { gain: .16, when: when + .12, pan: 0, profile: fighter, lowpass: 9200, reverb: .62 });
+    this.voice(STUDIO_ASSETS.announcer.winner, when + .3, .44);
   }
 }

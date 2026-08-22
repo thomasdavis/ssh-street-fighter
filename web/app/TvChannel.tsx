@@ -2,9 +2,22 @@
 import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
 import { drawFrame, ensureImages, sameRenderIdentity, stageUrl, CW, CH, type Frame, type RenderMeta } from '@/lib/replay-render';
+import {
+  DEFAULT_REPLAY_AUDIO_SETTINGS,
+  ReplaySoundscape,
+  characterAudioProfile,
+  readReplayAudioSettings,
+  replayAudioIntensity,
+  stageAudioProfile,
+  writeReplayAudioSettings,
+  type ReplayAudioSettings,
+  type StageAudioProfile,
+} from '@/lib/replay-audio';
+import { tvCanAdvance, type TvAdvanceReason } from '@/lib/tv-director';
 
 interface Track extends RenderMeta { fps: number; frames: Frame[] }
-interface Live extends RenderMeta { mid: string; frame: Frame; over: boolean }
+interface Live extends RenderMeta { mid: string; frame: Frame; over: boolean; fps?: number }
+interface MixIdentity { stage: StageAudioProfile; a: string; b: string }
 
 function lerp(p: Frame, c: Frame, k: number): Frame {
   const L = (a: number, b: number) => a + (b - a) * k;
@@ -18,6 +31,12 @@ export function TvChannel({ replayPool }: { replayPool: { id: string; title: str
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [cap, setCap] = useState<{ text: string; sub: string; href: string; live: boolean }>({ text: 'Tuning in…', sub: '', href: '/matches', live: false });
   const [handoff, setHandoff] = useState<{ mid: string; title: string; sub: string } | null>(null);
+  const [audioEnabled, setAudioEnabled] = useState(false);
+  const [audioLoading, setAudioLoading] = useState(false);
+  const [audioSupported, setAudioSupported] = useState(true);
+  const [audioSettings, setAudioSettings] = useState<ReplayAudioSettings>(DEFAULT_REPLAY_AUDIO_SETTINGS);
+  const [mix, setMix] = useState<MixIdentity | null>(null);
+  const [intensity, setIntensity] = useState(.2);
 
   const metaRef = useRef<RenderMeta | null>(null);
   const imgs = useRef(new Map<string, HTMLImageElement>());
@@ -31,8 +50,63 @@ export function TvChannel({ replayPool }: { replayPool: { id: string; title: str
   const liveMid = useRef<string | null>(null);
   const liveList = useRef<any[]>([]);
   const liveRot = useRef(0);
+  const liveMisses = useRef(0);
   const replayRot = useRef(-1);
+  const replayId = useRef<string | null>(null);
   const busy = useRef(false);
+  const audioRef = useRef<ReplaySoundscape | null>(null);
+  const audioWanted = useRef(false);
+  const audioSettingsRef = useRef<ReplayAudioSettings>(DEFAULT_REPLAY_AUDIO_SETTINGS);
+  const audioActivation = useRef(0);
+  const audioFrameSerial = useRef(0);
+  const lastIntensityUi = useRef(0);
+
+  const currentFrame = () => kind.current === 'live' ? cur.current?.f : track.current?.frames[idx.current];
+  const currentFrameIndex = () => kind.current === 'live' ? audioFrameSerial.current : idx.current;
+  const currentSourceKey = () => kind.current === 'live' ? `live:${liveMid.current ?? 'pending'}` : `replay:${replayId.current ?? 'pending'}`;
+
+  const presentIntensity = (frame: Frame) => {
+    const now = performance.now();
+    if (now - lastIntensityUi.current < 160) return;
+    lastIntensityUi.current = now;
+    setIntensity(replayAudioIntensity(frame));
+  };
+
+  const switchSoundscape = (m: RenderMeta & { fps?: number }, initialFrame: Frame, frameIndex: number) => {
+    setMix({
+      stage: stageAudioProfile(m.stage),
+      a: characterAudioProfile(m.aChar).signature,
+      b: characterAudioProfile(m.bChar).signature,
+    });
+    setIntensity(replayAudioIntensity(initialFrame));
+
+    const token = ++audioActivation.current;
+    const previousAudio = audioRef.current;
+    audioRef.current = null;
+    if (previousAudio) void previousAudio.dispose();
+    if (!audioWanted.current) { setAudioLoading(false); return; }
+
+    const sourceKey = currentSourceKey();
+    const soundscape = new ReplaySoundscape({ stage: m.stage, worldW: m.worldW, fps: m.fps ?? 30, aChar: m.aChar, bChar: m.bChar });
+    audioRef.current = soundscape;
+    setAudioLoading(true);
+    void soundscape.activate(audioSettingsRef.current).then((ready) => {
+      if (token !== audioActivation.current || sourceKey !== currentSourceKey()) {
+        void soundscape.dispose();
+        return;
+      }
+      if (!ready) {
+        audioWanted.current = false;
+        setAudioEnabled(false);
+        setAudioSupported(false);
+        return;
+      }
+      soundscape.seek(currentFrame() ?? initialFrame, currentFrameIndex() || frameIndex);
+      soundscape.setPlayback(true, 1);
+    }).finally(() => {
+      if (token === audioActivation.current) setAudioLoading(false);
+    });
+  };
 
   const setStageAndImgs = (m: RenderMeta) => {
     metaRef.current = m;
@@ -44,7 +118,8 @@ export function TvChannel({ replayPool }: { replayPool: { id: string; title: str
   };
 
   const startLive = (m: any) => {
-    kind.current = 'live'; liveMid.current = m.mid; track.current = null;
+    kind.current = 'live'; liveMid.current = m.mid; replayId.current = null; track.current = null;
+    audioFrameSerial.current = 0; liveMisses.current = 0;
     prev.current = null; cur.current = null; metaRef.current = null;
     const nextHandoff = { mid: m.mid, title: `${m.a.name} vs ${m.b.name}`, sub: `${m.a.char} vs ${m.b.char} · ${m.stage}` };
     setHandoff(nextHandoff);
@@ -52,19 +127,24 @@ export function TvChannel({ replayPool }: { replayPool: { id: string; title: str
     setCap({ text: `${m.a.name}${m.a.bot ? ' [BOT]' : ''} vs ${m.b.name}${m.b.bot ? ' [BOT]' : ''}`, sub: `${m.a.char} vs ${m.b.char} · ${m.stage}`, href: `/watch/${m.mid}`, live: true });
   };
   const startReplay = async (r: { id: string; title: string }) => {
-    kind.current = 'replay'; liveMid.current = null;
+    kind.current = 'replay'; liveMid.current = null; replayId.current = r.id;
     try {
       const res = await fetch(`/api/matches/${r.id}/track`, { cache: 'force-cache' });
       if (!res.ok) return false;
       const t = await res.json() as Track;
       track.current = t; setStageAndImgs(t); idx.current = 0; loops.current = 0;
+      const firstFrame = t.frames[0];
+      if (firstFrame) switchSoundscape(t, firstFrame, 0);
       setCap({ text: r.title, sub: 'recent replay', href: `/matches/${r.id}`, live: false });
       return true;
     } catch { return false; }
   };
 
   // Director: choose the next thing to show. Live matches win; else rotate replays.
-  const advance = async () => {
+  const advance = async (reason: TvAdvanceReason) => {
+    // A live bout is the program until its authoritative end. Newly arriving
+    // fights may preempt replays, never another live fight.
+    if (!tvCanAdvance(kind.current, reason)) return;
     if (busy.current) return; busy.current = true;
     try {
       let list = liveList.current;
@@ -80,12 +160,12 @@ export function TvChannel({ replayPool }: { replayPool: { id: string; title: str
         if (r && await startReplay(r)) return;
       }
       // nothing available — retry shortly
-      setTimeout(() => { busy.current = false; advance(); }, 4000);
+      setTimeout(() => { busy.current = false; void advance('retry'); }, 4000);
       return;
     } finally { busy.current = false; }
   };
 
-  useEffect(() => { advance(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, []);
+  useEffect(() => { void advance('initial'); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, []);
 
   // periodic director check: if we're on a replay but a live match starts, cut to it
   useEffect(() => {
@@ -94,7 +174,7 @@ export function TvChannel({ replayPool }: { replayPool: { id: string; title: str
         const r = await fetch('/api/live', { cache: 'no-store' });
         const d = r.ok ? await r.json() : { live: [] };
         liveList.current = d.live || [];
-        if (kind.current === 'replay' && liveList.current.length) advance();
+        if (kind.current === 'replay' && liveList.current.length) void advance('live-arrived');
       } catch { /* ignore */ }
     }, 9000);
     return () => clearInterval(id);
@@ -111,18 +191,28 @@ export function TvChannel({ replayPool }: { replayPool: { id: string; title: str
       try {
         const r = await fetch(`/api/live/${encodeURIComponent(requestedMid)}`, { cache: 'no-store' });
         if (r.ok) {
+          liveMisses.current = 0;
           const d = await r.json() as Live;
           if (!alive || kind.current !== 'live' || liveMid.current !== requestedMid || d.mid !== requestedMid) {
             setTimeout(poll, 90); return;
           }
-          if (!sameRenderIdentity(metaRef.current, d)) setStageAndImgs(d);
+          if (!sameRenderIdentity(metaRef.current, d)) {
+            setStageAndImgs(d);
+            audioFrameSerial.current = 0;
+            switchSoundscape(d, d.frame, 0);
+          }
           prev.current = cur.current ?? { f: d.frame, t: performance.now() };
           cur.current = { f: d.frame, t: performance.now() };
+          audioRef.current?.observe(d.frame, audioFrameSerial.current++);
+          presentIntensity(d.frame);
           if (d.over) {
             await new Promise((resolve) => setTimeout(resolve, 2200));
-            if (alive && liveMid.current === requestedMid) await advance();
+            if (alive && liveMid.current === requestedMid) await advance('live-ended');
           }
-        } else if (r.status === 404 && liveMid.current === requestedMid) { await advance(); }
+        } else if (r.status === 404 && liveMid.current === requestedMid) {
+          liveMisses.current += 1;
+          if (liveMisses.current >= 3) await advance('live-ended');
+        }
       } catch { /* transient */ }
       setTimeout(poll, 90);
     };
@@ -144,14 +234,67 @@ export function TvChannel({ replayPool }: { replayPool: { id: string; title: str
         drawFrame(ctx, m, p === c ? c.f : lerp(p.f, c.f, k), imgs.current, stage.current, tick);
       } else if (track.current) {
         const t = track.current; acc += dt; const step = 1000 / (t.fps || 30);
-        while (acc >= step) { acc -= step; idx.current += 1; if (idx.current >= t.frames.length) { idx.current = 0; loops.current += 1; if (loops.current >= 2) { advance(); } } }
-        drawFrame(ctx, t, t.frames[Math.min(idx.current, t.frames.length - 1)], imgs.current, stage.current, tick);
+        while (acc >= step) {
+          acc -= step; idx.current += 1;
+          if (idx.current >= t.frames.length) {
+            idx.current = 0; loops.current += 1;
+            audioRef.current?.seek(t.frames[0], 0);
+            if (loops.current >= 2) { void advance('replay-complete'); }
+          } else {
+            audioRef.current?.observe(t.frames[idx.current]!, idx.current);
+          }
+        }
+        const frame = t.frames[Math.min(idx.current, t.frames.length - 1)];
+        if (frame) { drawFrame(ctx, t, frame, imgs.current, stage.current, tick); presentIntensity(frame); }
       }
     };
     raf = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(raf);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    const settings = readReplayAudioSettings();
+    audioSettingsRef.current = settings;
+    setAudioSettings(settings);
+    setAudioSupported(ReplaySoundscape.supported());
+    const onVisibility = () => audioRef.current?.setVisible(!document.hidden);
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => {
+      document.removeEventListener('visibilitychange', onVisibility);
+      audioActivation.current += 1;
+      void audioRef.current?.dispose();
+      audioRef.current = null;
+    };
+  }, []);
+
+  const updateAudio = (patch: Partial<ReplayAudioSettings>) => {
+    setAudioSettings((current) => {
+      const next = { ...current, ...patch };
+      audioSettingsRef.current = next;
+      writeReplayAudioSettings(next);
+      audioRef.current?.configure(next);
+      return next;
+    });
+  };
+
+  const toggleAudio = () => {
+    if (audioLoading) return;
+    if (audioWanted.current) {
+      audioWanted.current = false;
+      setAudioEnabled(false);
+      audioRef.current?.deactivate();
+      return;
+    }
+    const m = metaRef.current;
+    const frame = currentFrame();
+    if (!m || !frame) return;
+    audioWanted.current = true;
+    setAudioEnabled(true);
+    switchSoundscape(m, frame, currentFrameIndex());
+  };
+
+  const audioLevel = intensity > .72 ? 'hot' : intensity > .42 ? 'active' : 'calm';
 
   return (
     <div className="rs-tv">
@@ -168,6 +311,45 @@ export function TvChannel({ replayPool }: { replayPool: { id: string; title: str
           <Link href={cap.href} className="rs-tv__link">{cap.live ? 'Open match →' : 'Full replay →'}</Link>
         </div>
         <div className="rs-tv__chan">SSH FIGHTER · TV</div>
+        {audioEnabled && mix && (
+          <div className="rs-replay__mix-status rs-tv__mix-status" aria-hidden="true">
+            <i /><span>{mix.stage.title}</span><small>LIVE STUDIO MIX</small>
+          </div>
+        )}
+      </div>
+      <div className="rs-controls rs-tv__sounddeck">
+        <section className="rs-soundboard rs-soundboard--tv" data-enabled={audioEnabled ? '1' : undefined} data-loading={audioLoading ? '1' : undefined}
+          data-level={audioLevel} aria-label="TV soundscape" aria-busy={audioLoading}>
+          <div className="rs-soundboard__identity">
+            <span>BROADCAST SCORE · RECORDED FOLEY</span>
+            <strong>{mix?.stage.title ?? 'Tuning the stage'}</strong>
+            <small>{mix ? `${mix.a} × ${mix.b}` : 'Waiting for the next fight'}</small>
+          </div>
+          <button className="rs-sound-toggle" type="button" aria-pressed={audioEnabled} onClick={toggleAudio}
+            disabled={!audioSupported || !mix || audioLoading}>
+            <i aria-hidden="true" /><span>Sound</span><small>{audioLoading ? 'TUNING' : audioSupported ? audioEnabled ? 'ON' : 'OFF' : 'UNAVAILABLE'}</small>
+          </button>
+          <button className="rs-channel-toggle" type="button" aria-pressed={audioSettings.music} onClick={() => updateAudio({ music: !audioSettings.music })}
+            disabled={!audioSupported}>
+            <span>Music</span><small>{audioSettings.music ? 'IN' : 'OUT'}</small>
+          </button>
+          <button className="rs-channel-toggle" type="button" aria-pressed={audioSettings.effects} onClick={() => updateAudio({ effects: !audioSettings.effects })}
+            disabled={!audioSupported}>
+            <span>Fight FX</span><small>{audioSettings.effects ? 'IN' : 'OUT'}</small>
+          </button>
+          <button className="rs-channel-toggle" type="button" aria-pressed={audioSettings.announcer} onClick={() => updateAudio({ announcer: !audioSettings.announcer })}
+            disabled={!audioSupported}>
+            <span>Announcer</span><small>{audioSettings.announcer ? 'IN' : 'OUT'}</small>
+          </button>
+          <label className="rs-volume">
+            <span>Volume</span>
+            <input aria-label="TV audio volume" type="range" min={0} max={100} value={Math.round(audioSettings.volume * 100)}
+              onChange={(e) => updateAudio({ volume: Number(e.target.value) / 100 })} disabled={!audioSupported} />
+            <output>{Math.round(audioSettings.volume * 100)}</output>
+          </label>
+          <div className="rs-mix-meter" aria-hidden="true"><i /><i /><i /><i /><i /></div>
+          <p>Click Sound once · the studio mix follows this bout through the finish, then retunes for the next</p>
+        </section>
       </div>
     </div>
   );

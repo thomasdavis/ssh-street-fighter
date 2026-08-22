@@ -22,11 +22,31 @@ The `footstep_*`, `impactBell_*`, `impactMetal_*`, `impactPunch_*`, and `impactS
 
 https://kenney.nl/assets/impact-sounds
 
-## Score and victory master
+## Stage score masters
 
-`music/*.mp3` and `foley/victory.mp3` come from SRG774’s Dark Sci-Fi Audio Pack:
+Each of the sixteen stages is assigned its own source master. `music/airy.mp3`, `music/pulse.mp3`, `music/sector.mp3`, `music/transmission.mp3`, `music/urgent.mp3`, and `foley/victory.mp3` come from SRG774’s Dark Sci-Fi Audio Pack:
 
 https://opengameart.org/content/dark-sci-fi-audio-pack
+
+- `music/surreal.mp3`, `music/infestation.mp3`, `music/captains-log.mp3`, `music/depths.mp3`, and `music/cryptid.mp3` — Joth’s Ambience Pack 1: https://opengameart.org/content/ambience-pack-1-sci-fi-horror
+- `music/forest.mp3` — “Forest Ambience” by TinyWorlds: https://opengameart.org/content/forest-ambience
+- `music/carnival.ogg` — “Carnival Rides” by Écrivain: https://opengameart.org/content/carnival-rides
+- `music/empty-city.ogg` — “EmptyCity” by yd: https://opengameart.org/content/emptycity-background-music
+- `music/persistence.mp3` — “Persistence” by cinameng: https://opengameart.org/content/persistence
+- `music/space-graveyard.mp3` — “Space Graveyard” by TinyWorlds: https://opengameart.org/content/space-graveyard-ambient-track
+- `music/reef-dream.ogg` — “Ambient Relaxing Loop” by isaiah658: https://opengameart.org/content/ambient-relaxing-loop
+
+## Authored special-move source library
+
+The sixty `special/sfx_*.ogg` masters come from rubberduck’s “60 CC0 Sci-Fi SFX” pack. Every roster special is mapped to a different source master, then layered with its fighter’s physical material and authored move-family treatment:
+
+https://opengameart.org/content/60-cc0-sci-fi-sfx
+
+## Announcer
+
+The normalized `announcer/*.ogg` lines come from Kenney’s CC0 Voiceover Pack: Fighter. The pack was recorded by a professional voice actor:
+
+https://opengameart.org/content/voiceover-pack-fighter-40-taunts
 
 ## License
 

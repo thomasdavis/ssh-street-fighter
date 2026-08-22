@@ -195,6 +195,10 @@ export default function ReplayViewer({ matchId }: { matchId: string }) {
             disabled={!audioSupported}>
             <span>Fight FX</span><small>{audioSettings.effects ? 'IN' : 'OUT'}</small>
           </button>
+          <button className="rs-channel-toggle" type="button" aria-pressed={audioSettings.announcer} onClick={() => updateAudio({ announcer: !audioSettings.announcer })}
+            disabled={!audioSupported}>
+            <span>Announcer</span><small>{audioSettings.announcer ? 'IN' : 'OUT'}</small>
+          </button>
           <label className="rs-volume">
             <span>Volume</span>
             <input aria-label="Replay audio volume" type="range" min={0} max={100} value={Math.round(audioSettings.volume * 100)}
@@ -202,7 +206,7 @@ export default function ReplayViewer({ matchId }: { matchId: string }) {
             <output>{Math.round(audioSettings.volume * 100)}</output>
           </label>
           <div className="rs-mix-meter" aria-hidden="true"><i /><i /><i /><i /><i /></div>
-          <p>Click Sound to load the studio mix · recorded effects, adaptive score, independent channels</p>
+          <p>Click Sound to load the studio mix · unique stage scores, recorded effects, broadcast voice</p>
         </section>
       </div>
     </div>
