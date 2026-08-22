@@ -2,9 +2,9 @@
 import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
 import { PlayerTypeBadge } from '@/components/ui';
-import { drawFrame, ensureImages, stageUrl, CW, CH, type Frame, type RenderMeta } from '@/lib/replay-render';
+import { drawFrame, ensureImages, sameRenderIdentity, stageUrl, CW, CH, type Frame, type RenderMeta } from '@/lib/replay-render';
 
-interface LivePayload extends RenderMeta { frame: Frame; over: boolean }
+interface LivePayload extends RenderMeta { mid: string; frame: Frame; over: boolean }
 const POLL_MS = 90;
 
 function lerp(p: Frame, c: Frame, k: number): Frame {
@@ -36,7 +36,8 @@ export default function LiveViewer({ mid }: { mid: string }) {
         else if (r.ok) {
           misses = 0;
           const d = await r.json() as LivePayload;
-          if (!meta.current) {
+          if (!alive || d.mid !== mid) { setTimeout(poll, POLL_MS); return; }
+          if (!sameRenderIdentity(meta.current, d)) {
             meta.current = d;
             setNames({ a: d.aName, b: d.bName, aBot: !!d.aBot, bBot: !!d.bBot });
             const si = new Image(); si.onload = () => { stageImg.current = si; }; si.src = stageUrl(d.stage);

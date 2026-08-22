@@ -1,10 +1,10 @@
 'use client';
 import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
-import { drawFrame, ensureImages, stageUrl, CW, CH, type Frame, type RenderMeta } from '@/lib/replay-render';
+import { drawFrame, ensureImages, sameRenderIdentity, stageUrl, CW, CH, type Frame, type RenderMeta } from '@/lib/replay-render';
 
 interface Track extends RenderMeta { fps: number; frames: Frame[] }
-interface Live extends RenderMeta { frame: Frame; over: boolean }
+interface Live extends RenderMeta { mid: string; frame: Frame; over: boolean }
 type Mode = 'loading' | 'replay' | 'live' | 'none';
 
 function lerp(p: Frame, c: Frame, k: number): Frame {
@@ -32,7 +32,7 @@ export function HomeTheater({ replayId, replayTitle }: { replayId: string | null
   const setStageAndImgs = (m: RenderMeta) => {
     metaRef.current = m;
     if (!stage.current || stage.current.dataset?.stage !== m.stage) {
-      const si = new Image(); si.onload = () => { stage.current = si; }; si.src = stageUrl(m.stage); si.dataset && (si.dataset.stage = m.stage);
+      const si = new Image(); si.onload = () => { if (metaRef.current?.stage === m.stage) stage.current = si; }; si.src = stageUrl(m.stage); si.dataset && (si.dataset.stage = m.stage);
       stage.current = si;
     }
     ensureImages(m, imgs.current);
@@ -86,11 +86,14 @@ export function HomeTheater({ replayId, replayTitle }: { replayId: string | null
         const r = await fetch(`/api/live/${encodeURIComponent(mid)}`, { cache: 'no-store' });
         if (r.ok) {
           const d = await r.json() as Live;
-          if (!metaRef.current || metaRef.current.stage !== d.stage) setStageAndImgs(d);
+          if (!alive || modeRef.current !== 'live' || liveMid.current !== mid || d.mid !== mid) {
+            setTimeout(poll, 90); return;
+          }
+          if (!sameRenderIdentity(metaRef.current, d)) setStageAndImgs(d);
           prev.current = cur.current ?? { f: d.frame, t: performance.now() };
           cur.current = { f: d.frame, t: performance.now() };
           if (d.over) { modeRef.current = 'replay'; liveMid.current = null; setMode('replay'); loadReplay(); return; }
-        } else if (r.status === 404) { modeRef.current = 'replay'; liveMid.current = null; setMode('replay'); loadReplay(); return; }
+        } else if (r.status === 404 && liveMid.current === mid) { modeRef.current = 'replay'; liveMid.current = null; setMode('replay'); loadReplay(); return; }
       } catch { /* transient */ }
       setTimeout(poll, 90);
     };
