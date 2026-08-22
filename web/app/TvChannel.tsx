@@ -13,7 +13,7 @@ import {
   type ReplayAudioSettings,
   type StageAudioProfile,
 } from '@/lib/replay-audio';
-import { tvCanAdvance, type TvAdvanceReason } from '@/lib/tv-director';
+import { tvCanAdvance, tvLiveMissingLongEnough, type TvAdvanceReason } from '@/lib/tv-director';
 
 interface Track extends RenderMeta { fps: number; frames: Frame[] }
 interface Live extends RenderMeta { mid: string; frame: Frame; over: boolean; fps?: number }
@@ -50,7 +50,7 @@ export function TvChannel({ replayPool }: { replayPool: { id: string; title: str
   const liveMid = useRef<string | null>(null);
   const liveList = useRef<any[]>([]);
   const liveRot = useRef(0);
-  const liveMisses = useRef(0);
+  const liveMissingSince = useRef<number | null>(null);
   const replayRot = useRef(-1);
   const replayId = useRef<string | null>(null);
   const busy = useRef(false);
@@ -118,8 +118,12 @@ export function TvChannel({ replayPool }: { replayPool: { id: string; title: str
   };
 
   const startLive = (m: any) => {
+    // Refreshes of the live list must never re-introduce the program already on
+    // air as a "new" match. Apart from the false banner, resetting here also
+    // discards interpolation and audio state for the fight still in progress.
+    if (kind.current === 'live' && liveMid.current === m.mid) return;
     kind.current = 'live'; liveMid.current = m.mid; replayId.current = null; track.current = null;
-    audioFrameSerial.current = 0; liveMisses.current = 0;
+    audioFrameSerial.current = 0; liveMissingSince.current = null;
     prev.current = null; cur.current = null; metaRef.current = null;
     const nextHandoff = { mid: m.mid, title: `${m.a.name} vs ${m.b.name}`, sub: `${m.a.char} vs ${m.b.char} · ${m.stage}` };
     setHandoff(nextHandoff);
@@ -141,14 +145,18 @@ export function TvChannel({ replayPool }: { replayPool: { id: string; title: str
   };
 
   // Director: choose the next thing to show. Live matches win; else rotate replays.
-  const advance = async (reason: TvAdvanceReason) => {
+  const advance = async (reason: TvAdvanceReason, endedMid: string | null = null) => {
     // A live bout is the program until its authoritative end. Newly arriving
     // fights may preempt replays, never another live fight.
-    if (!tvCanAdvance(kind.current, reason)) return;
+    if (!tvCanAdvance(kind.current, reason, liveMid.current, endedMid)) return;
     if (busy.current) return; busy.current = true;
     try {
       let list = liveList.current;
       try { const r = await fetch('/api/live', { cache: 'no-store' }); if (r.ok) { const d = await r.json(); list = d.live || []; liveList.current = list; } } catch { /* keep last */ }
+      // The frame endpoint can fail transiently. If the authoritative live list
+      // still contains this match, keep it on air and retry its frames instead
+      // of cutting to another bout (or flashing a false NEW MATCH banner).
+      if (reason === 'live-ended' && endedMid && list.some((m: any) => m.mid === endedMid)) return;
       if (list.length) {
         liveRot.current = (liveRot.current + 1) % list.length;
         startLive(list[liveRot.current]);
@@ -191,7 +199,7 @@ export function TvChannel({ replayPool }: { replayPool: { id: string; title: str
       try {
         const r = await fetch(`/api/live/${encodeURIComponent(requestedMid)}`, { cache: 'no-store' });
         if (r.ok) {
-          liveMisses.current = 0;
+          liveMissingSince.current = null;
           const d = await r.json() as Live;
           if (!alive || kind.current !== 'live' || liveMid.current !== requestedMid || d.mid !== requestedMid) {
             setTimeout(poll, 90); return;
@@ -205,13 +213,18 @@ export function TvChannel({ replayPool }: { replayPool: { id: string; title: str
           cur.current = { f: d.frame, t: performance.now() };
           audioRef.current?.observe(d.frame, audioFrameSerial.current++);
           presentIntensity(d.frame);
-          if (d.over) {
-            await new Promise((resolve) => setTimeout(resolve, 2200));
-            if (alive && liveMid.current === requestedMid) await advance('live-ended');
-          }
+          // `over` begins the eight-second winner presentation. Keep rendering
+          // it; the coordinator removes the match from the endpoint only after
+          // that full closing sequence has completed.
         } else if (r.status === 404 && liveMid.current === requestedMid) {
-          liveMisses.current += 1;
-          if (liveMisses.current >= 3) await advance('live-ended');
+          const now = performance.now();
+          liveMissingSince.current ??= now;
+          if (tvLiveMissingLongEnough(liveMissingSince.current, now)) {
+            await advance('live-ended', requestedMid);
+            // If the live list still had this match, give its frame endpoint a
+            // fresh grace period before considering another handoff.
+            if (liveMid.current === requestedMid) liveMissingSince.current = null;
+          }
         }
       } catch { /* transient */ }
       setTimeout(poll, 90);
