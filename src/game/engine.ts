@@ -56,6 +56,7 @@ function attackTotal(k: AttackKind): number {
   if (k === 'jumpkick') return JUMPKICK.total;
   if (k === 'stream') return STREAM.total;
   if (k === 'freetier') return FREETIER.total;
+  if (k === 'bombardment') return BOMBARDMENT.total;
   if (k === 'punch' || k === 'kick') { const a = ATTACKS[k]; return a.startup + a.active + a.recovery; }
   return 0;
 }
@@ -133,6 +134,14 @@ export const STREAM = { startup: 7, spawn: 10, spawnEvery: 5, count: 3, recovery
 // UNCLOSE — FREE TIER: a long, fully punishable channel that restores health ONLY
 // if it completes; any clean hit cancels the attack and forfeits the heal.
 export const FREETIER = { startup: 12, active: 18, recovery: 18, total: 48, heal: 10 };
+// MEGAWATTS — the only new combat primitive. The fighter uses the existing jump
+// integrator while each knowledge core follows a fixed diagonal: no projectile
+// gravity, landing state, arming timer, or persistent hazard simulation.
+export const BOMBARDMENT = {
+  firstSpawn: 10, secondSpawn: 27, total: 48,
+  jumpV: 8.0, vx: 2.8, projectileVx: 2.1, dropPerFrame: 2.8,
+  dmg: 7, chip: 2, r: 8,
+};
 const FIRE_SPEED = 3.4, FIRE_R = 11, FIGHTER_WORLD_H = 56, FIRE_DMG = 12, FIRE_CHIP = 3;
 const EARLY_UP_GRACE_Y = 26;
 
@@ -166,6 +175,7 @@ export function specialMoveStats(attack: SpecialAttack): SpecialMoveStats {
   if (attack === 'inktempest') { const hits = Math.ceil(INK_TEMPEST.active / INK_TEMPEST.hitEvery); return { startup: INK_TEMPEST.startup, active: INK_TEMPEST.active, recovery: INK_TEMPEST.recovery, damagePerHit: INK_TEMPEST.dmg, maxHits: hits, maxDamage: INK_TEMPEST.dmg * hits, chipPerHit: INK_TEMPEST.chip, range: INK_TEMPEST.range, impact: 'Close multi-hit flurry' }; }
   if (attack === 'stream') { const active = (STREAM.count - 1) * STREAM.spawnEvery + 1; return { startup: STREAM.spawn, active, recovery: STREAM.total - STREAM.spawn - active, damagePerHit: MOTE.dmg, maxHits: STREAM.count, maxDamage: MOTE.dmg * STREAM.count, chipPerHit: MOTE.chip, range: STAGE_RIGHT - STAGE_LEFT, impact: 'Sequential projectile stream' }; }
   if (attack === 'freetier') return { startup: FREETIER.startup, active: FREETIER.active, recovery: FREETIER.recovery, damagePerHit: 0, maxHits: 0, maxDamage: 0, chipPerHit: 0, range: 0, impact: `Restores ${FREETIER.heal} health on completion` };
+  if (attack === 'bombardment') return { startup: BOMBARDMENT.firstSpawn, active: BOMBARDMENT.secondSpawn - BOMBARDMENT.firstSpawn + 1, recovery: BOMBARDMENT.total - BOMBARDMENT.secondSpawn - 1, damagePerHit: BOMBARDMENT.dmg, maxHits: 2, maxDamage: BOMBARDMENT.dmg * 2, chipPerHit: BOMBARDMENT.chip, range: STAGE_RIGHT - STAGE_LEFT, impact: 'Two staggered fixed-diagonal projectiles' };
   const hits = Math.ceil(ENTROPY.active / ENTROPY.hitEvery);
   return { startup: ENTROPY.startup, active: ENTROPY.active, recovery: ENTROPY.recovery, damagePerHit: ENTROPY.dmg, maxHits: hits, maxDamage: ENTROPY.dmg * hits, chipPerHit: ENTROPY.chip, range: ENTROPY.range, impact: 'Pulling gravity field' };
 }
@@ -245,6 +255,7 @@ export function attackExtension(f: Fighter): number {
   if (f.attack === 'blink') return Math.min(1, f.attackFrame / (BLINK.shift + 1));
   if (f.attack === 'stream') return Math.min(1, f.attackFrame / STREAM.spawn);
   if (f.attack === 'freetier') return (Math.sin(f.attackFrame * 0.5) + 1) / 2;
+  if (f.attack === 'bombardment') return Math.min(1, f.attackFrame / BOMBARDMENT.firstSpawn);
   if (f.attack === 'jumpkick') return Math.min(1, f.attackFrame / JUMPKICK.startup);
   if (f.attack !== 'punch' && f.attack !== 'kick') return 1;
   const a = ATTACKS[f.attack];
@@ -329,6 +340,7 @@ function derivePose(f: Fighter): void {
   if (f.attack === 'blink') { f.pose = 'blink'; return; }
   if (f.attack === 'stream') { f.pose = 'stream'; return; }
   if (f.attack === 'freetier') { f.pose = 'freetier'; return; }
+  if (f.attack === 'bombardment') { f.pose = 'bombardment'; return; }
   if (f.attack === 'jumpkick') { f.pose = 'jumpkick'; return; }
   if (f.attack === 'punch') { f.pose = f.attackCrouch ? 'crouchpunch' : 'punch'; return; }
   if (f.attack === 'kick') { f.pose = f.attackCrouch ? 'crouchkick' : 'kick'; return; }
@@ -505,6 +517,9 @@ function startAttack(f: Fighter, kind: AttackKind, contextDescent = false): void
   if (kind === 'construct' || kind === 'volley' || kind === 'boomerang' || kind === 'lasso' || kind === 'stream') { f.y = 0; f.vy = 0; f.vx = 0; f.crouching = false; }
   // FREE TIER — plant and channel, completely undefended
   if (kind === 'freetier') { f.y = 0; f.vy = 0; f.vx = 0; f.crouching = false; }
+  // BOMBS OF KNOWLEDGE owns a long forward arc but reuses the existing fighter
+  // integrator. It grants no invulnerability or armor, so launch and landing are punishable.
+  if (kind === 'bombardment') { f.vy = Math.max(f.vy, BOMBARDMENT.jumpV); f.y = Math.max(f.y, 0.001); f.vx = f.facing * BOMBARDMENT.vx; f.crouching = false; }
   // MEGAWATT NOVA — plant and become briefly intangible (reversal)
   if (kind === 'nova') { f.y = 0; f.vy = 0; f.vx = 0; f.crouching = false; f.phaseT = NOVA.iframe; }
   // ARMORED STRIKE — brace with super-armor through the wind-up
@@ -606,6 +621,16 @@ function spawnFireball(m: Match, f: Fighter, owner: 'a' | 'b'): void {
   const style = specialMoveForAttack(f.name, 'hadouken')?.projectile ?? 'blue';
   m.projectiles.push({ owner, x: f.x + f.facing * 16, y: 30, vx: f.facing * FIRE_SPEED, active: true, hit: false, frame: 0, facing: f.facing, style });
 }
+// MEGAWATTS — a conventional projectile released from the current jump arc.
+// Its vertical component is the fixed per-frame diagonal below; no projectile
+// physics or persistent ground state is introduced.
+function spawnKnowledgeCore(m: Match, f: Fighter, owner: 'a' | 'b'): void {
+  m.projectiles.push({
+    owner, x: f.x + f.facing * 7, y: Math.max(18, f.y + 8),
+    vx: f.facing * BOMBARDMENT.projectileVx,
+    active: true, hit: false, frame: 0, facing: f.facing, style: 'knowledge',
+  });
+}
 // AJAX — a boomerang thrown flat that flies out to a fixed reach, reverses, and homes back.
 function spawnBoomerang(m: Match, f: Fighter, owner: 'a' | 'b'): void {
   const x0 = f.x + f.facing * 16;
@@ -666,16 +691,17 @@ function stepProjectiles(m: Match): void {
       }
     } else {
       p.x += p.vx;
+      if (p.style === 'knowledge') p.y -= BOMBARDMENT.dropPerFrame;
       if ((p.style === 'mote' || p.style === 'rope') && p.life !== undefined) { p.life--; if (p.life <= 0) { p.active = false; continue; } }
-      if (p.x < STAGE_LEFT - 24 || p.x > STAGE_RIGHT + 24) { p.active = false; continue; }
+      if (p.x < STAGE_LEFT - 24 || p.x > STAGE_RIGHT + 24 || (p.style === 'knowledge' && p.y < -6)) { p.active = false; continue; }
     }
 
     if (p.hit || def.hp <= 0) continue;
-    const r = p.style === 'mote' ? MOTE.r : p.style === 'boomerang' ? BOOMERANG.r : p.style === 'rope' ? LASSO.r : FIRE_R;
-    const dmg = p.style === 'mote' ? MOTE.dmg : p.style === 'boomerang' ? BOOMERANG.dmg : p.style === 'rope' ? LASSO.dmg : FIRE_DMG;
-    const chip = p.style === 'mote' ? MOTE.chip : p.style === 'boomerang' ? BOOMERANG.chip : p.style === 'rope' ? LASSO.chip : FIRE_CHIP;
+    const r = p.style === 'knowledge' ? BOMBARDMENT.r : p.style === 'mote' ? MOTE.r : p.style === 'boomerang' ? BOOMERANG.r : p.style === 'rope' ? LASSO.r : FIRE_R;
+    const dmg = p.style === 'knowledge' ? BOMBARDMENT.dmg : p.style === 'mote' ? MOTE.dmg : p.style === 'boomerang' ? BOOMERANG.dmg : p.style === 'rope' ? LASSO.dmg : FIRE_DMG;
+    const chip = p.style === 'knowledge' ? BOMBARDMENT.chip : p.style === 'mote' ? MOTE.chip : p.style === 'boomerang' ? BOOMERANG.chip : p.style === 'rope' ? LASSO.chip : FIRE_CHIP;
     const withinX = Math.abs(def.x - p.x) < r + BODY_HALF;
-    const withinY = p.y >= def.y - 6 && p.y <= def.y + FIGHTER_WORLD_H; // can be jumped
+    const withinY = p.y >= def.y - 6 && p.y <= def.y + FIGHTER_WORLD_H;
     if (withinX && withinY) {
       // XENON REFLECT — turn a projectile back at its sender (before any pass-through)
       const reflecting = def.attack === 'reflect' && def.attackFrame >= REFLECT.startup && def.attackFrame < REFLECT.startup + REFLECT.active;
@@ -700,7 +726,7 @@ function stepProjectiles(m: Match): void {
     }
   }
   // opposing straight projectiles meeting cancel out (constructs / boomerangs excluded)
-  const act = m.projectiles.filter((p) => p.active && p.style !== 'construct' && p.style !== 'boomerang' && p.style !== 'rope');
+  const act = m.projectiles.filter((p) => p.active && p.style !== 'construct' && p.style !== 'boomerang' && p.style !== 'rope' && p.style !== 'knowledge');
   for (let i = 0; i < act.length; i++) for (let j = i + 1; j < act.length; j++) {
     if (act[i]!.owner !== act[j]!.owner && Math.abs(act[i]!.x - act[j]!.x) < FIRE_R * 2) { act[i]!.active = false; act[j]!.active = false; }
   }
@@ -751,6 +777,7 @@ export function stepMatch(m: Match, inA: Inputs, inB: Inputs): void {
     if (f.attack === 'construct' && f.attackFrame === CONSTRUCT.spawn) spawnConstruct(m, f, side);
     if (f.attack === 'volley' && f.attackFrame === VOLLEY.spawn) spawnVolley(m, f, side);
     if (f.attack === 'lasso' && f.attackFrame === LASSO.spawn) spawnLasso(m, f, side);
+    if (f.attack === 'bombardment' && (f.attackFrame === BOMBARDMENT.firstSpawn || f.attackFrame === BOMBARDMENT.secondSpawn)) spawnKnowledgeCore(m, f, side);
     if (f.attack === 'stream' && f.attackFrame >= STREAM.spawn && f.attackFrame < STREAM.spawn + STREAM.count * STREAM.spawnEvery
       && (f.attackFrame - STREAM.spawn) % STREAM.spawnEvery === 0) spawnStreamMote(m, f, side);
   }

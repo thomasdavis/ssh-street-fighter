@@ -8,14 +8,14 @@ export type Pose = 'idle' | 'walk' | 'crouch' | 'jump' | 'fall' | 'punch' | 'kic
   | 'context' | 'branchwalk' | 'mergecomet'
   | 'storyarc' | 'plottwist' | 'inktempest'
   | 'construct' | 'nova' | 'volley' | 'boomerang' | 'armor' | 'phase' | 'lasso' | 'reflect' | 'blink' | 'jumpkick'
-  | 'stream' | 'freetier';
+  | 'stream' | 'freetier' | 'bombardment';
 export type AttackKind = 'none' | 'punch' | 'kick' | 'throw' | 'hadouken' | 'shoryuken' | 'hurricane'
   | 'electric' | 'rolling' | 'verticalroll'
   | 'testimony' | 'nullstep' | 'entropy'
   | 'context' | 'branchwalk' | 'mergecomet'
   | 'storyarc' | 'plottwist' | 'inktempest'
   | 'construct' | 'nova' | 'volley' | 'boomerang' | 'armor' | 'phase' | 'lasso' | 'reflect' | 'blink' | 'jumpkick'
-  | 'stream' | 'freetier';
+  | 'stream' | 'freetier' | 'bombardment';
 
 export interface FighterPalette {
   skin: RGB; gi: RGB; giDark: RGB; hair: RGB; belt: RGB;
@@ -76,7 +76,7 @@ export interface Projectile {
   hit: boolean;           // already connected
   frame: number;          // animation timer
   facing: 1 | -1;
-  style: 'blue' | 'fire' | 'sonic' | 'boomerang' | 'construct' | 'mote' | 'rope';
+  style: 'blue' | 'fire' | 'sonic' | 'boomerang' | 'construct' | 'mote' | 'rope' | 'citation' | 'knowledge';
   life?: number;          // frames remaining (construct turret; motes)
   fireT?: number;         // construct: frames until it spits the next mote
   returning?: boolean;    // boomerang: currently arcing back to its owner

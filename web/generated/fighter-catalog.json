@@ -2098,6 +2098,138 @@
     ]
   },
   {
+    "name": "MEGAWATTS",
+    "tagline": "the voltage laureate",
+    "palette": {
+      "skin": {
+        "r": 142,
+        "g": 92,
+        "b": 72
+      },
+      "gi": {
+        "r": 112,
+        "g": 54,
+        "b": 214
+      },
+      "giDark": {
+        "r": 22,
+        "g": 20,
+        "b": 34
+      },
+      "hair": {
+        "r": 238,
+        "g": 232,
+        "b": 210
+      },
+      "belt": {
+        "r": 255,
+        "g": 194,
+        "b": 62
+      }
+    },
+    "origin": "The black-start academy",
+    "discipline": "Grid calculus and aerial pedagogy",
+    "archetype": "Adaptive air-control all-rounder",
+    "difficulty": "Intermediate",
+    "quote": "Power is a question. Timing is the proof.",
+    "story": [
+      "Megawatts kept a storm-battered city alive by teaching neighborhood crews how to restart a dead electrical grid one block at a time. When the utility buried her public lessons behind a private emergency contract, she rebuilt the curriculum as combat: every coil, feint, and falling core makes power legible under pressure.",
+      "She enters the circuit wearing the academy crest and carrying no secret technique. Her bombs are lessons with consequences, released on bright diagonal lines; her hardest rival is the phase-sage who survives by refusing the moment of impact. Megawatts intends to make even absence answer a well-timed question."
+    ],
+    "playstyle": "Write the next exchange in layers. Citation Bolt checks impatient movement, Bombs of Knowledge descend on two staggered diagonals, and Ground Truth sustains a close proof field around predicted teleports or descents. Strong coverage comes with honest launch, landing, and recovery commitments.",
+    "strengths": [
+      "Staggered aerial bombardment",
+      "Layered midrange control",
+      "Reliable anti-air reads"
+    ],
+    "moves": [
+      {
+        "attack": "hadouken",
+        "name": "CITATION BOLT",
+        "shortName": "CITATION",
+        "description": "Fire a gold-violet citation across the middle lane. It follows the standard projectile rules and can be reflected, so use it to ask a question rather than autopilot the answer.",
+        "motion": [
+          "D",
+          "F"
+        ],
+        "button": "punch",
+        "projectile": "citation",
+        "input": "↓ → + W",
+        "frames": [
+          "hadouken"
+        ],
+        "stats": {
+          "startup": 11,
+          "active": 1,
+          "recovery": 21,
+          "damagePerHit": 12,
+          "maxHits": 1,
+          "maxDamage": 12,
+          "chipPerHit": 3,
+          "range": 196,
+          "impact": "Traveling projectile"
+        }
+      },
+      {
+        "attack": "bombardment",
+        "name": "BOMBS OF KNOWLEDGE",
+        "shortName": "KNOWLEDGE",
+        "description": "Commit to a forward vault and release two conventional projectiles on fixed descending diagonals. They are staggered beyond one Reflect window, but each can still be reflected or phased through.",
+        "motion": [
+          "D",
+          "U"
+        ],
+        "button": "punch",
+        "earlyAirStart": true,
+        "input": "↓ ↑ + W",
+        "frames": [
+          "knowledgebomb_1",
+          "knowledgebomb_2"
+        ],
+        "stats": {
+          "startup": 10,
+          "active": 18,
+          "recovery": 20,
+          "damagePerHit": 7,
+          "maxHits": 2,
+          "maxDamage": 14,
+          "chipPerHit": 2,
+          "range": 196,
+          "impact": "Two staggered fixed-diagonal projectiles"
+        }
+      },
+      {
+        "attack": "electric",
+        "name": "GROUND TRUTH",
+        "shortName": "TRUTH",
+        "description": "Plant a copper coil and sustain an omnidirectional proof field. It catches nearby aerial exits and teleports through repeated timing, but grants no armor or invulnerability.",
+        "motion": [
+          "D",
+          "U"
+        ],
+        "button": "kick",
+        "earlyAirStart": true,
+        "effect": "electric",
+        "input": "↓ ↑ + E",
+        "frames": [
+          "electric_1",
+          "electric_2"
+        ],
+        "stats": {
+          "startup": 3,
+          "active": 21,
+          "recovery": 7,
+          "damagePerHit": 4,
+          "maxHits": 4,
+          "maxDamage": 16,
+          "chipPerHit": 1,
+          "range": 31,
+          "impact": "Close multi-hit field"
+        }
+      }
+    ]
+  },
+  {
     "name": "UNCLOSE",
     "tagline": "the open gate",
     "palette": {

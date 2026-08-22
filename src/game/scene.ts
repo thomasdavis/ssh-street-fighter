@@ -5,7 +5,7 @@
 // and sprites are downscaled from their high-res source to the on-screen size.
 import { createGrid, fillRect, blit, resizeGridH, rgb, type PixelGrid, type RGB } from '../render/pixel.js';
 import { drawFighter } from './sprites.js';
-import { WORLD_W, WORLD_H, GROUND_Y, STAGE_LEFT, STAGE_RIGHT, ENTROPY, TESTIMONY, THROW, CONTEXT, BRANCHWALK, MERGE_COMET, STORY_ARC, PLOT_TWIST, INK_TEMPEST, FREETIER, attackActive, attackExtension } from './engine.js';
+import { WORLD_W, WORLD_H, GROUND_Y, STAGE_LEFT, STAGE_RIGHT, ENTROPY, TESTIMONY, THROW, CONTEXT, BRANCHWALK, MERGE_COMET, STORY_ARC, PLOT_TWIST, INK_TEMPEST, FREETIER, BOMBARDMENT, attackActive, attackExtension } from './engine.js';
 import { SPRITES } from './sprite-set.js';
 import { STAGES } from './stage-set.js';
 import { specialMoveForAttack } from './moves.js';
@@ -40,6 +40,7 @@ function frameName(f: Fighter): string {
     case 'storyarc': return `storyarc_${f.attackFrame < STORY_ARC.startup ? 1 : (f.attackFrame < STORY_ARC.startup + STORY_ARC.active ? 2 : 3)}`;
     case 'plottwist': return `plottwist_${f.attackFrame < PLOT_TWIST.startup ? 1 : (f.attackFrame < PLOT_TWIST.startup + PLOT_TWIST.active ? 2 : 3)}`;
     case 'inktempest': return `inktempest_${f.attackFrame < INK_TEMPEST.startup ? 1 : (f.attackFrame < INK_TEMPEST.startup + INK_TEMPEST.active ? 2 : 3)}`;
+    case 'bombardment': return `knowledgebomb_${f.attackFrame < BOMBARDMENT.secondSpawn ? 1 : 2}`;
     default: return f.pose;
   }
 }
@@ -593,6 +594,19 @@ function drawProjectiles(g: PixelGrid, v: View, m: Match): void {
       fillCircle(g, v, cx, cy, r + 1, rgb(100, 224, 236));
       fillCircle(g, v, cx + p.facing * 2, cy, r - 3, rgb(214, 255, 248));
       wrect(g, v, cx - p.facing * 7, cy - 1, 11, 2, rgb(238, 255, 250));
+    } else if (p.style === 'citation') {
+      for (let t = 4; t >= 1; t--) fillCircle(g, v, cx - p.facing * t * 5, cy, Math.max(1, 7 - t), t % 2 ? rgb(124, 58, 232) : rgb(242, 176, 48));
+      fillCircle(g, v, cx, cy, 8, rgb(136, 66, 246));
+      fillCircle(g, v, cx, cy, 5, rgb(255, 196, 54));
+      fillCircle(g, v, cx, cy, 2, rgb(255, 252, 224));
+    } else if (p.style === 'knowledge') {
+      const violet = rgb(128, 58, 224), gold = rgb(255, 194, 54), pale = rgb(255, 246, 210);
+      const coreY = cy;
+      for (let i = -7; i <= 7; i++) {
+        const width = 7 - Math.abs(i);
+        wrect(g, v, cx - width, coreY + i, width * 2 + 1, 1, i % 3 === 0 ? pale : (i % 2 ? gold : violet));
+      }
+      for (let t = 1; t <= 4; t++) wrect(g, v, cx - p.facing * t * 4, coreY - t * 2, 2, 2, t % 2 ? gold : violet);
     } else if (p.style === 'mote') {
       // small homing energy fragment with a short comet trail
       for (let t = 3; t >= 1; t--) fillCircle(g, v, cx - Math.sign(p.vx || 1) * t * 4, cy, Math.max(1, 4 - t), rgb(150, 120, 236));

@@ -83,7 +83,7 @@ Bots enter the open opponent pool by default. They can request humans only or bo
 
 Production bots should live in their own repositories and interact with SSH Fighter only through the documented SSH or HTTP APIs. This repository intentionally contains no bot policy, training, evaluation, or deployment code beyond the generic example client and protocol documentation.
 
-The opening `hi` and `welcome` messages, and every `matchStart`, include `engine`, `commit`, `dirty`, and a display-ready `build` such as `sf-6@a3d35dbbbe18`. Bots can also query the same canonical identity without authenticating:
+The opening `hi` and `welcome` messages, and every `matchStart`, include `engine`, `commit`, `dirty`, and a display-ready `build` such as `sf-7@a3d35dbbbe18`. Bots can also query the same canonical identity without authenticating:
 
 ```console
 curl https://sshfighter.com/version
@@ -120,7 +120,7 @@ Choose **Controls** on the main menu to rebind every combat direction, both jump
 The terminal has no diagonal key events, so specials use compact four-direction motions. Inputs are relative to the direction your fighter is facing.
 
 <details>
-<summary><strong>All 51 special moves</strong></summary>
+<summary><strong>All 54 special moves</strong></summary>
 
 | Fighter | Special moves |
 |---|---|
@@ -140,6 +140,7 @@ The terminal has no diagonal key events, so specials use compact four-direction 
 | **MNEME** | `↓ ← + W` Turret · `↓ → + W` Spread Shot · `↓ ↑ + E` Nova Burst |
 | **AJAX** | `↓ → + E` Boomerang · `← → + W` Iron Brace · `↓ ← + E` Lasso |
 | **XENON** | `← → + E` Phase Dash · `↓ ↑ + W` Reflect · `↓ ← + W` Blink Strike |
+| **MEGAWATTS** | `↓ → + W` Citation Bolt · `↓ ↑ + W` Bombs of Knowledge · `↓ ↑ + E` Ground Truth |
 | **UNCLOSE** | `↓ → + W` Token Stream · `↓ ← + W` Waveform · `↓ ← + E` Free Tier |
 
 </details>
@@ -236,7 +237,7 @@ pnpm exec tsx src/dump-png.ts fight 112 36
 
 The canonical engine compatibility family lives in `src/version.ts`. Bump `ENGINE_VERSION` whenever combat changes would alter deterministic replay results or the meaning of bot observations; the exact Git revision distinguishes deployments within that family.
 
-The asset contract verifies all seventeen complete dossiers, all 51 explained special-move definitions, every required fighter pose, and all six stage payloads. CI also rebuilds the authoritative fighter catalog and the Next.js site.
+The asset contract verifies all eighteen complete dossiers, all 54 explained special-move definitions, every required fighter pose, and all six stage payloads. CI also rebuilds the authoritative fighter catalog and the Next.js site.
 
 ## Project map
 

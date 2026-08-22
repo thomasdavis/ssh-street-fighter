@@ -43,6 +43,9 @@ const SPECIAL_FRAMES: Record<string, Bake> = {
   electric_1: { pose: 'punch', ext: 0.4 }, electric_2: { pose: 'punch', ext: 0.9 },
   rolling_1: { pose: 'rolling' }, rolling_2: { pose: 'rolling' }, rolling_3: { pose: 'rolling' }, rolling_4: { pose: 'rolling' },
   stream: { pose: 'hadouken', ext: 1 }, freetier: { pose: 'block' },
+  citation: { pose: 'hadouken', ext: 1 },
+  knowledgebomb_1: { pose: 'jump' }, knowledgebomb_2: { pose: 'fall' },
+  groundtruth: { pose: 'crouchpunch', ext: 1 },
 };
 
 function bakeFrame(grid: PixelGrid): { w: number; h: number; anchorX: number; anchorY: number; data: string } {

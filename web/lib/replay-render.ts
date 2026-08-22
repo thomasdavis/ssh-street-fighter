@@ -23,7 +23,7 @@ export const CW = 960, CH = 640;
 export const spriteUrl = (char: string, name: string, ver?: number) =>
   `/api/sprite/${encodeURIComponent(char)}/${name}${ver ? `?v=${ver}` : ''}`;
 export const stageUrl = (stage: string) => `/api/stage/${encodeURIComponent(stage)}`;
-const projColor = (s: string) => (s === 'fire' ? '#ff7a3c' : s === 'sonic' ? '#8fe0ff' : s === 'mote' ? '#c49bff' : s === 'boomerang' ? '#e0a84a' : s === 'rope' ? '#c48a4a' : '#6fa8ff');
+const projColor = (s: string) => (s === 'fire' ? '#ff7a3c' : s === 'sonic' ? '#8fe0ff' : s === 'mote' ? '#c49bff' : s === 'boomerang' ? '#e0a84a' : s === 'rope' ? '#c48a4a' : s === 'citation' ? '#ffc436' : s === 'knowledge' ? '#8e42f5' : '#6fa8ff');
 const imgOk = (i?: HTMLImageElement | null) => !!i && i.complete && i.naturalWidth > 0;
 
 /** Ensure an Image is loading for every sprite frame both characters can use. */
@@ -153,6 +153,13 @@ export function drawFrame(ctx: CanvasRenderingContext2D, meta: RenderMeta, f: Fr
       const a = t * 0.5; ctx.strokeStyle = '#e0a84a'; ctx.lineWidth = 3 * ws; ctx.beginPath();
       for (let s = 0; s < 2; s++) { const ang = a + s * Math.PI / 2, dx = Math.cos(ang) * 9 * ws, dy = Math.sin(ang) * 9 * ws; ctx.moveTo(cx - dx, cy - dy); ctx.lineTo(cx + dx, cy + dy); }
       ctx.stroke(); ctx.fillStyle = '#ffe096'; ctx.beginPath(); ctx.arc(cx, cy, 3 * ws, 0, 7); ctx.fill();
+      continue;
+    }
+    if (style === 'knowledge') {
+      const r = 7 * ws;
+      ctx.fillStyle = '#8e42f5'; ctx.strokeStyle = '#ffc436'; ctx.lineWidth = Math.max(2, ws);
+      ctx.beginPath(); ctx.moveTo(cx, cy - r); ctx.lineTo(cx + r, cy); ctx.lineTo(cx, cy + r); ctx.lineTo(cx - r, cy); ctx.closePath(); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = '#fff4c8'; ctx.beginPath(); ctx.arc(cx, cy, 2 * ws, 0, Math.PI * 2); ctx.fill();
       continue;
     }
     const r = style === 'mote' ? 4 : 5;
